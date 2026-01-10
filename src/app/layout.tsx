@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Roboto_Mono } from 'next/font/google';
 import './globals.css';
-import { Header } from '@/components/layout/header';
+import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 
 const robotoMono = Roboto_Mono({
@@ -38,9 +38,9 @@ export default function RootLayout({
       className='dark'>
       <body className={`${robotoMono.variable} antialiased`}>
         <div className='flex min-h-screen flex-col'>
-          <Header />
+          <Navbar />
           <main className='flex-1'>{children}</main>
-          <Footer />
+          {/* <Footer /> */}
         </div>
       </body>
     </html>

@@ -140,7 +140,7 @@ body {
 }
 
 .dark,
-:root {
+  :root {
   --background: #020202;
   --foreground: oklch(0.985 0.002 247.839);
   --card: #111;
