@@ -84,7 +84,7 @@ export function PositionControlsSection({
   return (
     <div
       className={cn(
-        'w-full lg:w-[400px] xl:w-[450px] flex flex-col border border-border-white-10 bg-background',
+        'w-full lg:w-[400px] xl:w-[450px] flex flex-col border border-border-white-10/50 bg-background/80 backdrop-blur-md rounded-2xl shadow-2xl shadow-black/40',
         className
       )}>
       {children}

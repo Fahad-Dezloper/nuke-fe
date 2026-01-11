@@ -45,7 +45,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
     parseFloat(position.fundingPnl.current.replace(/[^0-9.-]/g, '')) > 0;
 
   return (
-    <div className='border-b border-border-white-10 last:border-0 hover:bg-card/30 transition-colors'>
+    <div className='border-b border-border-white-10/30 last:border-0 hover:bg-card/20 hover:backdrop-blur-sm transition-all rounded-lg mx-2 my-1'>
       <div className='px-4 md:px-6 py-3'>
         <div className='grid grid-cols-7 gap-4 items-center'>
           {/* ASSET */}

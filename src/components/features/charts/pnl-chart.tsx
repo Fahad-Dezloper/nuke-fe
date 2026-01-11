@@ -58,7 +58,9 @@ export function PnLChart({ data }: PnLChartProps) {
   }));
 
   return (
-    <ChartContainer config={chartConfig} className='h-[300px] w-full'>
+    <ChartContainer
+      config={chartConfig}
+      className='h-[260px] w-full'>
       <BarChart
         data={transformedData}
         margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
@@ -69,7 +71,11 @@ export function PnLChart({ data }: PnLChartProps) {
           stroke='rgba(255, 255, 255, 0.1)'
           vertical={false}
         />
-        <ReferenceLine y={0} stroke='rgba(255, 255, 255, 0.2)' strokeWidth={1} />
+        <ReferenceLine
+          y={0}
+          stroke='rgba(255, 255, 255, 0.2)'
+          strokeWidth={1}
+        />
         <XAxis
           dataKey='time'
           tick={{ fill: 'rgba(255, 255, 255, 0.6)', fontSize: 11 }}
@@ -106,13 +112,18 @@ export function PnLChart({ data }: PnLChartProps) {
           }
         />
         {/* Main PnL bars - colored based on value (green up, red down) */}
-        <Bar dataKey='pnlValue' radius={0} barSize={6}>
+        <Bar
+          dataKey='pnlValue'
+          radius={0}
+          barSize={6}>
           {transformedData.map((entry, index) => {
             // Color based on positive (green) or negative (red)
             return (
               <Cell
                 key={`cell-${index}`}
-                fill={entry.pnlValue && entry.pnlValue >= 0 ? '#22c55e' : '#ef4444'}
+                fill={
+                  entry.pnlValue && entry.pnlValue >= 0 ? '#22c55e' : '#ef4444'
+                }
               />
             );
           })}
@@ -138,9 +149,7 @@ export function PnLChart({ data }: PnLChartProps) {
               </div>
               <div className='flex items-center gap-2'>
                 <div className='h-2 w-2 rounded-full bg-red-500' />
-                <span className='text-xs text-text-muted-60'>
-                  FUNDING LOSS
-                </span>
+                <span className='text-xs text-text-muted-60'>FUNDING LOSS</span>
               </div>
               <div className='flex items-center gap-2'>
                 <div className='h-2 w-2 rounded-full bg-green-500 border-2 border-dashed border-green-400' />
@@ -155,4 +164,3 @@ export function PnLChart({ data }: PnLChartProps) {
     </ChartContainer>
   );
 }
-

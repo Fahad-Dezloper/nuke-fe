@@ -11,6 +11,7 @@ import { usePathname } from 'next/navigation';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { ConnectWalletButton } from '@/components/ui/connect-wallet-button';
 
 interface NavItem {
   label: string;
@@ -98,13 +99,10 @@ export function Navbar({
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
           className='flex items-center gap-2.5'>
-          <motion.button
+          <ConnectWalletButton
             onClick={onConnectWallet}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className='px-3.5 py-1.5 rounded-sm bg-white text-background hover:bg-white/90 font-medium text-sm transition-colors shadow-sm'>
-            CONNECT WALLET
-          </motion.button>
+            size='sm'
+          />
         </motion.div>
       </div>
     </motion.header>

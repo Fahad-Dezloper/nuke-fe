@@ -51,7 +51,7 @@ export function LeverageSection({ className }: LeverageSectionProps) {
             max={5}
             value={leverage}
             onChange={handleInputChange}
-            className='w-12 h-8 bg-card border-border-white-10 text-text-primary text-sm text-center p-0'
+            className='w-12 h-8 bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-xl text-text-primary text-sm text-center p-0 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20'
           />
           <span className='text-sm text-text-muted-60'>x</span>
         </div>
@@ -59,4 +59,3 @@ export function LeverageSection({ className }: LeverageSectionProps) {
     </div>
   );
 }
-

@@ -15,4 +15,5 @@ export {
 } from './card';
 export { Input } from './input';
 export { Slider } from './slider';
+export { ConnectWalletButton } from './connect-wallet-button';
 

@@ -28,18 +28,20 @@ function PositionCard({
 }: PositionCardProps) {
   const gradientClass =
     gradientColor === 'hyperliquid'
-      ? 'bg-gradient-to-br from-[var(--chart-hyperliquid)]/20 to-[var(--chart-hyperliquid)]/5'
-      : 'bg-gradient-to-br from-[var(--chart-pink)]/20 to-[var(--chart-pink)]/5';
+      ? 'bg-gradient-to-br from-[var(--chart-hyperliquid)]/15 via-[var(--chart-hyperliquid)]/8 to-[var(--chart-hyperliquid)]/5'
+      : 'bg-gradient-to-br from-[var(--chart-pink)]/15 via-[var(--chart-pink)]/8 to-[var(--chart-pink)]/5';
 
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 p-4 rounded-md border border-border-white-10',
+        'flex flex-col gap-3 p-4 rounded-xl border border-border-white-10/50',
+        'backdrop-blur-md bg-gradient-to-br',
+        'shadow-lg shadow-black/20',
         gradientClass
       )}>
       <div className='flex items-center justify-between'>
         <span className='text-xs font-medium text-text-primary'>{label}</span>
-        <span className='text-xs text-text-muted-60'>// {platform}</span>
+        <span className='text-xs text-text-muted-60'>{platform}</span>
       </div>
       <div className='flex flex-col gap-2'>
         <div className='flex items-center justify-between'>

@@ -5,10 +5,11 @@
  * Displays asset name, current price, funding rates, and estimated APY
  */
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
+import { AnimatedNumber } from '@/components/ui/animated-number';
 
 interface MarketOverviewProps {
   asset?: string;
@@ -28,18 +29,13 @@ export function MarketOverview({
   className,
 }: MarketOverviewProps) {
   const [displayPrice, setDisplayPrice] = useState(currentPrice);
-  const [priceKey, setPriceKey] = useState(0);
 
   // Animate price changes
   useEffect(() => {
     const interval = setInterval(() => {
       // Simulate small price fluctuations
       const change = (Math.random() - 0.5) * 20;
-      setDisplayPrice((prev) => {
-        const newPrice = prev + change;
-        setPriceKey((k) => k + 1);
-        return newPrice;
-      });
+      setDisplayPrice((prev) => prev + change);
     }, 3000);
 
     return () => clearInterval(interval);
@@ -53,6 +49,8 @@ export function MarketOverview({
       maximumFractionDigits: 4,
     }).format(price);
   };
+
+  const priceFormatter = (val: number) => formatPrice(val);
 
   const formatPercent = (value: number) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
@@ -76,7 +74,7 @@ export function MarketOverview({
         <div className='flex flex-wrap items-center gap-6 md:gap-8'>
           {/* Asset Selector */}
           <div className='flex items-center gap-2'>
-            <div className='flex items-center gap-2 px-3 py-1.5 rounded-md   transition-all cursor-pointer group'>
+            <div className='flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/40 backdrop-blur-sm border border-border-white-10/50 shadow-md shadow-black/10 transition-all cursor-pointer group hover:bg-card/60 hover:border-border-white-20'>
               <div className='w-5 h-5 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-sm'>
                 <span className='text-white text-xs font-bold'>₿</span>
               </div>
@@ -89,17 +87,12 @@ export function MarketOverview({
           <div className='flex flex-wrap items-center gap-6 md:gap-8 flex-1 '>
             {/* Current Price */}
             <MetricItem label='Current Price'>
-              <AnimatePresence mode='wait'>
-                <motion.span
-                  key={priceKey}
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 5 }}
-                  transition={{ duration: 0.3 }}
-                  className='text-base font-semibold text-text-primary tabular-nums'>
-                  {formatPrice(displayPrice)}
-                </motion.span>
-              </AnimatePresence>
+              <AnimatedNumber
+                value={displayPrice}
+                formatter={priceFormatter}
+                duration={300}
+                className='text-base font-semibold'
+              />
             </MetricItem>
 
             {/* Long Funding Rate */}
@@ -129,7 +122,7 @@ export function MarketOverview({
             {/* Estimated APY */}
             <MetricItem label='EST. APY'>
               <div className='flex items-center gap-1.5'>
-                <div className='px-2 py-0.5 rounded bg-green-900/30 '>
+                <div className='px-2 py-0.5 rounded-lg bg-green-900/30 backdrop-blur-sm border border-green-500/20 shadow-sm'>
                   <span className='text-sm font-semibold text-green-400 tabular-nums'>
                     {formatPercent(estimatedAPY)}
                   </span>

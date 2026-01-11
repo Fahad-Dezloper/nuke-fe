@@ -34,14 +34,14 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
             placeholder='Enter USD amount'
             value={positionSize}
             onChange={(e) => setPositionSize(e.target.value)}
-            className='w-full bg-card border-border-white-10 text-text-primary placeholder:text-text-muted-40'
+            className='w-full bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-xl text-text-primary placeholder:text-text-muted-40 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20'
           />
         </div>
         <div className='relative'>
           <select
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
-            className='appearance-none bg-card border border-border-white-10 rounded-md px-3 py-2 pr-8 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer'>
+            className='appearance-none bg-card/40 backdrop-blur-sm border border-border-white-10/50 rounded-xl px-3 py-2 pr-8 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/50 focus:bg-card/60 cursor-pointer shadow-md shadow-black/10'>
             <option>USD</option>
             <option>EUR</option>
             <option>GBP</option>

@@ -74,7 +74,7 @@ export function TradeDetailsSection({
       <label className='text-xs text-text-muted-60 uppercase tracking-wide'>
         TRADE DETAILS
       </label>
-      <div className='bg-gradient-to-br from-card via-card/80 to-card border border-border-white-10 rounded-md overflow-hidden'>
+      <div className='bg-gradient-to-br from-card/60 via-card/40 to-card/30 border border-border-white-10/50 rounded-xl overflow-hidden backdrop-blur-md shadow-lg shadow-black/20'>
         {/* Basic Info - Always Visible */}
         <div className='px-3 py-2.5 space-y-0'>
           <TradeDetailRow

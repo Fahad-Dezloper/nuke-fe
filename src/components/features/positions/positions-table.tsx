@@ -57,9 +57,9 @@ export function PositionsTable({
   ];
 
   return (
-    <div className='flex flex-col h-full'>
+    <div className='flex flex-col h-full border border-border-white-10/50 rounded-xl'>
       {/* Table Header - Sticky */}
-      <div className='sticky top-0 z-10 px-4 md:px-6 py-3 border-b border-border-white-10 bg-gradient-to-r from-card/40 via-card/30 to-card/40 backdrop-blur-sm'>
+      <div className='sticky top-0 z-10 px-4 md:px-6 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/50 via-card/40 to-card/50 backdrop-blur-md rounded-t-xl shadow-lg shadow-black/20'>
         <div className='grid grid-cols-7 gap-4'>
           {headers.map((header) => (
             <span

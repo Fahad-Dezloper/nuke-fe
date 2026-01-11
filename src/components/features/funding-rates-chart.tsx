@@ -44,8 +44,9 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
   return (
     <div
       className={cn(
-        'flex flex-col h-full bg-gradient-to-br from-background via-card/30 to-background',
-        'border-[0.5px] border-border-white-10 py-4 mt-4',
+        'flex flex-col h-full bg-gradient-to-br from-background/80 via-card/40 to-background/80',
+        'border border-border-white-10/50 rounded-2xl py-4 mt-4',
+        'backdrop-blur-md shadow-xl shadow-black/30',
         className
       )}>
       {/* Tabs */}

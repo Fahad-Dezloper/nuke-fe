@@ -41,7 +41,9 @@ interface FundingRateChartProps {
 
 export function FundingRateChart({ data }: FundingRateChartProps) {
   return (
-    <ChartContainer config={chartConfig} className='h-[300px] w-full'>
+    <ChartContainer
+      config={chartConfig}
+      className='h-[260px] w-full'>
       <LineChart
         data={data}
         margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
@@ -151,4 +153,3 @@ export function FundingRateChart({ data }: FundingRateChartProps) {
     </ChartContainer>
   );
 }
-
