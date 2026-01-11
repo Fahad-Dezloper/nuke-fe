@@ -46,7 +46,8 @@ export function Navbar({
       transition={{ duration: 0.5, ease: 'easeOut' }}
       className={cn(
         'sticky top-0 z-50 w-full border-b border-border-white-10',
-        'bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80',
+        'bg-gradient-to-r from-background via-background to-background/95',
+        'backdrop-blur-md supports-[backdrop-filter]:bg-background/80',
         className
       )}>
       <div className=' mx-auto flex py-2 items-center justify-between px-3 md:px-4 lg:px-5'>
@@ -77,7 +78,7 @@ export function Navbar({
         </motion.div>
 
         {/* Navigation Tabs */}
-        <nav className='hidden md:flex items-center gap-1'>
+        {/* <nav className='hidden md:flex items-center gap-1'>
           {navItems.map((item, index) => {
             const isActive = pathname === item.href;
             return (
@@ -89,7 +90,7 @@ export function Navbar({
               />
             );
           })}
-        </nav>
+        </nav> */}
 
         {/* User Actions */}
         <motion.div
@@ -97,21 +98,11 @@ export function Navbar({
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
           className='flex items-center gap-2.5'>
-          {/* Paper Plane Icon */}
-          {/* <motion.button
-            whileHover={{ scale: 1.1, rotate: 15 }}
-            whileTap={{ scale: 0.9 }}
-            className='p-1.5 rounded-md text-text-muted-60 hover:text-text-primary hover:bg-card transition-colors'
-            aria-label='Send message'>
-            <Send className='h-3.5 w-3.5' />
-          </motion.button> */}
-
-          {/* Connect Wallet Button */}
           <motion.button
             onClick={onConnectWallet}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className='px-3.5 py-1.5 rounded-md bg-white text-background hover:bg-white/90 font-medium text-sm transition-colors shadow-sm'>
+            className='px-3.5 py-1.5 rounded-sm bg-white text-background hover:bg-white/90 font-medium text-sm transition-colors shadow-sm'>
             CONNECT WALLET
           </motion.button>
         </motion.div>

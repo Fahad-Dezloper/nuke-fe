@@ -14,4 +14,5 @@ export {
   CardAction,
 } from './card';
 export { Input } from './input';
+export { Slider } from './slider';
 

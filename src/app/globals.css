@@ -9,6 +9,12 @@
   --text-primary: #ffffff;
   --accent: oklch(0.967 0.003 264.542);
   --accent-secondary: #3a5866;
+  
+  /* Chart Colors */
+  --chart-hyperliquid: #3B9797;
+  --chart-lighter: #16476A;
+  --chart-pink: #FDB5CE;
+  --chart-dark-blue: #132440;
 
   /* Text Colors with Opacity */
   --text-muted-10: rgba(255, 255, 255, 0.1);
@@ -93,7 +99,13 @@
   --color-gradient-blue: rgba(59, 130, 246, 0.1);
   --color-gradient-purple: rgba(168, 85, 247, 0.1);
   --color-gradient-pink: rgba(236, 72, 153, 0.1);
-
+  
+  /* Chart Colors */
+  --color-chart-hyperliquid: var(--chart-hyperliquid);
+  --color-chart-lighter: var(--chart-lighter);
+  --color-chart-pink: var(--chart-pink);
+  --color-chart-dark-blue: var(--chart-dark-blue);
+  
   /* Font */
   --font-mono: var(--font-roboto-mono);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -181,4 +193,38 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Slider Styles */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 2px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 2px;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+input[type='range']::-moz-range-track {
+  background: transparent;
+  border: none;
 }

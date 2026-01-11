@@ -1,12 +1,31 @@
+import { MarketOverview } from '@/components/features/market-overview';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+  TradingDashboard,
+  ChartSectionContent,
+  PositionsTableSectionContent,
+  PositionControlsSectionContent,
+} from '@/components/features';
 
 export default function Home() {
-  return <div className='mx-auto px-3 py-8'></div>;
+  return (
+    <div className='flex flex-col h-full overflow-hidden'>
+      <div className='shrink-0'>
+        <MarketOverview />
+      </div>
+      <TradingDashboard className='flex-1 min-h-0'>
+        {/* Left Side - Chart Section */}
+        <div className='flex-1 flex flex-col overflow-hidden min-w-0'>
+          <div className='mb-4'>
+            <ChartSectionContent />
+          </div>
+          <div className='shrink-0'>
+            <PositionsTableSectionContent />
+          </div>
+        </div>
+
+        {/* Right Side - Position Controls */}
+        <PositionControlsSectionContent />
+      </TradingDashboard>
+    </div>
+  );
 }

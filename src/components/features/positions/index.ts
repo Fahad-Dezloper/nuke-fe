@@ -1,6 +1,6 @@
 /**
- * Positions Feature Components
+ * Positions Components Barrel Export
  */
 
-export { PositionCard } from './position-card';
-
+export { PositionRow } from './position-row';
+export { PositionsTable } from './positions-table';

@@ -1,0 +1,70 @@
+'use client';
+
+import * as React from 'react';
+import { cn } from '@/lib/utils';
+
+interface SliderProps extends Omit<React.ComponentProps<'input'>, 'type'> {
+  min?: number;
+  max?: number;
+  step?: number;
+  value?: number;
+  onValueChange?: (value: number) => void;
+  marks?: number[];
+}
+
+export function Slider({
+  className,
+  min = 0,
+  max = 100,
+  step = 1,
+  value,
+  onValueChange,
+  marks,
+  id,
+  ...props
+}: SliderProps) {
+  const [internalValue, setInternalValue] = React.useState(value ?? min);
+  const sliderId = id || `slider-${Math.random().toString(36).substr(2, 9)}`;
+
+  const currentValue = value ?? internalValue;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = Number(e.target.value);
+    setInternalValue(newValue);
+    onValueChange?.(newValue);
+  };
+
+  const percentage = ((currentValue - min) / (max - min)) * 100;
+
+  return (
+    <div className={cn('relative w-full', className)}>
+      <input
+        id={sliderId}
+        type='range'
+        min={min}
+        max={max}
+        step={step}
+        value={currentValue}
+        onChange={handleChange}
+        className='w-full h-1 bg-card border border-border-white-10 rounded-full appearance-none cursor-pointer'
+        style={{
+          background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%, rgba(255, 255, 255, 0.1) 100%)`,
+        }}
+        {...props}
+      />
+      {marks && (
+        <div className='flex justify-between mt-2'>
+          {marks.map((mark) => (
+            <span
+              key={mark}
+              className='text-xs text-text-muted-60'
+              style={{ marginLeft: mark === marks[0] ? 0 : '-8px' }}>
+              {mark}x
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
