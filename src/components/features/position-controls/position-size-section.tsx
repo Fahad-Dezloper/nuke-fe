@@ -50,8 +50,8 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
         </div>
       </div>
       <div className='flex items-center justify-between text-xs text-text-muted-60'>
-        <span>≈ {lineaValue.toFixed(2)} LINEA</span>
-        <span>Step: 100 LINEA</span>
+        <span>≈ {lineaValue.toFixed(2)} HYPE</span>
+        <span>Step: 100 HYPE</span>
       </div>
     </div>
   );

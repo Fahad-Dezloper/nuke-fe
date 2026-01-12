@@ -44,9 +44,9 @@ export function PositionControlsSectionContent({
 
         {/* Asset Price Header */}
         <AssetPriceHeader
-          asset='BTC'
-          assetLogo='₿'
-          currentPrice={90832.0}
+          asset='HYPE-PERP'
+          assetLogo='/tokens/hype.png'
+          currentPrice={43.67}
         />
 
         {/* Content */}

@@ -60,7 +60,7 @@ export function PositionsTableSection({
   return (
     <div
       className={cn(
-        'border-t border-border-white-10 bg-background',
+        'border rounded-xl border-border-white-5 bg-background h-full flex flex-col overflow-hidden',
         className
       )}>
       {children}

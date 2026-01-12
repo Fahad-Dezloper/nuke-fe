@@ -17,16 +17,16 @@ interface PositionsTableSectionContentProps {
 // Hardcoded positions data
 const mockPositions = [
   {
-    asset: 'BTC',
-    leverage: '50x',
-    assetLogo: '₿',
+    asset: 'HYPE',
+    leverage: '5x',
+    assetLogo: '/tokens/hype.png',
     long: {
       platform: 'Hyperliquid',
     },
     short: {
       platform: 'Lighter',
     },
-    size: '0.00229',
+    size: '893.23',
     apr: '21.9%',
     pricePnl: '$0.00',
     fundingPnl: {
@@ -37,22 +37,22 @@ const mockPositions = [
   },
   {
     asset: 'ETH',
-    leverage: '30x',
-    assetLogo: 'Ξ',
+    leverage: '10x',
+    assetLogo: '/tokens/eth.png',
     long: {
-      platform: 'Hyperliquid',
-    },
-    short: {
       platform: 'Lighter',
     },
-    size: '0.0156',
-    apr: '18.5%',
-    pricePnl: '+$12.50',
-    fundingPnl: {
-      current: '+$5.20',
-      estimated: '~+$0.0018 2m',
+    short: {
+      platform: 'Hyperliquid',
     },
-    totalPnl: '+$17.70',
+    size: '100.00',
+    apr: '21.9%',
+    pricePnl: '+$120.00',
+    fundingPnl: {
+      current: '-$0.00',
+      estimated: '~+$0.0025 2m',
+    },
+    totalPnl: '+$120.00',
   },
 ];
 
@@ -106,7 +106,7 @@ export function PositionsTableSectionContent({
         </div>
 
         {/* Content */}
-        <div className='flex-1 min-h-0 overflow-y-auto'>
+        <div className='flex-1 min-h-0 overflow-hidden'>
           {activeTab === 'positions' ? (
             <PositionsTable
               positions={positions}

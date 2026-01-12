@@ -35,14 +35,22 @@ export function AnimatedNumber({
 }: AnimatedNumberProps) {
   const [displayValue, setDisplayValue] = useState(value);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [localDirection, setLocalDirection] = useState<'up' | 'down' | null>(null);
+  const [localDirection, setLocalDirection] = useState<'up' | 'down' | null>(
+    null
+  );
   const previousValueRef = useRef(value);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number>(0);
 
   useEffect(() => {
     if (value !== previousValueRef.current) {
       // Determine direction
-      const dir = externalDirection || (value > previousValueRef.current ? 'up' : value < previousValueRef.current ? 'down' : null);
+      const dir =
+        externalDirection ||
+        (value > previousValueRef.current
+          ? 'up'
+          : value < previousValueRef.current
+          ? 'down'
+          : null);
       setLocalDirection(dir);
       setIsAnimating(true);
 
@@ -91,14 +99,20 @@ export function AnimatedNumber({
     }
   }, [externalDirection]);
 
-  const colorClass = isAnimating && localDirection
-    ? localDirection === 'up'
-      ? 'text-green-400'
-      : 'text-red-400'
-    : 'text-text-primary';
+  const colorClass =
+    isAnimating && localDirection
+      ? localDirection === 'up'
+        ? 'text-green-400'
+        : 'text-red-400'
+      : 'text-text-primary';
 
   return (
-    <span className={cn('inline-block tabular-nums transition-colors duration-200', colorClass, className)}>
+    <span
+      className={cn(
+        'inline-block tabular-nums transition-colors duration-200',
+        colorClass,
+        className
+      )}>
       {formatter(displayValue)}
     </span>
   );

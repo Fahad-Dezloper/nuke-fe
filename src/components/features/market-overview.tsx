@@ -10,6 +10,7 @@ import { ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { AnimatedNumber } from '@/components/ui/animated-number';
+import Image from 'next/image';
 
 interface MarketOverviewProps {
   asset?: string;
@@ -21,8 +22,8 @@ interface MarketOverviewProps {
 }
 
 export function MarketOverview({
-  asset = 'BTC-PERP',
-  currentPrice = 90612.3,
+  asset = 'HYPE-PERP',
+  currentPrice = 45.3,
   longFundingRate = 10.95,
   shortFundingRate = 11.39,
   estimatedAPY = 0.44,
@@ -34,7 +35,7 @@ export function MarketOverview({
   useEffect(() => {
     const interval = setInterval(() => {
       // Simulate small price fluctuations
-      const change = (Math.random() - 0.5) * 20;
+      const change = (Math.random() - 0.5) * 2;
       setDisplayPrice((prev) => prev + change);
     }, 3000);
 
@@ -75,9 +76,12 @@ export function MarketOverview({
           {/* Asset Selector */}
           <div className='flex items-center gap-2'>
             <div className='flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/40 backdrop-blur-sm border border-border-white-10/50 shadow-md shadow-black/10 transition-all cursor-pointer group hover:bg-card/60 hover:border-border-white-20'>
-              <div className='w-5 h-5 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-sm'>
-                <span className='text-white text-xs font-bold'>₿</span>
-              </div>
+              <Image
+                src={'/tokens/hype.png'}
+                alt='HYPE'
+                width={20}
+                height={20}
+              />
               <span className=' font-semibold text-text-primary'>{asset}</span>
               <ChevronDown className='h-3.5 w-3.5 text-text-muted-60 group-hover:text-text-primary transition-colors' />
             </div>

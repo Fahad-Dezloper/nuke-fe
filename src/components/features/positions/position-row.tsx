@@ -5,8 +5,9 @@
  * Individual position row in the positions table
  */
 
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 interface PositionData {
   asset: string;
@@ -45,43 +46,40 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
     parseFloat(position.fundingPnl.current.replace(/[^0-9.-]/g, '')) > 0;
 
   return (
-    <div className='border-b border-border-white-10/30 last:border-0 hover:bg-card/20 hover:backdrop-blur-sm transition-all rounded-lg mx-2 my-1'>
-      <div className='px-4 md:px-6 py-3'>
-        <div className='grid grid-cols-7 gap-4 items-center'>
+    <div className='border-b border-border-white-10/30 last:border-0 border-l-2 border-l-transparent hover:border-l-accent/50 hover:bg-card/20 hover:backdrop-blur-sm transition-all duration-200 group'>
+      <div className='px-4 md:px-6 py-2.5'>
+        <div className='grid grid-cols-[120px_200px_80px_80px_100px_120px_100px_40px] gap-4 items-center'>
           {/* ASSET */}
           <div className='flex items-center gap-2'>
-            <div
-              className={cn(
-                'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0',
-                position.asset.includes('BTC')
-                  ? 'bg-gradient-to-br from-orange-500 to-orange-600'
-                  : 'bg-gradient-to-br from-blue-500 to-blue-600'
-              )}>
-              <span className='text-white text-xs font-bold'>
-                {position.assetLogo}
-              </span>
-            </div>
-            <div className='flex flex-col'>
-              <span className='text-sm font-semibold text-text-primary'>
+            <Image
+              src={position.assetLogo}
+              alt={position.asset}
+              width={20}
+              height={20}
+            />
+            <div className='flex flex-col gap-0'>
+              <span className='text-xs font-semibold text-text-primary leading-tight'>
                 {position.asset}
               </span>
-              <span className='text-xs text-text-muted-60'>
+              <span className='text-[10px] text-text-muted-60 leading-tight'>
                 {position.leverage}
               </span>
             </div>
           </div>
 
           {/* LONG / SHORT */}
-          <div className='flex flex-col gap-1'>
-            <div className='flex items-center gap-1.5'>
-              <ArrowUp className='h-3 w-3 text-[var(--chart-hyperliquid)]' />
-              <span className='text-sm text-text-primary'>
+          <div className='flex flex-col gap-1 w-full'>
+            {/* LONG */}
+            <div className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--chart-hyperliquid)]/10 border border-[var(--chart-hyperliquid)]/20 hover:bg-[var(--chart-hyperliquid)]/15 hover:border-[var(--chart-hyperliquid)]/30 transition-all duration-200 w-fit'>
+              <ArrowUp className='h-2.5 w-2.5 text-[var(--chart-hyperliquid)] shrink-0' />
+              <span className='text-[10px] font-medium text-text-primary whitespace-nowrap'>
                 {position.long.platform}
               </span>
             </div>
-            <div className='flex items-center gap-1.5'>
-              <ArrowDown className='h-3 w-3 text-[var(--chart-pink)]' />
-              <span className='text-sm text-text-primary'>
+            {/* SHORT */}
+            <div className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--chart-pink)]/10 border border-[var(--chart-pink)]/20 hover:bg-[var(--chart-pink)]/15 hover:border-[var(--chart-pink)]/30 transition-all duration-200 w-fit'>
+              <ArrowDown className='h-2.5 w-2.5 text-[var(--chart-pink)] shrink-0' />
+              <span className='text-[10px] font-medium text-text-primary whitespace-nowrap'>
                 {position.short.platform}
               </span>
             </div>
@@ -89,14 +87,14 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
 
           {/* SIZE */}
           <div>
-            <span className='text-sm font-medium text-text-primary tabular-nums'>
+            <span className='text-xs font-medium text-text-primary tabular-nums'>
               {position.size}
             </span>
           </div>
 
           {/* APR */}
           <div>
-            <span className='text-sm font-medium text-green-400 tabular-nums'>
+            <span className='text-xs font-medium text-green-400 tabular-nums'>
               {position.apr}
             </span>
           </div>
@@ -105,7 +103,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           <div>
             <span
               className={cn(
-                'text-sm font-medium tabular-nums',
+                'text-xs font-medium tabular-nums',
                 isPricePnlPositive ? 'text-green-400' : 'text-red-400'
               )}>
               {position.pricePnl}
@@ -113,15 +111,15 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           </div>
 
           {/* FUNDING PNL */}
-          <div className='flex flex-col gap-0.5'>
+          <div className='flex flex-col gap-0'>
             <span
               className={cn(
-                'text-sm font-medium tabular-nums',
+                'text-xs font-medium tabular-nums',
                 isFundingPnlPositive ? 'text-green-400' : 'text-red-400'
               )}>
               {position.fundingPnl.current}
             </span>
-            <span className='text-xs text-text-muted-60 tabular-nums'>
+            <span className='text-[10px] text-text-muted-60 tabular-nums leading-tight'>
               {position.fundingPnl.estimated}
             </span>
           </div>
@@ -130,11 +128,22 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           <div>
             <span
               className={cn(
-                'text-sm font-semibold tabular-nums',
+                'text-xs font-semibold tabular-nums',
                 isTotalPnlPositive ? 'text-green-400' : 'text-red-400'
               )}>
               {position.totalPnl}
             </span>
+          </div>
+
+          {/* CLOSE BUTTON */}
+          <div className='flex items-center justify-end'>
+            <button
+              onClick={() =>
+                onClose?.(`${position.asset}-${position.leverage}`)
+              }
+              className='p-1 rounded-md text-text-muted-60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200'>
+              <X className='h-3.5 w-3.5' />
+            </button>
           </div>
         </div>
       </div>

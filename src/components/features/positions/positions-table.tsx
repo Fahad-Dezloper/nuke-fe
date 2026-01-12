@@ -54,13 +54,14 @@ export function PositionsTable({
     'PRICE PNL',
     'FUNDING PNL',
     'TOTAL PNL',
+    '', // Empty header for close button column
   ];
 
   return (
-    <div className='flex flex-col h-full border border-border-white-10/50 rounded-xl'>
+    <div className='flex flex-col h-full min-h-0 border border-border-white-10/50 rounded-xl overflow-hidden'>
       {/* Table Header - Sticky */}
-      <div className='sticky top-0 z-10 px-4 md:px-6 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/50 via-card/40 to-card/50 backdrop-blur-md rounded-t-xl shadow-lg shadow-black/20'>
-        <div className='grid grid-cols-7 gap-4'>
+      <div className='sticky top-0 z-10 px-4 md:px-6 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/50 via-card/40 to-card/50 backdrop-blur-md rounded-t-xl shadow-lg shadow-black/20 shrink-0'>
+        <div className='grid grid-cols-[120px_200px_80px_80px_100px_120px_100px_40px] gap-4'>
           {headers.map((header) => (
             <span
               key={header}
@@ -72,7 +73,7 @@ export function PositionsTable({
       </div>
 
       {/* Table Rows - Scrollable */}
-      <div className='flex-1 overflow-y-auto'>
+      <div className='flex-1 min-h-0 overflow-y-auto'>
         <div className='divide-y divide-border-white-10'>
           {positions.map((position) => (
             <PositionRow

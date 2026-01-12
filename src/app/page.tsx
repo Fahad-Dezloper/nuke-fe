@@ -15,10 +15,10 @@ export default function Home() {
       <TradingDashboard className='flex-1 min-h-0'>
         {/* Left Side - Chart Section */}
         <div className='flex-1 flex flex-col overflow-hidden min-w-0'>
-          <div className='mb-4'>
+          <div className='mb-4 shrink-0'>
             <ChartSectionContent />
           </div>
-          <div className='shrink-0'>
+          <div className='flex-1 min-h-0'>
             <PositionsTableSectionContent />
           </div>
         </div>

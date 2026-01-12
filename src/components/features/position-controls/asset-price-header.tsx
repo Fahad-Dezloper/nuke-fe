@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { AnimatedNumber } from '@/components/ui/animated-number';
+import Image from 'next/image';
 
 interface AssetPriceHeaderProps {
   asset?: string;
@@ -19,9 +20,9 @@ interface AssetPriceHeaderProps {
 }
 
 export function AssetPriceHeader({
-  asset = 'BTC',
-  assetLogo = '₿',
-  currentPrice = 90875.0,
+  asset = 'HYPE-PERP',
+  assetLogo = '/tokens/hype.png',
+  currentPrice = 45.3,
   className,
 }: AssetPriceHeaderProps) {
   const [displayPrice, setDisplayPrice] = useState(currentPrice);
@@ -79,21 +80,15 @@ export function AssetPriceHeader({
       <div className='relative z-10 flex items-center justify-between'>
         {/* Asset Info */}
         <div className='flex items-center gap-3'>
-          <div
-            className={cn(
-              'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
-              'shadow-md ring-2 ring-offset-2 ring-offset-background',
-              asset.includes('BTC')
-                ? 'bg-gradient-to-br from-orange-500 to-orange-600 ring-orange-500/20'
-                : asset.includes('ETH')
-                ? 'bg-gradient-to-br from-blue-500 to-blue-600 ring-blue-500/20'
-                : 'bg-gradient-to-br from-purple-500 to-purple-600 ring-purple-500/20'
-            )}>
-            <span className='text-white text-sm font-bold'>{assetLogo}</span>
-          </div>
+          <Image
+            src='/tokens/hype.png'
+            alt='HYPE'
+            width={20}
+            height={20}
+          />
           <div className='flex flex-col gap-0.5'>
             <span className='text-base font-bold text-text-primary leading-tight'>
-              {asset} - PERP
+              {asset}
             </span>
             {/* <span className='text-xs text-text-muted-60 uppercase tracking-wide'>
               {asset}USD
