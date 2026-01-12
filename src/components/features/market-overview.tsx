@@ -10,25 +10,22 @@ import { ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { AnimatedNumber } from '@/components/ui/animated-number';
+import { MetricItem } from '@/components/ui/metric-item';
+import { formatPrice, formatPercentWithSign } from '@/lib/utils';
+import { mockMarketOverview } from '@/lib/mocks';
+import type { MarketOverviewData } from '@/types/positions';
 import Image from 'next/image';
 
 interface MarketOverviewProps {
-  asset?: string;
-  currentPrice?: number;
-  longFundingRate?: number;
-  shortFundingRate?: number;
-  estimatedAPY?: number;
+  data?: MarketOverviewData;
   className?: string;
 }
 
 export function MarketOverview({
-  asset = 'HYPE-PERP',
-  currentPrice = 45.3,
-  longFundingRate = 10.95,
-  shortFundingRate = 11.39,
-  estimatedAPY = 0.44,
+  data = mockMarketOverview,
   className,
 }: MarketOverviewProps) {
+  const { asset, currentPrice, longFundingRate, shortFundingRate, estimatedAPY } = data;
   const [displayPrice, setDisplayPrice] = useState(currentPrice);
 
   // Animate price changes
@@ -42,20 +39,7 @@ export function MarketOverview({
     return () => clearInterval(interval);
   }, []);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 4,
-      maximumFractionDigits: 4,
-    }).format(price);
-  };
-
-  const priceFormatter = (val: number) => formatPrice(val);
-
-  const formatPercent = (value: number) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-  };
+  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
 
   return (
     <motion.div
@@ -106,7 +90,7 @@ export function MarketOverview({
                   <ArrowUp className='h-3 w-3 text-[var(--chart-hyperliquid)]' />
                 </div>
                 <span className='text-sm font-semibold text-[var(--chart-hyperliquid)] tabular-nums'>
-                  {formatPercent(longFundingRate)}
+                  {formatPercentWithSign(longFundingRate)}
                 </span>
               </div>
             </MetricItem>
@@ -118,7 +102,7 @@ export function MarketOverview({
                   <ArrowDown className='h-3 w-3 text-[var(--chart-pink)]' />
                 </div>
                 <span className='text-sm font-semibold text-[var(--chart-pink)] tabular-nums'>
-                  {formatPercent(shortFundingRate)}
+                  {formatPercentWithSign(shortFundingRate)}
                 </span>
               </div>
             </MetricItem>
@@ -128,7 +112,7 @@ export function MarketOverview({
               <div className='flex items-center gap-1.5'>
                 <div className='px-2 py-0.5 rounded-lg bg-green-900/30 backdrop-blur-sm border border-green-500/20 shadow-sm'>
                   <span className='text-sm font-semibold text-green-400 tabular-nums'>
-                    {formatPercent(estimatedAPY)}
+                    {formatPercentWithSign(estimatedAPY)}
                   </span>
                 </div>
               </div>
@@ -137,24 +121,5 @@ export function MarketOverview({
         </div>
       </div>
     </motion.div>
-  );
-}
-
-interface MetricItemProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function MetricItem({ label, children }: MetricItemProps) {
-  return (
-    <div className='flex flex-col gap-1.5 border-l-[0.5px] border-l-border-white-10 pl-8 py-4 w-[180px] relative group'>
-      {/* Subtle hover effect */}
-      <div className='absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-transparent via-accent/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity' />
-
-      <span className='text-xs text-text-muted-60 uppercase tracking-wide font-medium'>
-        {label}
-      </span>
-      <div className='flex items-center'>{children}</div>
-    </div>
   );
 }

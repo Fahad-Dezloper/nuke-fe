@@ -49,5 +49,9 @@ export interface Strategy {
   createdAt: string;
 }
 
+// Position and Trading Types
+export * from './positions';
+export * from './trading';
+
 // Add more types as needed
 

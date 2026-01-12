@@ -9,60 +9,22 @@ import { PositionsTableSection } from './trading-dashboard';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { PositionsTable } from './positions/positions-table';
+import { mockArbitragePositions } from '@/lib/mocks';
+import type { ArbitragePosition } from '@/types/positions';
 
 interface PositionsTableSectionContentProps {
   className?: string;
+  initialPositions?: ArbitragePosition[];
 }
-
-// Hardcoded positions data
-const mockPositions = [
-  {
-    asset: 'HYPE',
-    leverage: '5x',
-    assetLogo: '/tokens/hype.png',
-    long: {
-      platform: 'Hyperliquid',
-    },
-    short: {
-      platform: 'Lighter',
-    },
-    size: '893.23',
-    apr: '21.9%',
-    pricePnl: '$0.00',
-    fundingPnl: {
-      current: '-$0.00',
-      estimated: '~+$0.0025 2m',
-    },
-    totalPnl: '-$0.00',
-  },
-  {
-    asset: 'ETH',
-    leverage: '10x',
-    assetLogo: '/tokens/eth.png',
-    long: {
-      platform: 'Lighter',
-    },
-    short: {
-      platform: 'Hyperliquid',
-    },
-    size: '100.00',
-    apr: '21.9%',
-    pricePnl: '+$120.00',
-    fundingPnl: {
-      current: '-$0.00',
-      estimated: '~+$0.0025 2m',
-    },
-    totalPnl: '+$120.00',
-  },
-];
 
 export function PositionsTableSectionContent({
   className,
+  initialPositions = mockArbitragePositions,
 }: PositionsTableSectionContentProps) {
   const [activeTab, setActiveTab] = useState<'positions' | 'closed'>(
     'positions'
   );
-  const [positions, setPositions] = useState(mockPositions);
+  const [positions, setPositions] = useState(initialPositions);
 
   const handleClosePosition = (asset: string) => {
     setPositions((prev) =>

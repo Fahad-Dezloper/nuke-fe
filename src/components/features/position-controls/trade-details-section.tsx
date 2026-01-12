@@ -9,65 +9,20 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TradeDetailRow } from '@/components/ui/trade-detail-row';
+import { mockTradeDetails } from '@/lib/mocks';
+import type { TradeDetails } from '@/types/positions';
 
 interface TradeDetailsSectionProps {
   className?: string;
-}
-
-interface TradeDetailRowProps {
-  label: string;
-  value: string | React.ReactNode;
-  valueColor?: 'default' | 'green' | 'red' | 'muted';
-}
-
-function TradeDetailRow({
-  label,
-  value,
-  valueColor = 'default',
-}: TradeDetailRowProps) {
-  const valueClass = {
-    default: 'text-text-primary',
-    green: 'text-green-400',
-    red: 'text-red-400',
-    muted: 'text-text-muted-40',
-  }[valueColor];
-
-  return (
-    <div className='flex items-center justify-between py-1.5'>
-      <span className='text-xs text-text-muted-60'>{label}</span>
-      <span
-        className={cn('text-xs font-medium tabular-nums', valueClass)}>
-        {value}
-      </span>
-    </div>
-  );
+  tradeData?: TradeDetails;
 }
 
 export function TradeDetailsSection({
   className,
+  tradeData = mockTradeDetails,
 }: TradeDetailsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-
-  // Mock trade data - in real app, this would come from props or state
-  const tradeData = {
-    positionSize: '$10,000.00',
-    margin: '$3,333.33',
-    estimatedFees: '$2.50',
-    liquidationPrice: {
-      long: '$85,234.56',
-      short: '$95,678.90',
-    },
-    entryPrice: {
-      long: '$90,612.30',
-      short: '$90,612.30',
-    },
-    fundingRate: {
-      long: '+0.1095%',
-      short: '+0.1139%',
-    },
-    estimatedAPR: '+257.1%',
-    maxDrawdown: '-5.2%',
-  };
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>

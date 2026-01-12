@@ -10,24 +10,29 @@ import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { AnimatedNumber } from '@/components/ui/animated-number';
+import { formatPrice, formatPriceChange } from '@/lib/utils';
+import { mockAssetPrice } from '@/lib/mocks';
+import type { AssetPrice } from '@/types/positions';
 import Image from 'next/image';
 
 interface AssetPriceHeaderProps {
-  asset?: string;
-  assetLogo?: string;
-  currentPrice?: number;
+  data?: AssetPrice;
   className?: string;
 }
 
 export function AssetPriceHeader({
-  asset = 'HYPE-PERP',
-  assetLogo = '/tokens/hype.png',
-  currentPrice = 45.3,
+  data = mockAssetPrice,
   className,
 }: AssetPriceHeaderProps) {
+  const {
+    asset,
+    assetLogo,
+    currentPrice,
+    priceChange: initialPriceChange,
+  } = data;
   const [displayPrice, setDisplayPrice] = useState(currentPrice);
   const [priceKey, setPriceKey] = useState(0);
-  const [priceChange, setPriceChange] = useState(-0.02);
+  const [priceChange, setPriceChange] = useState(initialPriceChange);
 
   // Animate price changes in real-time
   useEffect(() => {
@@ -43,20 +48,7 @@ export function AssetPriceHeader({
     return () => clearInterval(interval);
   }, [displayPrice]);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    }).format(price);
-  };
-
   const priceFormatter = (val: number) => formatPrice(val);
-
-  const formatChange = (change: number) => {
-    return `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
-  };
 
   const isPositive = priceChange >= 0;
 
@@ -81,8 +73,8 @@ export function AssetPriceHeader({
         {/* Asset Info */}
         <div className='flex items-center gap-3'>
           <Image
-            src='/tokens/hype.png'
-            alt='HYPE'
+            src={assetLogo}
+            alt={asset}
             width={20}
             height={20}
           />
@@ -119,7 +111,7 @@ export function AssetPriceHeader({
             ) : (
               <TrendingDown className='h-3 w-3' />
             )}
-            <span>{formatChange(priceChange)}</span>
+            <span>{formatPriceChange(priceChange)}</span>
             <span className='text-text-muted-60'>(24H)</span>
           </motion.div>
         </div>

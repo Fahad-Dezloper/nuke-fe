@@ -8,29 +8,10 @@
 import { ArrowUp, ArrowDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-
-interface PositionData {
-  asset: string;
-  leverage: string;
-  assetLogo: string;
-  long: {
-    platform: string;
-  };
-  short: {
-    platform: string;
-  };
-  size: string;
-  apr: string;
-  pricePnl: string;
-  fundingPnl: {
-    current: string;
-    estimated: string;
-  };
-  totalPnl: string;
-}
+import type { ArbitragePosition } from '@/types/positions';
 
 interface PositionRowProps {
-  position: PositionData;
+  position: ArbitragePosition;
   onClose?: (asset: string) => void;
 }
 

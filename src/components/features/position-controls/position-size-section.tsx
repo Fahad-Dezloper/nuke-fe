@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { mockConversionRate, mockStepSize } from '@/lib/mocks';
 
 interface PositionSizeSectionProps {
   className?: string;
@@ -18,9 +19,10 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
   const [positionSize, setPositionSize] = useState('');
   const [currency, setCurrency] = useState('USD');
 
-  // Mock conversion rate
-  const lineaRate = 0.05; // 1 USD = 0.05 LINEA (example)
-  const lineaValue = positionSize ? parseFloat(positionSize) * lineaRate : 0;
+  // Mock conversion rate - in real app, this would come from props or API
+  const lineaValue = positionSize
+    ? parseFloat(positionSize) * mockConversionRate
+    : 0;
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
@@ -51,7 +53,7 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
       </div>
       <div className='flex items-center justify-between text-xs text-text-muted-60'>
         <span>≈ {lineaValue.toFixed(2)} HYPE</span>
-        <span>Step: 100 HYPE</span>
+        <span>Step: {mockStepSize} HYPE</span>
       </div>
     </div>
   );

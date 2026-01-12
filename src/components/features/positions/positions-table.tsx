@@ -6,29 +6,10 @@
  */
 
 import { PositionRow } from './position-row';
-
-interface PositionData {
-  asset: string;
-  leverage: string;
-  assetLogo: string;
-  long: {
-    platform: string;
-  };
-  short: {
-    platform: string;
-  };
-  size: string;
-  apr: string;
-  pricePnl: string;
-  fundingPnl: {
-    current: string;
-    estimated: string;
-  };
-  totalPnl: string;
-}
+import type { ArbitragePosition } from '@/types/positions';
 
 interface PositionsTableProps {
-  positions: PositionData[];
+  positions: ArbitragePosition[];
   onClosePosition?: (asset: string) => void;
 }
 

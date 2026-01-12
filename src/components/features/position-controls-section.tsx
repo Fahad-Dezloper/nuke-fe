@@ -14,6 +14,7 @@ import { LeverageSection } from './position-controls/leverage-section';
 import { PositionDetailsSection } from './position-controls/position-details-section';
 import { TradeDetailsSection } from './position-controls/trade-details-section';
 import { AssetPriceHeader } from './position-controls/asset-price-header';
+import { mockAssetPrice } from '@/lib/mocks';
 
 interface PositionControlsSectionContentProps {
   className?: string;
@@ -24,8 +25,6 @@ export function PositionControlsSectionContent({
   className,
   onConnectWallet,
 }: PositionControlsSectionContentProps) {
-  // Mock effective APR calculation
-  const effectiveAPR = 257.1;
 
   return (
     <PositionControlsSection
@@ -43,11 +42,7 @@ export function PositionControlsSectionContent({
         </div>
 
         {/* Asset Price Header */}
-        <AssetPriceHeader
-          asset='HYPE-PERP'
-          assetLogo='/tokens/hype.png'
-          currentPrice={43.67}
-        />
+        <AssetPriceHeader data={mockAssetPrice} />
 
         {/* Content */}
         <div className='flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6'>
