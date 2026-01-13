@@ -22,4 +22,5 @@ export {
   PositionDetailsCard,
   type PositionDetailsCardProps,
 } from './position-details-card';
+export { AssetDropdown, type AssetDropdownProps } from './asset-dropdown';
 

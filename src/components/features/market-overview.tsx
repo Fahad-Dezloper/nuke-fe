@@ -6,27 +6,56 @@
  */
 
 import { motion } from 'framer-motion';
-import { ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AnimatedNumber } from '@/components/ui/animated-number';
 import { MetricItem } from '@/components/ui/metric-item';
+import { AssetDropdown } from '@/components/ui/asset-dropdown';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
-import { mockMarketOverview } from '@/lib/mocks';
-import type { MarketOverviewData } from '@/types/positions';
-import Image from 'next/image';
+import { mockMarketOverview, mockAssets } from '@/lib/mocks';
+import type { MarketOverviewData, AssetDropdownItem } from '@/types/positions';
 
 interface MarketOverviewProps {
   data?: MarketOverviewData;
   className?: string;
+  onAssetChange?: (asset: AssetDropdownItem) => void;
 }
 
 export function MarketOverview({
   data = mockMarketOverview,
   className,
+  onAssetChange,
 }: MarketOverviewProps) {
-  const { asset, currentPrice, longFundingRate, shortFundingRate, estimatedAPY } = data;
-  const [displayPrice, setDisplayPrice] = useState(currentPrice);
+  // Find the selected asset from mock assets or use default
+  const defaultAsset = useMemo(
+    () => mockAssets.find((a) => a.asset === data.asset) || mockAssets[0],
+    [data.asset]
+  );
+
+  const [selectedAsset, setSelectedAsset] = useState<AssetDropdownItem>(
+    defaultAsset
+  );
+  const [displayPrice, setDisplayPrice] = useState(data.currentPrice);
+
+  // Sync selected asset when data.asset changes externally
+  useEffect(() => {
+    const matchingAsset = mockAssets.find((a) => a.asset === data.asset);
+    if (matchingAsset && matchingAsset.asset !== selectedAsset.asset) {
+      setSelectedAsset(matchingAsset);
+    }
+  }, [data.asset, selectedAsset.asset]);
+
+  // Update display price when asset changes
+  useEffect(() => {
+    setDisplayPrice(data.currentPrice);
+  }, [data.currentPrice]);
+
+  // Handle asset selection
+  const handleAssetSelect = (asset: AssetDropdownItem) => {
+    setSelectedAsset(asset);
+    onAssetChange?.(asset);
+  };
 
   // Animate price changes
   useEffect(() => {
@@ -49,7 +78,7 @@ export function MarketOverview({
       className={cn(
         'bg-gradient-to-r from-background via-background/98 to-background',
         'border-b-[0.5px] border-l-[0.5px] border-r-[0.5px] border-border-white-10',
-        'relative overflow-hidden',
+        'relative',
         className
       )}>
       {/* Subtle gradient overlay */}
@@ -57,18 +86,13 @@ export function MarketOverview({
 
       <div className='mx-auto px-3 md:px-4 lg:px-5 py-0 relative z-10'>
         <div className='flex flex-wrap items-center gap-6 md:gap-8'>
-          {/* Asset Selector */}
-          <div className='flex items-center gap-2'>
-            <div className='flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/40 backdrop-blur-sm border border-border-white-10/50 shadow-md shadow-black/10 transition-all cursor-pointer group hover:bg-card/60 hover:border-border-white-20'>
-              <Image
-                src={'/tokens/hype.png'}
-                alt='HYPE'
-                width={20}
-                height={20}
-              />
-              <span className=' font-semibold text-text-primary'>{asset}</span>
-              <ChevronDown className='h-3.5 w-3.5 text-text-muted-60 group-hover:text-text-primary transition-colors' />
-            </div>
+          {/* Asset Selector Dropdown */}
+          <div className='relative z-[10000]'>
+            <AssetDropdown
+              assets={mockAssets}
+              selectedAsset={selectedAsset}
+              onSelect={handleAssetSelect}
+            />
           </div>
 
           {/* Metrics Grid */}
@@ -83,36 +107,42 @@ export function MarketOverview({
               />
             </MetricItem>
 
-            {/* Long Funding Rate */}
+            {/* Long Funding Rate (Hyperliquid) */}
             <MetricItem label='LONG FUNDING RATE'>
               <div className='flex items-center gap-1.5'>
                 <div className='p-1 rounded bg-[var(--chart-hyperliquid)]/20'>
                   <ArrowUp className='h-3 w-3 text-[var(--chart-hyperliquid)]' />
                 </div>
                 <span className='text-sm font-semibold text-[var(--chart-hyperliquid)] tabular-nums'>
-                  {formatPercentWithSign(longFundingRate)}
+                  {formatPercentWithSign(
+                    selectedAsset?.hyperliquidFundingRate ?? data.longFundingRate
+                  )}
                 </span>
               </div>
             </MetricItem>
 
-            {/* Short Funding Rate */}
+            {/* Short Funding Rate (Lighter) */}
             <MetricItem label='SHORT FUNDING RATE'>
               <div className='flex items-center gap-1.5'>
                 <div className='p-1 rounded bg-[var(--chart-pink)]/20'>
                   <ArrowDown className='h-3 w-3 text-[var(--chart-pink)]' />
                 </div>
                 <span className='text-sm font-semibold text-[var(--chart-pink)] tabular-nums'>
-                  {formatPercentWithSign(shortFundingRate)}
+                  {formatPercentWithSign(
+                    selectedAsset?.lighterFundingRate ?? data.shortFundingRate
+                  )}
                 </span>
               </div>
             </MetricItem>
 
-            {/* Estimated APY */}
+            {/* Estimated APY (NET APY) */}
             <MetricItem label='EST. APY'>
               <div className='flex items-center gap-1.5'>
                 <div className='px-2 py-0.5 rounded-lg bg-green-900/30 backdrop-blur-sm border border-green-500/20 shadow-sm'>
                   <span className='text-sm font-semibold text-green-400 tabular-nums'>
-                    {formatPercentWithSign(estimatedAPY)}
+                    {formatPercentWithSign(
+                      selectedAsset?.netAPY ?? data.estimatedAPY
+                    )}
                   </span>
                 </div>
               </div>

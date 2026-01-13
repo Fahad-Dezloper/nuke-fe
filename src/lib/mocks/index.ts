@@ -5,4 +5,5 @@
 
 export * from './positions';
 export * from './trading';
+export * from './assets';
 

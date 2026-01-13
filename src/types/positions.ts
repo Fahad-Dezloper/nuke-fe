@@ -92,3 +92,17 @@ export interface MarketOverviewData {
   estimatedAPY: number;
 }
 
+/**
+ * Asset Dropdown Data
+ * Complete asset information for dropdown selection
+ */
+export interface AssetDropdownItem {
+  asset: string;
+  assetLogo: string;
+  maxLeverage: number;
+  hyperliquidFundingRate: number;
+  lighterFundingRate: number;
+  netAPY: number;
+  apy30D: number;
+}
+
