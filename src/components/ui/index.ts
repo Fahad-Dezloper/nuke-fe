@@ -16,6 +16,8 @@ export {
 export { Input } from './input';
 export { Slider } from './slider';
 export { ConnectWalletButton } from './connect-wallet-button';
+export { ConnectWalletModal } from './connect-wallet-modal';
+export { Modal, type ModalProps } from './modal';
 export { TradeDetailRow, type TradeDetailRowProps } from './trade-detail-row';
 export { MetricItem, type MetricItemProps } from './metric-item';
 export {
