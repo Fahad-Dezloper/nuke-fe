@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Roboto_Mono } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/layout/navbar';
+import { TurnkeyProvider } from '@/lib/turnkey';
 // import { Footer } from '@/components/layout/footer';
 
 const robotoMono = Roboto_Mono({
@@ -37,11 +38,13 @@ export default function RootLayout({
       lang='en'
       className='dark'>
       <body className={`${robotoMono.variable} antialiased overflow-hidden`}>
-        <div className='flex h-screen flex-col'>
-          <Navbar />
-          <main className='flex-1 overflow-hidden'>{children}</main>
-          {/* <Footer /> */}
-        </div>
+        <TurnkeyProvider>
+          <div className='flex h-screen flex-col'>
+            <Navbar />
+            <main className='flex-1 overflow-hidden'>{children}</main>
+            {/* <Footer /> */}
+          </div>
+        </TurnkeyProvider>
       </body>
     </html>
   );
