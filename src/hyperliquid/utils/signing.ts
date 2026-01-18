@@ -103,7 +103,7 @@ export interface AbstractEthersSigner {
         type: string;
       }[];
     },
-    value: Record<string, unknown>
+    value: Record<string, unknown>,
   ): Promise<string>;
 }
 
@@ -122,7 +122,7 @@ export interface AbstractEthersV5Signer {
         type: string;
       }[];
     },
-    value: Record<string, unknown>
+    value: Record<string, unknown>,
   ): Promise<string>;
 }
 
@@ -145,7 +145,7 @@ export interface AbstractExtendedViemWalletClient {
       primaryType: string;
       message: Record<string, unknown>;
     },
-    options?: unknown
+    options?: unknown,
   ): Promise<Hex>;
 }
 
@@ -167,7 +167,7 @@ export interface AbstractWindowEthereum {
 export function createL1ActionHash(
   action: ValueType,
   nonce: number,
-  vaultAddress?: Hex
+  vaultAddress?: Hex,
 ): Hex {
   const normalizedAction = normalizeIntegersForMsgPack(action);
   const msgPackBytes = encode(normalizedAction);
@@ -215,7 +215,7 @@ function normalizeIntegersForMsgPack(obj: ValueType): ValueType {
       Object.entries(obj).map(([key, value]) => [
         key,
         normalizeIntegersForMsgPack(value as ValueType),
-      ])
+      ]),
     );
   }
 
@@ -420,7 +420,7 @@ async function abstractSignTypedData(args: {
       wallet,
       domain,
       types,
-      message
+      message,
     );
   } else {
     throw new Error("Unsupported wallet for signing typed data");
@@ -442,7 +442,7 @@ async function signTypedDataWithWindowEthereum(
       type: string;
     }[];
   },
-  message: Record<string, unknown>
+  message: Record<string, unknown>,
 ): Promise<Hex> {
   const accounts = await ethereum.request({
     method: "eth_requestAccounts",
@@ -483,7 +483,7 @@ export function splitSignature(signature: Hex): { r: Hex; s: Hex; v: number } {
 
 /** Checks if the given value is an abstract viem wallet. */
 export function isAbstractViemWalletClient(
-  client: unknown
+  client: unknown,
 ): client is AbstractViemWalletClient {
   return (
     typeof client === "object" &&
@@ -496,7 +496,7 @@ export function isAbstractViemWalletClient(
 
 /** Checks if the given value is an abstract ethers signer. */
 export function isAbstractEthersSigner(
-  client: unknown
+  client: unknown,
 ): client is AbstractEthersSigner {
   return (
     typeof client === "object" &&
@@ -509,7 +509,7 @@ export function isAbstractEthersSigner(
 
 /** Checks if the given value is an abstract ethers v5 signer. */
 export function isAbstractEthersV5Signer(
-  client: unknown
+  client: unknown,
 ): client is AbstractEthersV5Signer {
   return (
     typeof client === "object" &&
@@ -522,7 +522,7 @@ export function isAbstractEthersV5Signer(
 
 /** Checks if the given value is an abstract extended viem wallet (e.g. privy `useSignTypedData`). */
 export function isAbstractExtendedViemWalletClient(
-  client: unknown
+  client: unknown,
 ): client is AbstractViemWalletClient {
   return (
     typeof client === "object" &&
@@ -535,7 +535,7 @@ export function isAbstractExtendedViemWalletClient(
 
 /** Checks if the given value is an abstract `window.ethereum` object. */
 export function isAbstractWindowEthereum(
-  client: unknown
+  client: unknown,
 ): client is AbstractWindowEthereum {
   return (
     typeof client === "object" &&
@@ -622,7 +622,7 @@ export async function signTransferAction(
     toPerp: boolean;
     nonce: number;
   },
-  isMainnet: boolean
+  isMainnet: boolean,
 ): Promise<Signature> {
   const domain = {
     name: "HyperliquidSignTransaction",
@@ -647,7 +647,7 @@ export async function signTransferAction(
       "HyperliquidTransaction:UsdClassTransfer":
         types["HyperliquidTransaction:UsdClassTransfer"],
     },
-    action
+    action,
   );
 
   // Parse the signature string into r, s, v components
@@ -668,7 +668,7 @@ export async function signTransferActionTestnet(
     toPerp: boolean;
     nonce: number;
   },
-  isMainnet: boolean
+  isMainnet: boolean,
 ): Promise<Signature> {
   const domain = {
     name: "HyperliquidSignTransaction",
@@ -693,7 +693,7 @@ export async function signTransferActionTestnet(
       "HyperliquidTransaction:UsdClassTransfer":
         types["HyperliquidTransaction:UsdClassTransfer"],
     },
-    action
+    action,
   );
 
   // Parse the signature string into r, s, v components
@@ -725,7 +725,7 @@ export type TransferAction = {
 export function createTestnetExchangeTypedData(
   action: ValueType,
   nonce: number,
-  vaultAddress?: Hex
+  vaultAddress?: Hex,
 ) {
   return {
     domain: {
@@ -752,7 +752,7 @@ export function createTestnetExchangeTypedData(
 export function createMainnetExchangeTypedData(
   action: ValueType,
   nonce: number,
-  vaultAddress?: Hex
+  vaultAddress?: Hex,
 ) {
   return {
     domain: {
@@ -779,7 +779,7 @@ export function createMainnetExchangeTypedData(
 export function createTestnetUsdTransferTypedData(
   amount: string,
   toPerp: boolean,
-  nonce: number
+  nonce: number,
 ) {
   return {
     domain: {
@@ -810,7 +810,7 @@ export function createTestnetUsdTransferTypedData(
 export function createMainnetUsdTransferTypedData(
   amount: string,
   toPerp: boolean,
-  nonce: number
+  nonce: number,
 ) {
   return {
     domain: {
@@ -840,7 +840,7 @@ export function createMainnetUsdTransferTypedData(
 export function createMainnetUsdcCoreTransferTypedData(
   amount: string,
   destination: Hex,
-  time: number
+  time: number,
 ) {
   return {
     types: {
@@ -872,7 +872,7 @@ export function createMainnetSpotTransferTypedData(
   ticker: string,
   tickerAddress: Hex,
   destination: Hex,
-  time: number
+  time: number,
 ) {
   return {
     types: {
@@ -904,7 +904,7 @@ export function createMainnetSpotTransferTypedData(
 export function createWithdrawTypedData(
   destination: string,
   amount: string,
-  time: number
+  time: number,
 ) {
   return {
     types: {
