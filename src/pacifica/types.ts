@@ -40,6 +40,55 @@ export interface CreateLimitOrderReq {
   expiry_window?: number;
 }
 
+export interface CancelOrderReq {
+  account: string;
+  signature: string;
+  timestamp: string;
+  symbol: string;
+  order_id: number;
+  client_order_id: string;
+}
+
 export interface CreateOrderResponse {
   order_id: string;
+}
+
+export interface CancelOrderResponse {
+  success: boolean;
+}
+
+export interface TpSlStopOrder {
+  stop_price: string;
+  limit_price?: string;
+  client_order_id?: string;
+}
+
+export interface SetPositionTpSlReq {
+  account: string;
+  signature: string;
+  timestamp: number;
+  symbol: string;
+  side: Side;
+  take_profit?: TpSlStopOrder;
+  stop_loss?: TpSlStopOrder;
+  agent_wallet?: string;
+  expiry_window?: number;
+}
+
+export interface SetPositionTpSlResponse {
+  success: boolean;
+}
+
+export interface TpSlParams {
+  account: string;
+  symbol: string;
+  side: Side;
+  takeProfitPrice?: string;
+  takeProfitLimitPrice?: string;
+  takeProfitClientOrderId?: string;
+  stopLossPrice?: string;
+  stopLossLimitPrice?: string;
+  stopLossClientOrderId?: string;
+  agentWallet?: string;
+  expiryWindow?: number;
 }
