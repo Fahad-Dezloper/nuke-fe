@@ -1,9 +1,11 @@
 import { PacificaClient } from "./client";
+import { TpSlManager } from "./tpsl-manager";
 import {
   CreateMarketOrderReq,
   CreateLimitOrderReq,
   CancelOrderReq,
   SetPositionTpSlReq,
+  CancelAllOrdersReq,
 } from "./types";
 
 export async function createPerpMarketOrder(
@@ -35,9 +37,19 @@ export async function cancelOrder(
 export async function setPositionTpSl(
   setPositionTpSlReq: SetPositionTpSlReq,
 ): Promise<boolean> {
-  const client = new PacificaClient();
+  const client = new TpSlManager();
 
   const isSuccess = await client.setPositionTpSl(setPositionTpSlReq);
 
   return isSuccess;
+}
+
+export async function cancelAllOrders(
+  cancelAllOrdersReq: CancelAllOrdersReq,
+): Promise<number> {
+  const client = new PacificaClient();
+
+  const cancelledCount = await client.cancelAllOrders(cancelAllOrdersReq);
+
+  return cancelledCount;
 }

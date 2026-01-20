@@ -92,3 +92,18 @@ export interface TpSlParams {
   agentWallet?: string;
   expiryWindow?: number;
 }
+
+export interface CancelAllOrdersReq {
+  account: string;
+  signature: string;
+  timestamp: number;
+  all_symbols: boolean;
+  exclude_reduce_only: boolean;
+  symbol?: string;
+  agent_wallet?: string;
+  expiry_window?: number;
+}
+
+export interface CancelAllOrdersResponse {
+  cancelled_count: number;
+}

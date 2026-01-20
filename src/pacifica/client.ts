@@ -5,6 +5,8 @@ import {
   CreateOrderResponse,
   CancelOrderReq,
   CancelOrderResponse,
+  CancelAllOrdersReq,
+  CancelAllOrdersResponse,
   SetPositionTpSlReq,
   SetPositionTpSlResponse,
 } from "./types";
@@ -40,7 +42,7 @@ export class PacificaClient {
     createOrderReq: CreateMarketOrderReq,
   ): Promise<string> {
     const response = await this.fetchWithTimeout(
-      `${this.baseUrl}orders/create_market`,
+      `${this.baseUrl}/orders/create_market`,
       {
         method: "POST",
         headers: {
@@ -64,7 +66,7 @@ export class PacificaClient {
 
   async createLimitOrder(createOrderReq: CreateLimitOrderReq): Promise<string> {
     const response = await this.fetchWithTimeout(
-      `${this.baseUrl}orders/create`,
+      `${this.baseUrl}/orders/create`,
       {
         method: "POST",
         headers: {
@@ -110,27 +112,27 @@ export class PacificaClient {
     throw new Error("Internal server error");
   }
 
-  async setPositionTpSl(
-    setPositionTpSlReq: SetPositionTpSlReq,
-  ): Promise<boolean> {
+  async cancelAllOrders(
+    cancelAllOrdersReq: CancelAllOrdersReq,
+  ): Promise<number> {
     const response = await this.fetchWithTimeout(
-      `${this.baseUrl}/positions/tpsl`,
+      `${this.baseUrl}/orders/cancel_all`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(setPositionTpSlReq),
+        body: JSON.stringify(cancelAllOrdersReq),
       },
     );
 
     if (response.ok) {
-      const data: SetPositionTpSlResponse = await response.json();
-      return data.success;
+      const data: CancelAllOrdersResponse = await response.json();
+      return data.cancelled_count;
     }
 
     if (response.status === 400) {
-      throw new Error("Failed to set position TP/SL. Bad request");
+      throw new Error("Failed to cancel all orders. Bad request");
     }
 
     throw new Error("Internal server error");
