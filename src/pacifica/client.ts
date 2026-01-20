@@ -7,8 +7,6 @@ import {
   CancelOrderResponse,
   CancelAllOrdersReq,
   CancelAllOrdersResponse,
-  SetPositionTpSlReq,
-  SetPositionTpSlResponse,
 } from "./types";
 
 export class PacificaClient {

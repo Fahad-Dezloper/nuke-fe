@@ -1,8 +1,7 @@
 import { BACKEND_URL } from "@/constants";
 
-//TODO: move the redis client implementation to backend and then fetch from there
 export async function getPerpMeta() {
-  const response = await fetch(`${BACKEND_URL}/perp-meta`);
+  const response = await fetch(`${BACKEND_URL}/hyperliquid/perp-metadata`);
 
   const data = await response.json();
 
@@ -12,7 +11,7 @@ export async function getPerpMeta() {
 }
 
 export async function getSpotMeta() {
-  const response = await fetch(`${BACKEND_URL}/spot-meta`);
+  const response = await fetch(`${BACKEND_URL}/hyperliquid/spot-metadata`);
 
   const data = await response.json();
 
