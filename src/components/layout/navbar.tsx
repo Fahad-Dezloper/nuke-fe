@@ -12,6 +12,9 @@ import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { ConnectWalletButton } from '@/components/ui/connect-wallet-button';
+import { WalletStatus } from '@/components/ui/wallet-status';
+import { DepositButton } from '@/components/ui/deposit-button';
+import { useTurnkey, getEVMAddress } from '@/lib/turnkey';
 
 interface NavItem {
   label: string;
@@ -39,6 +42,7 @@ export function Navbar({
   className,
 }: NavbarProps) {
   const pathname = usePathname();
+  const { state } = useTurnkey();
 
   return (
     <motion.header
@@ -99,10 +103,20 @@ export function Navbar({
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
           className='flex items-center gap-2.5'>
-          <ConnectWalletButton
-            onClick={onConnectWallet}
-            size='sm'
-          />
+          {state.isLoggedIn ? (
+            <>
+              <DepositButton 
+                size='sm' 
+                walletAddress={getEVMAddress(state.userWallets)}
+              />
+              <WalletStatus />
+            </>
+          ) : (
+            <ConnectWalletButton
+              onClick={onConnectWallet}
+              size='sm'
+            />
+          )}
         </motion.div>
       </div>
     </motion.header>
