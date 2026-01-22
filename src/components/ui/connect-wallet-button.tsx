@@ -17,6 +17,8 @@ interface ConnectWalletButtonProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
+  children?: React.ReactNode;
+  text?: string;
 }
 
 const sizeClasses = {
@@ -32,6 +34,8 @@ export function ConnectWalletButton({
   className,
   size = 'sm',
   fullWidth = false,
+  children,
+  text,
 }: ConnectWalletButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -77,7 +81,9 @@ export function ConnectWalletButton({
         <div className='absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl' />
         
         {/* Button text */}
-        <span className='relative z-10'>CONNECT WALLET</span>
+        <span className='relative z-10'>
+          {children || text || 'CONNECT WALLET'}
+        </span>
       </motion.button>
 
       <ConnectWalletModal

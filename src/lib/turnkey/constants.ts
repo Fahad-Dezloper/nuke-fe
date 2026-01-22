@@ -1,8 +1,3 @@
-/**
- * Turnkey Constants
- * Centralized constants for Turnkey wallet management
- */
-
 export const SESSION_EXPIRATION_SECONDS = 3600 * 24 * 10; // 10 days
 
 export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';

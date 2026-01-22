@@ -5,9 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/**
- * Formats a number as currency
- */
+
 export function formatCurrency(
   value: number,
   currency: string = "USD",
@@ -19,16 +17,11 @@ export function formatCurrency(
   }).format(value);
 }
 
-/**
- * Formats a percentage
- */
+
 export function formatPercent(value: number, decimals: number = 2): string {
   return `${value.toFixed(decimals)}%`;
 }
 
-/**
- * Formats a percentage with sign (+ or -)
- */
 export function formatPercentWithSign(
   value: number,
   decimals: number = 2
@@ -36,9 +29,6 @@ export function formatPercentWithSign(
   return `${value >= 0 ? "+" : ""}${value.toFixed(decimals)}%`;
 }
 
-/**
- * Formats a price with specific decimal places
- */
 export function formatPrice(
   price: number,
   currency: string = "USD",
@@ -54,9 +44,7 @@ export function formatPrice(
   }).format(price);
 }
 
-/**
- * Formats a price change percentage
- */
+
 export function formatPriceChange(
   change: number,
   decimals: number = 2

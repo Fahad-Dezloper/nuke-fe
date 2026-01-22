@@ -1,7 +1,4 @@
-/**
- * useLocalStorage Hook
- * Syncs state with localStorage
- */
+
 
 import { useState } from 'react';
 

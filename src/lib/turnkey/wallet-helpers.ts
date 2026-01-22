@@ -1,8 +1,3 @@
-/**
- * Wallet Helpers
- * Helper functions for EVM and Solana wallet authentication
- */
-
 import { Turnkey, SessionType } from '@turnkey/sdk-browser';
 import { EthereumWallet } from '@turnkey/wallet-stamper';
 import { SESSION_EXPIRATION_SECONDS } from '@/lib/constants';
@@ -10,29 +5,52 @@ import { TURNKEY_API_BASE_URL } from './constants';
 import bs58 from 'bs58';
 import { Buffer } from 'buffer';
 import type { LoginResult } from './types';
-
-// Solana Wallet Interface (for Phantom)
 import { WalletType, type SolanaWalletInterface } from '@turnkey/wallet-stamper';
+import { ErrorCode, createError, toAppError, getUserMessage } from '@/lib/errors';
 
+/**
+ * PhantomSolanaWallet implements the SolanaWalletInterface for Phantom wallet integration.
+ * Wraps Phantom wallet functionality to work with Turnkey's wallet client system.
+ */
 export class PhantomSolanaWallet implements SolanaWalletInterface {
   type: WalletType.Solana = WalletType.Solana;
 
-  constructor(private publicKey: string) {}
+  /**
+   * Creates a new PhantomSolanaWallet instance.
+   *
+   * @param publicKey - The Solana public key (hex-encoded)
+   */
+  constructor(private publicKey: string) { }
 
+  /**
+   * Gets the Solana public key.
+   *
+   * @returns Promise resolving to the public key string
+   */
   async getPublicKey(): Promise<string> {
     return this.publicKey;
   }
 
+  /**
+   * Signs a message using the Phantom wallet.
+   * Requires Phantom wallet to be installed and connected.
+   *
+   * @param message - The message to sign (UTF-8 string)
+   * @returns Promise resolving to the signature as a hexadecimal string
+   *
+   * @throws {AppError} If Phantom wallet is not available or signing fails
+   */
   async signMessage(message: string): Promise<string> {
     const encodedMessage = new TextEncoder().encode(message);
 
     if (!window.solana?.signMessage) {
-      throw new Error('Wallet does not support signMessage');
+      throw createError(ErrorCode.WALLET_NOT_AVAILABLE, {
+        reason: 'Phantom wallet does not support signMessage',
+      });
     }
 
     const signed = await window.solana.signMessage(encodedMessage, 'utf8');
 
-    // Convert Uint8Array to hex
     const hex = [...signed.signature]
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
@@ -40,10 +58,25 @@ export class PhantomSolanaWallet implements SolanaWalletInterface {
   }
 }
 
-// EVM Wallet Login
+/**
+ * Logs in a user using an EVM (Ethereum Virtual Machine) wallet.
+ * Creates or retrieves a Turnkey sub-organization for the wallet's public key,
+ * then establishes a session for wallet operations.
+ *
+ * @returns Promise resolving to login result with success status, sub-organization ID, or error
+ *
+ * @throws {AppError} If wallet connection fails, public key is missing, or session creation fails
+ *
+ * @example
+ * ```typescript
+ * const result = await loginWithEVMWallet();
+ * if (result.success) {
+ *   console.log('Logged in with sub-org:', result.subOrgId);
+ * }
+ * ```
+ */
 export async function loginWithEVMWallet(): Promise<LoginResult> {
   try {
-    // Ensure Buffer is available
     if (typeof window !== 'undefined' && !window.Buffer) {
       window.Buffer = Buffer;
     }
@@ -63,10 +96,11 @@ export async function loginWithEVMWallet(): Promise<LoginResult> {
     const walletPublicKey = await walletClient.getPublicKey();
 
     if (!publicKey || !walletPublicKey) {
-      throw new Error('No public key found');
+      throw createError(ErrorCode.WALLET_NOT_AVAILABLE, {
+        reason: 'No public key found from wallet',
+      });
     }
 
-    // Check if suborg exists
     const getSuborgsResponse = await fetch('/api/turnkey/getSuborg', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -78,7 +112,6 @@ export async function loginWithEVMWallet(): Promise<LoginResult> {
 
     const suborgsData = await getSuborgsResponse.json();
 
-    // Create suborg if it doesn't exist
     if (
       !suborgsData.organizationIds ||
       suborgsData.organizationIds.length <= 0
@@ -104,7 +137,6 @@ export async function loginWithEVMWallet(): Promise<LoginResult> {
       console.log('Suborg created with id: ', createResult.subOrganizationId);
     }
 
-    // Login with wallet
     await walletClient.loginWithWallet({
       publicKey,
       sessionType: SessionType.READ_WRITE,
@@ -118,29 +150,54 @@ export async function loginWithEVMWallet(): Promise<LoginResult> {
         subOrgId: session.organizationId,
       };
     } else {
-      throw new Error('Failed to connect wallet');
+      throw createError(ErrorCode.WALLET_NOT_AVAILABLE, {
+        reason: 'Failed to establish session with wallet',
+      });
     }
   } catch (error: unknown) {
-    console.error('EVM wallet login error:', error);
+    const appError = toAppError(error, ErrorCode.AUTH_INVALID_CREDENTIALS);
+    console.error('EVM wallet login error:', appError);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: getUserMessage(appError),
     };
   }
 }
 
-// Solana Wallet Login (Phantom)
+/**
+ * Logs in a user using a Solana wallet (Phantom).
+ * Connects to Phantom wallet, creates or retrieves a Turnkey sub-organization,
+ * and establishes a session for wallet operations.
+ *
+ * @returns Promise resolving to login result with success status, sub-organization ID, or error
+ *
+ * @throws {AppError} If Phantom wallet is not installed, connection fails, or session creation fails
+ *
+ * @example
+ * ```typescript
+ * const result = await loginWithSolanaWallet();
+ * if (result.success) {
+ *   console.log('Logged in with sub-org:', result.subOrgId);
+ * }
+ * ```
+ */
 export async function loginWithSolanaWallet(): Promise<LoginResult> {
   try {
     // Check if Phantom is installed
     if (!window.solana?.isPhantom) {
-      throw new Error('Phantom Wallet not found');
+      throw createError(ErrorCode.WALLET_NOT_AVAILABLE, {
+        reason: 'Phantom wallet not found. Please install Phantom extension.',
+      });
     }
 
     // Connect Phantom
     await window.solana.connect();
     const base58PubKey = window.solana.publicKey?.toString();
-    if (!base58PubKey) throw new Error('Failed to get wallet public key');
+    if (!base58PubKey) {
+      throw createError(ErrorCode.WALLET_NOT_AVAILABLE, {
+        reason: 'Failed to get wallet public key from Phantom',
+      });
+    }
 
     // Ensure Buffer is available
     if (typeof window !== 'undefined' && !window.Buffer) {
@@ -165,7 +222,6 @@ export async function loginWithSolanaWallet(): Promise<LoginResult> {
       new PhantomSolanaWallet(hexPubKey)
     );
 
-    // Check if suborg exists
     const getSuborgsResponse = await fetch('/api/turnkey/getSuborg', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -177,7 +233,6 @@ export async function loginWithSolanaWallet(): Promise<LoginResult> {
 
     const suborgsData = await getSuborgsResponse.json();
 
-    // Create suborg if it doesn't exist
     if (
       !suborgsData.organizationIds ||
       suborgsData.organizationIds.length === 0
@@ -201,7 +256,6 @@ export async function loginWithSolanaWallet(): Promise<LoginResult> {
       console.log('Created new suborg:', createResult.subOrganizationId);
     }
 
-    // Login with wallet
     await walletClient.loginWithWallet({
       publicKey,
       sessionType: SessionType.READ_WRITE,
@@ -215,18 +269,20 @@ export async function loginWithSolanaWallet(): Promise<LoginResult> {
         subOrgId: session.organizationId,
       };
     } else {
-      throw new Error('Failed to connect wallet');
+      throw createError(ErrorCode.WALLET_NOT_AVAILABLE, {
+        reason: 'Failed to establish session with Solana wallet',
+      });
     }
   } catch (error: unknown) {
-    console.error('Solana wallet login error:', error);
+    const appError = toAppError(error, ErrorCode.AUTH_INVALID_CREDENTIALS);
+    console.error('Solana wallet login error:', appError);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: getUserMessage(appError),
     };
   }
 }
 
-// Extend Window interface for Solana
 declare global {
   interface Window {
     solana?: {

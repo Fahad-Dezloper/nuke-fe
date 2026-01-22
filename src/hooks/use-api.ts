@@ -1,8 +1,3 @@
-/**
- * useApi Hook
- * Custom hook for making API calls with loading and error states
- */
-
 import { useState, useCallback } from 'react';
 import type { ApiError } from '@/types';
 

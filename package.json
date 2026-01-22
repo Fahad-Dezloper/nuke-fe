@@ -16,6 +16,8 @@
     "@turnkey/sdk-browser": "^5.14.1",
     "@turnkey/sdk-server": "^4.12.2",
     "@turnkey/wallet-stamper": "^1.1.11",
+    "@turnkey/ethers": "^1.1.34",
+    "@turnkey/http": "^3.6.0",
     "axios": "^1.13.2",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",

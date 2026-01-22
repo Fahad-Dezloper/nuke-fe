@@ -5,6 +5,7 @@
  * Right side panel with position controls
  */
 
+import { useAtomValue } from 'jotai';
 import { ChevronRight } from 'lucide-react';
 import { PositionControlsSection } from './trading-dashboard';
 import { cn } from '@/lib/utils';
@@ -15,16 +16,20 @@ import { PositionDetailsSection } from './position-controls/position-details-sec
 import { TradeDetailsSection } from './position-controls/trade-details-section';
 import { AssetPriceHeader } from './position-controls/asset-price-header';
 import { mockAssetPrice } from '@/lib/mocks';
+import { isLoggedInAtom } from '@/lib/turnkey/store';
 
 interface PositionControlsSectionContentProps {
   className?: string;
   onConnectWallet?: () => void;
+  onOpenPosition?: () => void;
 }
 
 export function PositionControlsSectionContent({
   className,
   onConnectWallet,
+  onOpenPosition,
 }: PositionControlsSectionContentProps) {
+  const isLoggedIn = useAtomValue(isLoggedInAtom);
 
   return (
     <PositionControlsSection
@@ -59,19 +64,38 @@ export function PositionControlsSectionContent({
           <TradeDetailsSection />
         </div>
 
-        {/* Footer - Wallet Connection */}
+        {/* Footer - Wallet Connection / Open Position */}
         <div className='px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-xl'>
-          <div className='flex items-center gap-2'>
-            <div className='h-2 w-2 rounded-full bg-green-500' />
-            <span className='text-xs text-text-muted-60'>
-              Connect your wallet to start trading
-            </span>
-          </div>
-          <ConnectWalletButton
-            onClick={onConnectWallet}
-            size='md'
-            fullWidth
-          />
+          {isLoggedIn ? (
+            <>
+              <div className='flex items-center gap-2'>
+                <div className='h-2 w-2 rounded-full bg-green-500' />
+                <span className='text-xs text-text-muted-60'>
+                  Wallet connected
+                </span>
+              </div>
+              <ConnectWalletButton
+                onClick={onOpenPosition || onConnectWallet}
+                size='md'
+                fullWidth
+                text='OPEN POSITION'
+              />
+            </>
+          ) : (
+            <>
+              <div className='flex items-center gap-2'>
+                <div className='h-2 w-2 rounded-full bg-green-500' />
+                <span className='text-xs text-text-muted-60'>
+                  Connect your wallet to start trading
+                </span>
+              </div>
+              <ConnectWalletButton
+                onClick={onConnectWallet}
+                size='md'
+                fullWidth
+              />
+            </>
+          )}
         </div>
       </div>
     </PositionControlsSection>
