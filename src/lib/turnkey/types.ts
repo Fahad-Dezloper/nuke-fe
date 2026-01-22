@@ -17,6 +17,8 @@ export interface Wallet {
 export interface TurnkeyState {
   isLoggedIn: boolean;
   isLoading: boolean;
+  isLoggingIn: boolean;
+  isCreatingWallet: boolean;
   userWallets: Wallet[];
   turnkeySubOrgId: string | null;
   publicKey: string | null;

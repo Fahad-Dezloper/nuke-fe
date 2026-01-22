@@ -113,6 +113,9 @@ export function TurnkeyProvider({ children }: { children: React.ReactNode }) {
 
   const handleLoginWithEVMWallet = useCallback(async () => {
     try {
+      turnkeyClient.updateState({ isLoggingIn: true });
+      setState(turnkeyClient.getState());
+      
       const result = await loginWithEVMWallet();
 
       if (result.success && result.subOrgId) {
@@ -120,15 +123,23 @@ export function TurnkeyProvider({ children }: { children: React.ReactNode }) {
         setState(turnkeyClient.getState());
         return true;
       }
+      
+      turnkeyClient.updateState({ isLoggingIn: false });
+      setState(turnkeyClient.getState());
       return false;
     } catch (error) {
       console.error('EVM wallet login error:', error);
+      turnkeyClient.updateState({ isLoggingIn: false });
+      setState(turnkeyClient.getState());
       return false;
     }
   }, []);
 
   const handleLoginWithSolanaWallet = useCallback(async () => {
     try {
+      turnkeyClient.updateState({ isLoggingIn: true });
+      setState(turnkeyClient.getState());
+      
       const result = await loginWithSolanaWallet();
 
       if (result.success && result.subOrgId) {
@@ -136,9 +147,14 @@ export function TurnkeyProvider({ children }: { children: React.ReactNode }) {
         setState(turnkeyClient.getState());
         return true;
       }
+      
+      turnkeyClient.updateState({ isLoggingIn: false });
+      setState(turnkeyClient.getState());
       return false;
     } catch (error) {
       console.error('Solana wallet login error:', error);
+      turnkeyClient.updateState({ isLoggingIn: false });
+      setState(turnkeyClient.getState());
       return false;
     }
   }, []);

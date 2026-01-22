@@ -3,6 +3,7 @@ import { Roboto_Mono } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/layout/navbar';
 import { TurnkeyProvider } from '@/lib/turnkey';
+import { LoadingOverlay } from '@/components/layout/loading-overlay';
 // import { Footer } from '@/components/layout/footer';
 
 const robotoMono = Roboto_Mono({
@@ -39,6 +40,7 @@ export default function RootLayout({
       className='dark'>
       <body className={`${robotoMono.variable} antialiased overflow-hidden`}>
         <TurnkeyProvider>
+          <LoadingOverlay />
           <div className='flex h-screen flex-col'>
             <Navbar />
             <main className='flex-1 overflow-hidden'>{children}</main>

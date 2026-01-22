@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useTurnkey } from '@/lib/turnkey';
+import { useTurnkey, getEVMAddress } from '@/lib/turnkey';
 import { motion } from 'framer-motion';
 import { LogOut, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,14 +26,13 @@ export function WalletStatus() {
   };
 
   // Get first wallet address for display
-  const firstWallet = state.userWallets[0];
-  const firstAddress = firstWallet?.accounts?.[0]?.address || 'Connected';
+  const walletAddress = getEVMAddress(state.userWallets) || 'Connected';
 
   // Truncate address for display
   const displayAddress =
-    firstAddress.length > 20
-      ? `${firstAddress.slice(0, 6)}...${firstAddress.slice(-4)}`
-      : firstAddress;
+    walletAddress.length > 20
+      ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+      : walletAddress;
 
   return (
     <div className='flex items-center gap-2'>

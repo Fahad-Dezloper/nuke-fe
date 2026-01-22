@@ -19,6 +19,7 @@ export {
   PhantomSolanaWallet,
 } from './wallet-helpers';
 export { calculateSha256, isOAuthRedirectInProgress, extractOAuthParams } from './utils';
+export { getEVMAddress, getSolanaAddress } from './wallet-utils';
 
 // Types
 export type {

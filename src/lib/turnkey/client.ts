@@ -34,6 +34,8 @@ export class TurnkeyClient {
     this.state = {
       isLoggedIn: false,
       isLoading: true,
+      isLoggingIn: false,
+      isCreatingWallet: false,
       userWallets: [],
       turnkeySubOrgId: null,
       publicKey: null,
@@ -77,7 +79,7 @@ export class TurnkeyClient {
     };
   }
 
-  private updateState(newState: Partial<TurnkeyState>) {
+  updateState(newState: Partial<TurnkeyState>) {
     this.state = { ...this.state, ...newState };
     if (this.stateCallback) {
       this.stateCallback(this.state);
@@ -165,6 +167,8 @@ export class TurnkeyClient {
   // Load user wallets and data
   async loadUserData(subOrgId: string): Promise<void> {
     try {
+      this.updateState({ isLoggingIn: true });
+      
       const indexedDbClient = await this.turnkey.indexedDbClient();
       await indexedDbClient.init();
 
@@ -213,26 +217,37 @@ export class TurnkeyClient {
       });
 
       await this.walletManager.ensureUserHasRequiredWallets();
+      
+      this.updateState({ isLoggingIn: false });
     } catch (error) {
       console.error('Failed to load user data:', error);
+      this.updateState({ isLoggingIn: false });
       await this.prepareForLogin();
     }
   }
 
   // Google OAuth login
   async loginWithGoogle(googleCredential: string): Promise<LoginResult> {
-    const result = await this.oauthHandler.loginWithGoogle(googleCredential);
-
-    if (result.success && result.subOrgId) {
-      // Load user data after successful login
-      await this.loadUserData(result.subOrgId);
-      return {
-        ...result,
-        wallets: this.state.userWallets,
-      };
+    this.updateState({ isLoggingIn: true });
+    
+    try {
+      const result = await this.oauthHandler.loginWithGoogle(googleCredential);
+      
+      if (result.success && result.subOrgId) {
+        // Load user data after successful login (loadUserData will manage isLoggingIn state)
+        await this.loadUserData(result.subOrgId);
+        return {
+          ...result,
+          wallets: this.state.userWallets,
+        };
+      }
+      
+      this.updateState({ isLoggingIn: false });
+      return result;
+    } catch (error) {
+      this.updateState({ isLoggingIn: false });
+      throw error;
     }
-
-    return result;
   }
 
   // Generate Google OAuth URL
@@ -246,7 +261,16 @@ export class TurnkeyClient {
 
   // Create wallet with both EVM and Solana accounts
   async createWallet(walletName: string): Promise<WalletCreationResult> {
-    return this.walletManager.createWallet(walletName);
+    this.updateState({ isCreatingWallet: true });
+    
+    try {
+      const result = await this.walletManager.createWallet(walletName);
+      this.updateState({ isCreatingWallet: false });
+      return result;
+    } catch (error) {
+      this.updateState({ isCreatingWallet: false });
+      throw error;
+    }
   }
 
   // Sign Ethereum transaction
@@ -356,11 +380,29 @@ export class TurnkeyClient {
 
   // Expose wallet manager methods for convenience
   async createSolanaWallet(): Promise<WalletCreationResult> {
-    return this.walletManager.createSolanaWallet();
+    this.updateState({ isCreatingWallet: true });
+    
+    try {
+      const result = await this.walletManager.createSolanaWallet();
+      this.updateState({ isCreatingWallet: false });
+      return result;
+    } catch (error) {
+      this.updateState({ isCreatingWallet: false });
+      throw error;
+    }
   }
 
   async createEthereumWallet(): Promise<WalletCreationResult> {
-    return this.walletManager.createEthereumWallet();
+    this.updateState({ isCreatingWallet: true });
+    
+    try {
+      const result = await this.walletManager.createEthereumWallet();
+      this.updateState({ isCreatingWallet: false });
+      return result;
+    } catch (error) {
+      this.updateState({ isCreatingWallet: false });
+      throw error;
+    }
   }
 
   public async getIndexedDbClient() {

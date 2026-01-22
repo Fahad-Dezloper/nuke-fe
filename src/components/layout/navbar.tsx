@@ -14,7 +14,7 @@ import Image from 'next/image';
 import { ConnectWalletButton } from '@/components/ui/connect-wallet-button';
 import { WalletStatus } from '@/components/ui/wallet-status';
 import { DepositButton } from '@/components/ui/deposit-button';
-import { useTurnkey } from '@/lib/turnkey';
+import { useTurnkey, getEVMAddress } from '@/lib/turnkey';
 
 interface NavItem {
   label: string;
@@ -107,7 +107,7 @@ export function Navbar({
             <>
               <DepositButton 
                 size='sm' 
-                walletAddress={state.userWallets[0]?.accounts?.[0]?.address}
+                walletAddress={getEVMAddress(state.userWallets)}
               />
               <WalletStatus />
             </>
