@@ -27,9 +27,7 @@ export function WalletStatus() {
 
   // Get first wallet address for display
   const firstWallet = state.userWallets[0];
-  const firstAddress =
-    firstWallet?.accounts?.[0]?.address ||
-    'Connected';
+  const firstAddress = firstWallet?.accounts?.[0]?.address || 'Connected';
 
   // Truncate address for display
   const displayAddress =

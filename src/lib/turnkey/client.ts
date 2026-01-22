@@ -84,14 +84,14 @@ export class TurnkeyClient {
     }
   }
 
-  // Initialize Turnkey - checks for existing session or prepares for login
+  // Initialize Turnkey
   async initialize(): Promise<void> {
     try {
       this.updateState({ isLoading: true });
 
       if (isOAuthRedirectInProgress()) {
         await this.oauthHandler.handleOAuthRedirect(
-          (credential) => this.oauthHandler.loginWithGoogle(credential),
+          (credential, publicKey) => this.oauthHandler.loginWithGoogle(credential, publicKey),
           (subOrgId) => this.loadUserData(subOrgId),
           () => this.prepareForLogin()
         );
@@ -112,7 +112,7 @@ export class TurnkeyClient {
         }
       } else {
         await this.oauthHandler.handleOAuthRedirect(
-          (credential) => this.oauthHandler.loginWithGoogle(credential),
+          (credential, publicKey) => this.oauthHandler.loginWithGoogle(credential, publicKey),
           (subOrgId) => this.loadUserData(subOrgId),
           () => this.prepareForLogin()
         );
@@ -222,7 +222,7 @@ export class TurnkeyClient {
   // Google OAuth login
   async loginWithGoogle(googleCredential: string): Promise<LoginResult> {
     const result = await this.oauthHandler.loginWithGoogle(googleCredential);
-    
+
     if (result.success && result.subOrgId) {
       // Load user data after successful login
       await this.loadUserData(result.subOrgId);
@@ -231,7 +231,7 @@ export class TurnkeyClient {
         wallets: this.state.userWallets,
       };
     }
-    
+
     return result;
   }
 

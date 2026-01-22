@@ -15,13 +15,13 @@ export class OAuthHandler {
     private getNonce: () => string | null,
     private checkExistingKeyPair: () => Promise<string | null>,
     private calculateSha256: (input: string) => Promise<string>
-  ) {}
+  ) { }
 
   /**
    * Handle OAuth redirect after Google login
    */
   async handleOAuthRedirect(
-    loginWithGoogle: (credential: string) => Promise<LoginResult>,
+    loginWithGoogle: (credential: string, publicKey?: string) => Promise<LoginResult>,
     loadUserData: (subOrgId: string) => Promise<void>,
     prepareForLogin: () => Promise<void>
   ): Promise<void> {
@@ -39,15 +39,15 @@ export class OAuthHandler {
         if (!publicKey) {
           const existingPublicKey = await this.checkExistingKeyPair();
           if (existingPublicKey) {
-            const nonce = await this.calculateSha256(existingPublicKey);
+            await this.calculateSha256(existingPublicKey);
             publicKey = existingPublicKey;
-            // Note: We can't update state here, so we'll handle it in the result
+            // Note: We can't update state here, so we pass the publicKey directly
           } else {
             throw new Error('No public key available during OAuth redirect');
           }
         }
 
-        const result = await loginWithGoogle(idToken);
+        const result = await loginWithGoogle(idToken, publicKey);
 
         if (result.success) {
           window.history.replaceState(
@@ -87,10 +87,11 @@ export class OAuthHandler {
     }
 
     const flow = 'redirect';
+    const normalizedRedirectUri = redirectUri.replace(/\/$/, '');
 
     const googleAuthUrl = new URL(GOOGLE_AUTH_URL);
     googleAuthUrl.searchParams.set('client_id', clientId);
-    googleAuthUrl.searchParams.set('redirect_uri', redirectUri.replace(/\/$/, ''));
+    googleAuthUrl.searchParams.set('redirect_uri', normalizedRedirectUri);
     googleAuthUrl.searchParams.set('response_type', 'id_token');
     googleAuthUrl.searchParams.set('scope', 'openid email profile');
     googleAuthUrl.searchParams.set('nonce', nonce);
@@ -111,9 +112,9 @@ export class OAuthHandler {
   /**
    * Login with Google OAuth
    */
-  async loginWithGoogle(googleCredential: string): Promise<LoginResult> {
+  async loginWithGoogle(googleCredential: string, publicKeyOverride?: string): Promise<LoginResult> {
     try {
-      const publicKey = this.getPublicKey();
+      const publicKey = publicKeyOverride || this.getPublicKey();
       if (!publicKey) {
         throw new Error('Public key not available');
       }
@@ -151,6 +152,8 @@ export class OAuthHandler {
         });
 
         const createResult = await createSuborgResponse.json();
+
+        console.log('Suborg created with id: ', createResult);
         targetSubOrgId = createResult.subOrganizationId;
       }
 

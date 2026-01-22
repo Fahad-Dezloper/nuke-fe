@@ -5,8 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Turnkey } from '@turnkey/sdk-server';
-import { jwtDecode } from 'jwt-decode';
-import type { JwtPayload } from 'jwt-decode';
+import { decode } from 'jsonwebtoken';
 
 const turnkey = new Turnkey({
   apiBaseUrl: 'https://api.turnkey.com',
@@ -22,7 +21,7 @@ export async function POST(request: NextRequest) {
     let decodedData = null;
 
     if (oauthProviders.length !== 0) {
-      const decoded = jwtDecode(oauthProviders[0].oidcToken);
+      const decoded = decode(oauthProviders[0].oidcToken);
       if (decoded && typeof decoded === 'object' && 'email' in decoded) {
         decodedData = decoded;
       }
@@ -35,10 +34,10 @@ export async function POST(request: NextRequest) {
         {
           userName: decodedData
             ? JSON.stringify({
-                name: decodedData?.name,
-                picture: decodedData?.picture,
-                time: String(Date.now()),
-              })
+              name: decodedData?.name,
+              picture: decodedData?.picture,
+              time: String(Date.now()),
+            })
             : `user-${String(Date.now())}`,
           userEmail: decodedData ? decodedData?.email : '',
           apiKeys: apiKeys || [],

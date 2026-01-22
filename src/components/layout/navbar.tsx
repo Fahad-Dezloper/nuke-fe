@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { ConnectWalletButton } from '@/components/ui/connect-wallet-button';
 import { WalletStatus } from '@/components/ui/wallet-status';
+import { DepositButton } from '@/components/ui/deposit-button';
 import { useTurnkey } from '@/lib/turnkey';
 
 interface NavItem {
@@ -103,7 +104,13 @@ export function Navbar({
           transition={{ duration: 0.5, delay: 0.2 }}
           className='flex items-center gap-2.5'>
           {state.isLoggedIn ? (
-            <WalletStatus />
+            <>
+              <DepositButton 
+                size='sm' 
+                walletAddress={state.userWallets[0]?.accounts?.[0]?.address}
+              />
+              <WalletStatus />
+            </>
           ) : (
             <ConnectWalletButton
               onClick={onConnectWallet}

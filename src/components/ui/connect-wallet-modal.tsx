@@ -6,7 +6,7 @@
  */
 
 import { motion } from 'framer-motion';
-import { Wallet } from 'lucide-react';
+import { Wallet, Wallet2, WalletIcon } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Modal } from './modal';
@@ -96,23 +96,7 @@ export function ConnectWalletModal({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className='flex flex-col items-center mb-8'>
-        <motion.div
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          transition={{
-            type: 'spring',
-            delay: 0.15,
-            stiffness: 200,
-          }}
-          className='mb-5'>
-          <Image
-            src='/logo.png'
-            alt='Nuke Logo'
-            width={56}
-            height={56}
-            className='drop-shadow-xl'
-          />
-        </motion.div>
+     
         <h2 className='text-xl font-semibold text-text-primary mb-2 tracking-tight'>
           CONNECT WALLET
         </h2>
@@ -186,7 +170,9 @@ export function ConnectWalletModal({
             <div className='w-full border-t border-border-white-10'></div>
           </div>
           <div className='relative flex justify-center text-sm'>
-            <span className='px-2 bg-card text-text-muted-40'>Or connect with</span>
+            <span className='px-2 bg-card text-text-muted-40'>
+              Or connect with
+            </span>
           </div>
         </div>
 
@@ -281,7 +267,8 @@ export function ConnectWalletModal({
               </>
             ) : (
               <>
-                <span className='text-lg mr-1'>👻</span>
+                {/* <span className='text-lg mr-1'>👻</span> */}
+
                 <span className='text-sm font-medium text-text-primary'>
                   Connect Phantom
                 </span>

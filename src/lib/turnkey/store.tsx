@@ -60,7 +60,8 @@ export function TurnkeyProvider({ children }: { children: React.ReactNode }) {
     }
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
-    const redirectUri = window.location.origin + '/login';
+    // Normalize redirect URI - remove trailing slash to match Google Cloud Console exactly
+    const redirectUri = window.location.origin.replace(/\/$/, '');
 
     turnkeyClient.redirectToGoogle(clientId, redirectUri);
     return true;
