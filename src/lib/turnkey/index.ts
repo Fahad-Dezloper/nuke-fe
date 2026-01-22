@@ -5,7 +5,21 @@
 
 // Core
 export { TurnkeyClient, turnkeyClient } from './client';
-export { TurnkeyProvider, useTurnkey } from './store';
+export { TurnkeyProvider } from './provider';
+export { useTurnkey } from './hooks';
+
+// Store atoms (for advanced usage)
+export {
+  turnkeyStateAtom,
+  isLoggedInAtom,
+  isLoadingAtom,
+  isLoggingInAtom,
+  isCreatingWalletAtom,
+  userWalletsAtom,
+  turnkeySubOrgIdAtom,
+  publicKeyAtom,
+  nonceAtom,
+} from './store';
 
 // Managers (for advanced usage)
 export { SessionManager } from './session-manager';
