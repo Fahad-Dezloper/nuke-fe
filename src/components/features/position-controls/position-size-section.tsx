@@ -5,19 +5,20 @@
  * Input field for position size with currency dropdown and conversion
  */
 
-import { useState } from 'react';
+import { useAtom } from 'jotai';
 import { ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { mockConversionRate, mockStepSize } from '@/lib/mocks';
+import { marginAtom, marginCurrencyAtom } from './store';
 
 interface PositionSizeSectionProps {
   className?: string;
 }
 
 export function PositionSizeSection({ className }: PositionSizeSectionProps) {
-  const [positionSize, setPositionSize] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [positionSize, setPositionSize] = useAtom(marginAtom);
+  const [currency, setCurrency] = useAtom(marginCurrencyAtom);
 
   // Mock conversion rate - in real app, this would come from props or API
   const lineaValue = positionSize

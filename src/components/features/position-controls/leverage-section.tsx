@@ -5,17 +5,18 @@
  * Slider and input for leverage selection (1x-5x)
  */
 
-import { useState } from 'react';
+import { useAtom } from 'jotai';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { leverageAtom } from './store';
 
 interface LeverageSectionProps {
   className?: string;
 }
 
 export function LeverageSection({ className }: LeverageSectionProps) {
-  const [leverage, setLeverage] = useState(3);
+  const [leverage, setLeverage] = useAtom(leverageAtom);
 
   const handleSliderChange = (value: number) => {
     setLeverage(value);
