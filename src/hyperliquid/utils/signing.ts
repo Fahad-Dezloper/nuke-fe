@@ -1,0 +1,932 @@
+/**
+ * credit to https://github.com/nktkas/hyperliquid/blob/main/src/signing.ts
+ */
+
+/**
+ * This module contains functions for generating Hyperliquid transaction signatures
+ * and interfaces to various wallet implementations.
+ * @example
+ * ```ts
+ * import { signL1Action } from "@nktkas/hyperliquid/signing";
+ *
+ * const action = {
+ *   type: "cancel",
+ *   cancels: [{ a: 0, o: 12345 }],
+ * };
+ * const nonce = Date.now();
+ *
+ * const signature = await signL1Action({
+ *   wallet,
+ *   action,
+ *   nonce,
+ *   isTestnet: true, // Change to false for mainnet
+ * });
+ * ```
+ * @example
+ * ```ts
+ * import { signUserSignedAction } from "@nktkas/hyperliquid/signing";
+ *
+ * const action = {
+ *   type: "approveAgent",
+ *   hyperliquidChain: "Testnet", // "Mainnet" or "Testnet"
+ *   signatureChainId: "0x66eee",
+ *   nonce: Date.now(),
+ *   agentAddress: "0x...",
+ *   agentName: "Agent",
+ * };
+ *
+ * const signature = await signUserSignedAction({
+ *   wallet,
+ *   action,
+ *   types: {
+ *     "HyperliquidTransaction:ApproveAgent": [
+ *       { name: "hyperliquidChain", type: "string" },
+ *       { name: "agentAddress", type: "address" },
+ *       { name: "agentName", type: "string" },
+ *       { name: "nonce", type: "uint64" },
+ *     ],
+ *   },
+ *   chainId: parseInt(action.signatureChainId, 16),
+ * });
+ * ```
+ * @module
+ */
+
+import { encode } from "@msgpack/msgpack";
+import { keccak_256 } from "@noble/hashes/sha3.js";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+
+export type Hex = `0x${string}`;
+export type ValueMap = Record<string, unknown>;
+export type ValueType =
+  | string
+  | number
+  | boolean
+  | null
+  | ValueMap
+  | ValueType[]
+  | bigint;
+
+/** Abstract interface for a [viem wallet](https://viem.sh/docs/clients/wallet). */
+export interface AbstractViemWalletClient {
+  signTypedData(params: {
+    domain: {
+      name: string;
+      version: string;
+      chainId: number;
+      verifyingContract: Hex;
+    };
+    types: {
+      [key: string]: {
+        name: string;
+        type: string;
+      }[];
+    };
+    primaryType: string;
+    message: Record<string, unknown>;
+  }): Promise<Hex>;
+}
+
+/** Abstract interface for an [ethers.js signer](https://docs.ethers.org/v6/api/providers/#Signer). */
+export interface AbstractEthersSigner {
+  getAddress(): Promise<string>;
+  signTypedData(
+    domain: {
+      name: string;
+      version: string;
+      chainId: number;
+      verifyingContract: string;
+    },
+    types: {
+      [key: string]: {
+        name: string;
+        type: string;
+      }[];
+    },
+    value: Record<string, unknown>,
+  ): Promise<string>;
+}
+
+/** Abstract interface for an [ethers.js v5 signer](https://docs.ethers.org/v5/api/providers/#Signer). */
+export interface AbstractEthersV5Signer {
+  _signTypedData(
+    domain: {
+      name: string;
+      version: string;
+      chainId: number;
+      verifyingContract: string;
+    },
+    types: {
+      [key: string]: {
+        name: string;
+        type: string;
+      }[];
+    },
+    value: Record<string, unknown>,
+  ): Promise<string>;
+}
+
+/** Abstract interface for an extended [viem wallet](https://viem.sh/docs/clients/wallet) (e.g. privy [useSignTypedData](https://docs.privy.io/reference/sdk/react-auth/functions/useSignTypedData#returns)). */
+export interface AbstractExtendedViemWalletClient {
+  signTypedData(
+    params: {
+      domain: {
+        name: string;
+        version: string;
+        chainId: number;
+        verifyingContract: Hex;
+      };
+      types: {
+        [key: string]: {
+          name: string;
+          type: string;
+        }[];
+      };
+      primaryType: string;
+      message: Record<string, unknown>;
+    },
+    options?: unknown,
+  ): Promise<Hex>;
+}
+
+/** Abstract interface for a [window.ethereum](https://eips.ethereum.org/EIPS/eip-1193) object. */
+export interface AbstractWindowEthereum {
+  // deno-lint-ignore no-explicit-any
+  request(args: { method: any; params: any }): Promise<any>;
+}
+
+/**
+ * Create a hash of the L1 action.
+ *
+ * Note: Hash generation depends on the order of the action keys.
+ * @param action - The action to be hashed.
+ * @param nonce - Unique request identifier (recommended current timestamp in ms).
+ * @param vaultAddress - Optional vault address used in the action.
+ * @returns The hash of the action.
+ */
+export function createL1ActionHash(
+  action: ValueType,
+  nonce: number,
+  vaultAddress?: Hex,
+): Hex {
+  const normalizedAction = normalizeIntegersForMsgPack(action);
+  const msgPackBytes = encode(normalizedAction);
+
+  const additionalBytesLength = vaultAddress ? 29 : 9;
+  const data = new Uint8Array(msgPackBytes.length + additionalBytesLength);
+  data.set(msgPackBytes);
+
+  const view = new DataView(data.buffer);
+  view.setBigUint64(msgPackBytes.length, BigInt(nonce));
+
+  if (vaultAddress) {
+    view.setUint8(msgPackBytes.length + 8, 1);
+    data.set(hexToBytes(vaultAddress.slice(2)), msgPackBytes.length + 9);
+  } else {
+    view.setUint8(msgPackBytes.length + 8, 0);
+  }
+
+  const hashBytes = keccak_256(data);
+  const hashHex = bytesToHex(hashBytes);
+  return `0x${hashHex}`;
+}
+
+/** Layer to make {@link https://jsr.io/@std/msgpack | @std/msgpack} compatible with {@link https://github.com/msgpack/msgpack-javascript | @msgpack/msgpack}. */
+function normalizeIntegersForMsgPack(obj: ValueType): ValueType {
+  const THIRTY_ONE_BITS = 2147483648;
+  const THIRTY_TWO_BITS = 4294967296;
+
+  if (
+    typeof obj === "number" &&
+    Number.isInteger(obj) &&
+    obj <= Number.MAX_SAFE_INTEGER &&
+    obj >= Number.MIN_SAFE_INTEGER &&
+    (obj >= THIRTY_TWO_BITS || obj < -THIRTY_ONE_BITS)
+  ) {
+    return BigInt(obj);
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(normalizeIntegersForMsgPack);
+  }
+
+  if (obj && typeof obj === "object" && obj !== null) {
+    return Object.fromEntries(
+      Object.entries(obj).map(([key, value]) => [
+        key,
+        normalizeIntegersForMsgPack(value as ValueType),
+      ]),
+    );
+  }
+
+  return obj;
+}
+
+/**
+ * Sign an L1 action.
+ *
+ * Note: Signature generation depends on the order of the action keys.
+ * @param args - Arguments for signing the action.
+ * @returns The signature components r, s, and v.
+ * @example
+ * ```ts
+ * import { signL1Action } from "@nktkas/hyperliquid/signing";
+ * import { privateKeyToAccount } from "viem/accounts";
+ *
+ * const wallet = privateKeyToAccount("0x..."); // Change to your private key
+ *
+ * const action = {
+ *     type: "cancel",
+ *     cancels: [
+ *         { a: 0, o: 12345 }, // Asset index and order ID
+ *     ],
+ * };
+ * const nonce = Date.now();
+ *
+ * const signature = await signL1Action({
+ *     wallet,
+ *     action,
+ *     nonce,
+ *     isTestnet: true, // Change to false for mainnet
+ * });
+ *
+ * const response = await fetch("https://api.hyperliquid-testnet.xyz/exchange", {
+ *     method: "POST",
+ *     headers: { "Content-Type": "application/json" },
+ *     body: JSON.stringify({ action, signature, nonce }),
+ * });
+ * const body = await response.json();
+ * ```
+ */
+export async function signL1Action(args: {
+  /** Wallet to sign the action. */
+  wallet:
+    | AbstractViemWalletClient
+    | AbstractEthersSigner
+    | AbstractEthersV5Signer
+    | AbstractExtendedViemWalletClient
+    | AbstractWindowEthereum;
+  /** The action to be signed. */
+  action: ValueType;
+  /** Unique request identifier (recommended current timestamp in ms). */
+  nonce: number;
+  /** Indicates if the action is for the testnet. Default is `false`. */
+  isTestnet?: boolean;
+  /** Optional vault address used in the action. */
+  vaultAddress?: Hex;
+}): Promise<{ r: Hex; s: Hex; v: number }> {
+  const { wallet, action, nonce, isTestnet = false, vaultAddress } = args;
+
+  const domain = {
+    name: "Exchange",
+    version: "1",
+    chainId: 1337,
+    verifyingContract: "0x0000000000000000000000000000000000000000",
+  } as const;
+  const types = {
+    Agent: [
+      { name: "source", type: "string" },
+      { name: "connectionId", type: "bytes32" },
+    ],
+  };
+
+  const actionHash = createL1ActionHash(action, nonce, vaultAddress);
+  const message = {
+    source: isTestnet ? "b" : "a",
+    connectionId: actionHash,
+  };
+
+  const signature = await abstractSignTypedData({
+    wallet,
+    domain,
+    types,
+    message,
+  });
+  return splitSignature(signature);
+}
+
+/**
+ * Sign a user-signed action.
+ *
+ * Note: Signature generation depends on the order of types.
+ * @param args - Arguments for signing the action.
+ * @returns The signature components r, s, and v.
+ * @example
+ * ```ts
+ * import { signUserSignedAction } from "@nktkas/hyperliquid/signing";
+ * import { privateKeyToAccount } from "viem/accounts";
+ *
+ * const wallet = privateKeyToAccount("0x..."); // Change to your private key
+ *
+ * const action = {
+ *     type: "approveAgent",
+ *     hyperliquidChain: "Testnet", // "Mainnet" or "Testnet"
+ *     signatureChainId: "0x66eee",
+ *     nonce: Date.now(),
+ *     agentAddress: "0x...", // Change to your agent address
+ *     agentName: "Agent",
+ * };
+ *
+ * const signature = await signUserSignedAction({
+ *     wallet,
+ *     action,
+ *     types: {
+ *         "HyperliquidTransaction:ApproveAgent": [
+ *             { name: "hyperliquidChain", type: "string" },
+ *             { name: "agentAddress", type: "address" },
+ *             { name: "agentName", type: "string" },
+ *             { name: "nonce", type: "uint64" },
+ *         ],
+ *     },
+ *     chainId: parseInt(action.signatureChainId, 16),
+ * });
+ *
+ * const response = await fetch("https://api.hyperliquid-testnet.xyz/exchange", {
+ *     method: "POST",
+ *     headers: { "Content-Type": "application/json" },
+ *     body: JSON.stringify({ action, signature, nonce: action.nonce }),
+ * });
+ * const body = await response.json();
+ * ```
+ */
+export async function signUserSignedAction(args: {
+  /** Wallet to sign the action. */
+  wallet:
+    | AbstractViemWalletClient
+    | AbstractEthersSigner
+    | AbstractEthersV5Signer
+    | AbstractExtendedViemWalletClient
+    | AbstractWindowEthereum;
+  /** The action to be signed. */
+  action: Record<string, unknown>;
+  /** The types of the action. */
+  types: { [key: string]: { name: string; type: string }[] };
+  /** The chain ID. */
+  chainId: number;
+}): Promise<{ r: Hex; s: Hex; v: number }> {
+  const { wallet, action, types, chainId } = args;
+
+  const domain = {
+    name: "HyperliquidSignTransaction",
+    version: "1",
+    chainId,
+    verifyingContract: "0x0000000000000000000000000000000000000000",
+  } as const;
+
+  const signature = await abstractSignTypedData({
+    wallet,
+    domain,
+    types,
+    message: action,
+  });
+  return splitSignature(signature);
+}
+
+/** Signs typed data with the provided wallet using EIP-712. */
+async function abstractSignTypedData(args: {
+  wallet:
+    | AbstractViemWalletClient
+    | AbstractEthersSigner
+    | AbstractEthersV5Signer
+    | AbstractExtendedViemWalletClient
+    | AbstractWindowEthereum;
+  domain: {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: Hex;
+  };
+  types: {
+    [key: string]: {
+      name: string;
+      type: string;
+    }[];
+  };
+  message: Record<string, unknown>;
+}): Promise<Hex> {
+  const { wallet, domain, types, message } = args;
+  if (
+    isAbstractViemWalletClient(wallet) ||
+    isAbstractExtendedViemWalletClient(wallet)
+  ) {
+    const primaryType = Object.keys(types)[0];
+    return await wallet.signTypedData({ domain, types, primaryType, message });
+  } else if (isAbstractEthersSigner(wallet)) {
+    return (await wallet.signTypedData(domain, types, message)) as Hex;
+  } else if (isAbstractEthersV5Signer(wallet)) {
+    return (await wallet._signTypedData(domain, types, message)) as Hex;
+  } else if (isAbstractWindowEthereum(wallet)) {
+    return await signTypedDataWithWindowEthereum(
+      wallet,
+      domain,
+      types,
+      message,
+    );
+  } else {
+    throw new Error("Unsupported wallet for signing typed data");
+  }
+}
+
+/** Signs typed data using `window.ethereum` (EIP-1193) with `eth_signTypedData_v4` (EIP-712). */
+async function signTypedDataWithWindowEthereum(
+  ethereum: AbstractWindowEthereum,
+  domain: {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: Hex;
+  },
+  types: {
+    [key: string]: {
+      name: string;
+      type: string;
+    }[];
+  },
+  message: Record<string, unknown>,
+): Promise<Hex> {
+  const accounts = await ethereum.request({
+    method: "eth_requestAccounts",
+    params: [],
+  });
+  if (!Array.isArray(accounts) || accounts.length === 0) {
+    throw new Error("No Ethereum accounts available");
+  }
+
+  const from = accounts[0] as Hex;
+  const dataToSign = JSON.stringify({
+    domain,
+    types: {
+      EIP712Domain: [
+        { name: "name", type: "string" },
+        { name: "version", type: "string" },
+        { name: "chainId", type: "uint256" },
+        { name: "verifyingContract", type: "address" },
+      ],
+      ...types,
+    },
+    primaryType: Object.keys(types)[0],
+    message,
+  });
+  return (await ethereum.request({
+    method: "eth_signTypedData_v4",
+    params: [from, dataToSign],
+  })) as Hex;
+}
+
+/** Splits a signature hexadecimal string into its components. */
+export function splitSignature(signature: Hex): { r: Hex; s: Hex; v: number } {
+  const r = `0x${signature.slice(2, 66)}` as const;
+  const s = `0x${signature.slice(66, 130)}` as const;
+  const v = parseInt(signature.slice(130, 132), 16);
+  return { r, s, v };
+}
+
+/** Checks if the given value is an abstract viem wallet. */
+export function isAbstractViemWalletClient(
+  client: unknown,
+): client is AbstractViemWalletClient {
+  return (
+    typeof client === "object" &&
+    client !== null &&
+    "signTypedData" in client &&
+    typeof client.signTypedData === "function" &&
+    client.signTypedData.length === 1
+  );
+}
+
+/** Checks if the given value is an abstract ethers signer. */
+export function isAbstractEthersSigner(
+  client: unknown,
+): client is AbstractEthersSigner {
+  return (
+    typeof client === "object" &&
+    client !== null &&
+    "signTypedData" in client &&
+    typeof client.signTypedData === "function" &&
+    client.signTypedData.length === 3
+  );
+}
+
+/** Checks if the given value is an abstract ethers v5 signer. */
+export function isAbstractEthersV5Signer(
+  client: unknown,
+): client is AbstractEthersV5Signer {
+  return (
+    typeof client === "object" &&
+    client !== null &&
+    "_signTypedData" in client &&
+    typeof client._signTypedData === "function" &&
+    client._signTypedData.length === 3
+  );
+}
+
+/** Checks if the given value is an abstract extended viem wallet (e.g. privy `useSignTypedData`). */
+export function isAbstractExtendedViemWalletClient(
+  client: unknown,
+): client is AbstractViemWalletClient {
+  return (
+    typeof client === "object" &&
+    client !== null &&
+    "signTypedData" in client &&
+    typeof client.signTypedData === "function" &&
+    client.signTypedData.length === 2
+  );
+}
+
+/** Checks if the given value is an abstract `window.ethereum` object. */
+export function isAbstractWindowEthereum(
+  client: unknown,
+): client is AbstractWindowEthereum {
+  return (
+    typeof client === "object" &&
+    client !== null &&
+    "request" in client &&
+    typeof client.request === "function" &&
+    client.request.length >= 1
+  );
+}
+
+/** same as signL1Action but doesn't convert bigints */
+export async function signCancelAction(args: {
+  wallet: AbstractEthersSigner;
+  action: ValueType;
+  nonce: number;
+  isTestnet?: boolean;
+  vaultAddress?: Hex;
+}): Promise<{ r: Hex; s: Hex; v: number }> {
+  const { wallet, action, nonce, isTestnet = false, vaultAddress } = args;
+
+  const domain = {
+    name: "Exchange",
+    version: "1",
+    chainId: 1337,
+    verifyingContract: "0x0000000000000000000000000000000000000000",
+  } as const;
+
+  const types = {
+    Agent: [
+      { name: "source", type: "string" },
+      { name: "connectionId", type: "bytes32" },
+    ],
+  };
+
+  // Create hash without BigInt conversion
+  const msgPackBytes = encode(action);
+  const data = new Uint8Array(msgPackBytes.length + (vaultAddress ? 29 : 9));
+  data.set(msgPackBytes);
+  const view = new DataView(data.buffer);
+  view.setBigUint64(msgPackBytes.length, BigInt(nonce));
+  if (vaultAddress) {
+    view.setUint8(msgPackBytes.length + 8, 1);
+    data.set(hexToBytes(vaultAddress.slice(2)), msgPackBytes.length + 9);
+  } else {
+    view.setUint8(msgPackBytes.length + 8, 0);
+  }
+  const hashBytes = keccak_256(data);
+  const actionHash = `0x${bytesToHex(hashBytes)}` as Hex;
+
+  const message = {
+    source: isTestnet ? "b" : "a",
+    connectionId: actionHash,
+  };
+
+  const signature = await wallet.signTypedData(domain, types, message);
+  const r = `0x${signature.slice(2, 66)}` as const;
+  const s = `0x${signature.slice(66, 130)}` as const;
+  const v = parseInt(signature.slice(130, 132), 16);
+  return { r, s, v };
+}
+
+export interface CancelAction {
+  type: "cancel";
+  cancels: {
+    a: number;
+    o: number;
+  }[];
+}
+
+/** manual signing function for transferring spots to perps and vice versa */
+export type Signature = {
+  r: Hex;
+  s: Hex;
+  v: number;
+};
+
+export async function signTransferAction(
+  wallet: AbstractEthersSigner,
+  action: {
+    type: "usdClassTransfer";
+    hyperliquidChain: "Mainnet";
+    signatureChainId: string;
+    amount: string;
+    toPerp: boolean;
+    nonce: number;
+  },
+  isMainnet: boolean,
+): Promise<Signature> {
+  const domain = {
+    name: "HyperliquidSignTransaction",
+    version: "1",
+    chainId: 42161, // Arbitrum Mainnet
+    verifyingContract: "0x0000000000000000000000000000000000000000",
+  };
+
+  const types = {
+    "HyperliquidTransaction:UsdClassTransfer": [
+      { name: "hyperliquidChain", type: "string" },
+      { name: "amount", type: "string" },
+      { name: "toPerp", type: "bool" },
+      { name: "nonce", type: "uint64" },
+    ],
+  };
+
+  // Get the signature string
+  const signatureString = await wallet.signTypedData(
+    domain,
+    {
+      "HyperliquidTransaction:UsdClassTransfer":
+        types["HyperliquidTransaction:UsdClassTransfer"],
+    },
+    action,
+  );
+
+  // Parse the signature string into r, s, v components
+  const r = `0x${signatureString.slice(2, 66)}` as Hex;
+  const s = `0x${signatureString.slice(66, 130)}` as Hex;
+  const v = parseInt(signatureString.slice(130, 132), 16);
+
+  return { r, s, v };
+}
+
+export async function signTransferActionTestnet(
+  wallet: AbstractEthersSigner,
+  action: {
+    type: "usdClassTransfer";
+    hyperliquidChain: "Testnet";
+    signatureChainId: string;
+    amount: string;
+    toPerp: boolean;
+    nonce: number;
+  },
+  isMainnet: boolean,
+): Promise<Signature> {
+  const domain = {
+    name: "HyperliquidSignTransaction",
+    version: "1",
+    chainId: 421614, // Arbitrum Testnet
+    verifyingContract: "0x0000000000000000000000000000000000000000",
+  };
+
+  const types = {
+    "HyperliquidTransaction:UsdClassTransfer": [
+      { name: "hyperliquidChain", type: "string" },
+      { name: "amount", type: "string" },
+      { name: "toPerp", type: "bool" },
+      { name: "nonce", type: "uint64" },
+    ],
+  };
+
+  // Get the signature string
+  const signatureString = await wallet.signTypedData(
+    domain,
+    {
+      "HyperliquidTransaction:UsdClassTransfer":
+        types["HyperliquidTransaction:UsdClassTransfer"],
+    },
+    action,
+  );
+
+  // Parse the signature string into r, s, v components
+  const r = `0x${signatureString.slice(2, 66)}` as Hex;
+  const s = `0x${signatureString.slice(66, 130)}` as Hex;
+  const v = parseInt(signatureString.slice(130, 132), 16);
+
+  return { r, s, v };
+}
+export type TransferActionTestnet = {
+  type: "usdClassTransfer";
+  hyperliquidChain: "Testnet";
+  signatureChainId: string;
+  amount: string;
+  toPerp: boolean;
+  nonce: number;
+};
+
+export type TransferAction = {
+  type: "usdClassTransfer";
+  hyperliquidChain: "Mainnet";
+  signatureChainId: string;
+  amount: string;
+  toPerp: boolean;
+  nonce: number;
+};
+
+/** Creates typed data for Exchange actions on testnet */
+export function createTestnetExchangeTypedData(
+  action: ValueType,
+  nonce: number,
+  vaultAddress?: Hex,
+) {
+  return {
+    domain: {
+      name: "Exchange",
+      version: "1",
+      chainId: 1337,
+      verifyingContract: "0x0000000000000000000000000000000000000000" as Hex,
+    },
+    types: {
+      Agent: [
+        { name: "source", type: "string" },
+        { name: "connectionId", type: "bytes32" },
+      ],
+    },
+    primaryType: "Agent",
+    message: {
+      source: "b", // "b" for testnet
+      connectionId: createL1ActionHash(action, nonce, vaultAddress),
+    },
+  };
+}
+
+/** Creates typed data for Exchange actions on mainnet */
+export function createMainnetExchangeTypedData(
+  action: ValueType,
+  nonce: number,
+  vaultAddress?: Hex,
+) {
+  return {
+    domain: {
+      name: "Exchange",
+      version: "1",
+      chainId: 1337,
+      verifyingContract: "0x0000000000000000000000000000000000000000" as Hex,
+    },
+    types: {
+      Agent: [
+        { name: "source", type: "string" },
+        { name: "connectionId", type: "bytes32" },
+      ],
+    },
+    primaryType: "Agent",
+    message: {
+      source: "a", // "a" for mainnet
+      connectionId: createL1ActionHash(action, nonce, vaultAddress),
+    },
+  };
+}
+
+/** Creates typed data for USD transfers on testnet */
+export function createTestnetUsdTransferTypedData(
+  amount: string,
+  toPerp: boolean,
+  nonce: number,
+) {
+  return {
+    domain: {
+      name: "HyperliquidSignTransaction",
+      version: "1",
+      chainId: 421614,
+      verifyingContract: "0x0000000000000000000000000000000000000000" as Hex,
+    },
+    types: {
+      "HyperliquidTransaction:UsdClassTransfer": [
+        { name: "hyperliquidChain", type: "string" },
+        { name: "amount", type: "string" },
+        { name: "toPerp", type: "bool" },
+        { name: "nonce", type: "uint64" },
+      ],
+    },
+    primaryType: "HyperliquidTransaction:UsdClassTransfer",
+    message: {
+      hyperliquidChain: "Testnet",
+      amount,
+      toPerp,
+      nonce,
+    },
+  };
+}
+
+/** Creates typed data for USD transfers on mainnet */
+export function createMainnetUsdTransferTypedData(
+  amount: string,
+  toPerp: boolean,
+  nonce: number,
+) {
+  return {
+    domain: {
+      name: "HyperliquidSignTransaction",
+      version: "1",
+      chainId: 42161,
+      verifyingContract: "0x0000000000000000000000000000000000000000" as Hex,
+    },
+    types: {
+      "HyperliquidTransaction:UsdClassTransfer": [
+        { name: "hyperliquidChain", type: "string" },
+        { name: "amount", type: "string" },
+        { name: "toPerp", type: "bool" },
+        { name: "nonce", type: "uint64" },
+      ],
+    },
+    primaryType: "HyperliquidTransaction:UsdClassTransfer",
+    message: {
+      hyperliquidChain: "Mainnet",
+      amount,
+      toPerp,
+      nonce,
+    },
+  };
+}
+
+export function createMainnetUsdcCoreTransferTypedData(
+  amount: string,
+  destination: Hex,
+  time: number,
+) {
+  return {
+    types: {
+      "HyperliquidTransaction:UsdSend": [
+        { name: "hyperliquidChain", type: "string" },
+        { name: "destination", type: "string" },
+        { name: "amount", type: "string" },
+        { name: "time", type: "uint64" },
+      ],
+    },
+    primaryType: "HyperliquidTransaction:UsdSend",
+    domain: {
+      name: "HyperliquidSignTransaction",
+      version: "1",
+      chainId: 42161,
+      verifyingContract: "0x0000000000000000000000000000000000000000" as Hex,
+    },
+    message: {
+      hyperliquidChain: "Mainnet",
+      destination,
+      amount,
+      time,
+    },
+  };
+}
+
+export function createMainnetSpotTransferTypedData(
+  amount: string,
+  ticker: string,
+  tickerAddress: Hex,
+  destination: Hex,
+  time: number,
+) {
+  return {
+    types: {
+      "HyperliquidTransaction:SpotSend": [
+        { name: "hyperliquidChain", type: "string" },
+        { name: "destination", type: "string" },
+        { name: "token", type: "string" },
+        { name: "amount", type: "string" },
+        { name: "time", type: "uint64" },
+      ],
+    },
+    primaryType: "HyperliquidTransaction:SpotSend",
+    domain: {
+      name: "HyperliquidSignTransaction",
+      version: "1",
+      chainId: 42161,
+      verifyingContract: "0x0000000000000000000000000000000000000000" as Hex,
+    },
+    message: {
+      hyperliquidChain: "Mainnet",
+      destination,
+      token: `${ticker}:${tickerAddress}`,
+      amount,
+      time,
+    },
+  };
+}
+
+export function createWithdrawTypedData(
+  destination: string,
+  amount: string,
+  time: number,
+) {
+  return {
+    types: {
+      "HyperliquidTransaction:Withdraw": [
+        { name: "hyperliquidChain", type: "string" },
+        { name: "destination", type: "string" },
+        { name: "amount", type: "string" },
+        { name: "time", type: "uint64" },
+      ],
+    },
+    primaryType: "HyperliquidTransaction:Withdraw",
+    domain: {
+      name: "HyperliquidSignTransaction",
+      version: "1",
+      chainId: 42161,
+      verifyingContract: "0x0000000000000000000000000000000000000000",
+    },
+    message: {
+      hyperliquidChain: "Mainnet",
+      destination,
+      amount,
+      time,
+    },
+  };
+}
