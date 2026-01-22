@@ -1,16 +1,32 @@
-/**
- * Session Manager
- * Handles session refresh and validation
- */
-
 import { Turnkey } from '@turnkey/sdk-browser';
 import { SESSION_EXPIRATION_SECONDS } from './constants';
 
+/**
+ * SessionManager handles Turnkey session lifecycle operations.
+ * Manages session refresh, validation, and expiration handling.
+ */
 export class SessionManager {
-  constructor(private turnkey: Turnkey) {}
+  /**
+   * Creates a new SessionManager instance.
+   *
+   * @param turnkey - Turnkey SDK instance
+   */
+  constructor(private turnkey: Turnkey) { }
 
   /**
-   * Refresh session if expired
+   * Refreshes the current session if it has expired or is invalid.
+   * Attempts to validate the session by checking wallets, and if that fails,
+   * refreshes the session using the stored public key.
+   *
+   * @returns Promise resolving to true if session is valid or was successfully refreshed, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const isValid = await sessionManager.refreshSessionIfNeeded();
+   * if (!isValid) {
+   *   // Handle expired session
+   * }
+   * ```
    */
   async refreshSessionIfNeeded(): Promise<boolean> {
     try {
@@ -23,13 +39,11 @@ export class SessionManager {
       await indexedDbClient.init();
 
       try {
-        // Try to get wallets to check if session is valid
         await indexedDbClient.getWallets({
           organizationId: session.organizationId,
         });
         return true;
       } catch (error) {
-        // Session expired, try to refresh
         const publicKey = await indexedDbClient.getPublicKey();
         if (publicKey) {
           await indexedDbClient.refreshSession({
@@ -50,14 +64,27 @@ export class SessionManager {
   }
 
   /**
-   * Get current session
+   * Gets the current Turnkey session.
+   *
+   * @returns Promise resolving to the current session object, or null if no session exists
    */
   async getSession() {
     return await this.turnkey.getSession();
   }
 
   /**
-   * Check if session exists and is valid
+   * Checks if the current session is valid and active.
+   * Validates the session exists and attempts to refresh it if needed.
+   *
+   * @returns Promise resolving to true if session is valid, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const isValid = await sessionManager.hasValidSession();
+   * if (isValid) {
+   *   // Proceed with authenticated operations
+   * }
+   * ```
    */
   async hasValidSession(): Promise<boolean> {
     const session = await this.turnkey.getSession();

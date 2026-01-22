@@ -1,10 +1,15 @@
 /**
- * Turnkey Utilities
- * Helper functions for Turnkey operations
- */
-
-/**
- * Calculate SHA-256 hash of input string
+ * Calculates the SHA-256 hash of a given input string.
+ * Uses the Web Crypto API for secure hashing.
+ *
+ * @param input - The string to hash
+ * @returns A hexadecimal string representation of the SHA-256 hash
+ *
+ * @example
+ * ```typescript
+ * const hash = await calculateSha256('hello world');
+ * console.log(hash); // 'b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9'
+ * ```
  */
 export async function calculateSha256(input: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -15,7 +20,18 @@ export async function calculateSha256(input: string): Promise<string> {
 }
 
 /**
- * Check if OAuth redirect is in progress
+ * Checks if an OAuth redirect is currently in progress by examining the URL hash parameters.
+ * Looks for 'id_token' and 'state' parameters in the URL hash, and verifies that
+ * the state contains 'provider=google' and 'flow=redirect'.
+ *
+ * @returns True if an OAuth redirect is in progress, false otherwise
+ *
+ * @example
+ * ```typescript
+ * if (isOAuthRedirectInProgress()) {
+ *   // Handle OAuth redirect
+ * }
+ * ```
  */
 export function isOAuthRedirectInProgress(): boolean {
   if (typeof window === 'undefined') return false;
@@ -36,7 +52,22 @@ export function isOAuthRedirectInProgress(): boolean {
 }
 
 /**
- * Extract OAuth parameters from URL hash
+ * Extracts OAuth parameters from the URL hash.
+ * Parses the URL hash to extract 'id_token', 'provider', and 'flow' parameters
+ * from the OAuth redirect response.
+ *
+ * @returns An object containing the extracted OAuth parameters:
+ *   - idToken: The OAuth ID token, or null if not present
+ *   - provider: The OAuth provider name, or null if not present
+ *   - flow: The OAuth flow type, or null if not present
+ *
+ * @example
+ * ```typescript
+ * const { idToken, provider, flow } = extractOAuthParams();
+ * if (idToken && provider === 'google') {
+ *   // Process Google OAuth login
+ * }
+ * ```
  */
 export function extractOAuthParams(): {
   idToken: string | null;

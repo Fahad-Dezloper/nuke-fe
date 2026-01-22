@@ -1,9 +1,3 @@
-/**
- * Turnkey Provider
- * Initializes Turnkey and syncs state with Jotai atoms
- * This replaces the old Context-based provider
- */
-
 'use client';
 
 import { useEffect } from 'react';

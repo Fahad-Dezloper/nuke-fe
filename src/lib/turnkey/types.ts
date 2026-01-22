@@ -1,8 +1,3 @@
-/**
- * Turnkey Types
- * Shared TypeScript types and interfaces for Turnkey wallet management
- */
-
 export interface Wallet {
   walletId: string;
   walletName: string;
