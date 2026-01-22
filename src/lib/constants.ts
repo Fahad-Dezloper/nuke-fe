@@ -24,3 +24,5 @@ export const API_CONFIG = {
   retryDelay: 1000, // 1 second
 } as const;
 
+// Turnkey Session Configuration
+export const SESSION_EXPIRATION_SECONDS = 3600 * 24 * 10; // 10 days
