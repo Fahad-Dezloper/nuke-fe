@@ -60,7 +60,7 @@ export function generateFundingRateData(
     // Simulate funding rate fluctuations
     const progress = i / numPoints;
     const hyperliquidBase = Math.sin(progress * Math.PI * 4) * 30;
-    const lighterBase = Math.cos(progress * Math.PI * 3) * 40;
+    const pacificaBase = Math.cos(progress * Math.PI * 3) * 40;
     const noise = () => (random() - 0.5) * 20;
 
     const isProjected = progress > 0.95;
@@ -68,12 +68,12 @@ export function generateFundingRateData(
     data.push({
       time: timeLabel,
       hyperliquid: Number((hyperliquidBase + noise()).toFixed(4)),
-      lighter: Number((lighterBase + noise()).toFixed(4)),
+      pacifica: Number((pacificaBase + noise()).toFixed(4)),
       projectedHyperliquid: isProjected
         ? Number((hyperliquidBase + noise()).toFixed(4))
         : null,
-      projectedLighter: isProjected
-        ? Number((lighterBase + noise()).toFixed(4))
+      projectedPacifica: isProjected
+        ? Number((pacificaBase + noise()).toFixed(4))
         : null,
     });
   }
