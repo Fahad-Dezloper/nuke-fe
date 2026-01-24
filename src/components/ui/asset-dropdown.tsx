@@ -174,7 +174,7 @@ export function AssetDropdown({
                 HYPERLIQUID
               </span>
               <span className='text-xs text-text-muted-60 uppercase tracking-wide font-medium'>
-                LIGHTER
+                PACIFICA
               </span>
               <span className='text-xs text-text-muted-60 uppercase tracking-wide font-medium'>
                 NET APY
@@ -196,7 +196,7 @@ export function AssetDropdown({
                 {filteredAssets.map((asset) => {
                   const isSelected = selectedAsset?.asset === asset.asset;
                   const hyperliquidPositive = asset.hyperliquidFundingRate >= 0;
-                  const lighterPositive = asset.lighterFundingRate >= 0;
+                  const pacificaPositive = asset.pacificaFundingRate >= 0;
                   return (
                     <button
                       key={asset.asset}
@@ -240,15 +240,15 @@ export function AssetDropdown({
                         </span>
                       </div>
 
-                      {/* Lighter Funding Rate */}
+                      {/* Pacifica Funding Rate */}
                       <div className='flex items-center gap-1'>
-                        {lighterPositive ? (
+                        {pacificaPositive ? (
                           <ArrowUp className='h-2.5 w-2.5 text-[var(--chart-pink)] shrink-0' />
                         ) : (
                           <ArrowDown className='h-2.5 w-2.5 text-[var(--chart-pink)] shrink-0' />
                         )}
                         <span className='text-xs font-medium text-[var(--chart-pink)] tabular-nums'>
-                          {formatPercentWithSign(asset.lighterFundingRate)}
+                          {formatPercentWithSign(asset.pacificaFundingRate)}
                         </span>
                       </div>
 

@@ -121,7 +121,7 @@ export function MarketOverview({
               </div>
             </MetricItem>
 
-            {/* Short Funding Rate (Lighter) */}
+            {/* Short Funding Rate (Pacifica) */}
             <MetricItem label='SHORT FUNDING RATE'>
               <div className='flex items-center gap-1.5'>
                 <div className='p-1 rounded bg-[var(--chart-pink)]/20'>
@@ -129,7 +129,7 @@ export function MarketOverview({
                 </div>
                 <span className='text-sm font-semibold text-[var(--chart-pink)] tabular-nums'>
                   {formatPercentWithSign(
-                    selectedAsset?.lighterFundingRate ?? data.shortFundingRate
+                    selectedAsset?.pacificaFundingRate ?? data.shortFundingRate
                   )}
                 </span>
               </div>

@@ -2,7 +2,7 @@
 
 /**
  * Funding Rate Chart Component
- * Line chart comparing funding rates between Hyperliquid and Lighter
+ * Line chart comparing funding rates between Hyperliquid and Pacifica
  */
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -19,8 +19,8 @@ const chartConfig = {
     label: 'HYPERLIQUID (LONG)',
     color: 'var(--chart-hyperliquid)',
   },
-  lighter: {
-    label: 'LIGHTER (SHORT)',
+  pacifica: {
+    label: 'PACIFICA (SHORT)',
     color: 'var(--chart-pink)',
   },
   projected: {
@@ -33,9 +33,9 @@ interface FundingRateChartProps {
   data: Array<{
     time: string;
     hyperliquid: number;
-    lighter: number;
+    pacifica: number;
     projectedHyperliquid: number | null;
-    projectedLighter: number | null;
+    projectedPacifica: number | null;
   }>;
 }
 
@@ -94,7 +94,7 @@ export function FundingRateChart({ data }: FundingRateChartProps) {
         />
         <Line
           type='monotone'
-          dataKey='lighter'
+          dataKey='pacifica'
           stroke='var(--chart-pink)'
           strokeWidth={2}
           dot={false}
@@ -111,7 +111,7 @@ export function FundingRateChart({ data }: FundingRateChartProps) {
         />
         <Line
           type='monotone'
-          dataKey='projectedLighter'
+          dataKey='projectedPacifica'
           stroke='var(--chart-pink)'
           strokeWidth={2}
           strokeDasharray='5 5'
@@ -136,7 +136,7 @@ export function FundingRateChart({ data }: FundingRateChartProps) {
                   style={{ backgroundColor: 'var(--chart-pink)' }}
                 />
                 <span className='text-xs text-text-muted-60'>
-                  LIGHTER (SHORT)
+                  PACIFICA (SHORT)
                 </span>
               </div>
               <div className='flex items-center gap-2'>

@@ -17,7 +17,7 @@ export const mockArbitragePositions: ArbitragePosition[] = [
       platform: 'Hyperliquid',
     },
     short: {
-      platform: 'Lighter',
+      platform: 'Pacifica',
     },
     size: '893.23',
     apr: '21.9%',
@@ -33,7 +33,7 @@ export const mockArbitragePositions: ArbitragePosition[] = [
     leverage: '10x',
     assetLogo: '/tokens/eth.png',
     long: {
-      platform: 'Lighter',
+      platform: 'Pacifica',
     },
     short: {
       platform: 'Hyperliquid',
@@ -62,8 +62,8 @@ export const mockPositionDetailsCards: PositionDetailsCard[] = [
   },
   {
     label: 'SHORT',
-    platform: 'LIGHTER',
-    gradientColor: 'lighter',
+    platform: 'PACIFICA',
+    gradientColor: 'pacifica',
     margin: '$0.00',
     size: '-',
   },

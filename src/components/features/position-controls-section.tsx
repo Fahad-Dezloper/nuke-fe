@@ -5,8 +5,8 @@
  * Right side panel with position controls
  */
 
-import { useAtomValue } from 'jotai';
-import { ChevronRight } from 'lucide-react';
+import { useAtomValue, useAtom } from 'jotai';
+import { ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { PositionControlsSection } from './trading-dashboard';
 import { cn } from '@/lib/utils';
 import { ConnectWalletButton } from '@/components/ui/connect-wallet-button';
@@ -15,8 +15,21 @@ import { LeverageSection } from './position-controls/leverage-section';
 import { PositionDetailsSection } from './position-controls/position-details-section';
 import { TradeDetailsSection } from './position-controls/trade-details-section';
 import { AssetPriceHeader } from './position-controls/asset-price-header';
+import { ArbitragePairSelector } from './position-controls/arbitrage-pair-selector';
 import { mockAssetPrice } from '@/lib/mocks';
-import { isLoggedInAtom } from '@/lib/turnkey/store';
+import {
+  isLoggedInAtom,
+  loginWithEVMWalletAtom,
+  loginWithSolanaWalletAtom,
+} from '@/lib/turnkey/store';
+import {
+  marginAtom,
+  leverageAtom,
+  selectedArbitragePairAtom,
+  selectedAssetAtom,
+} from './position-controls/store';
+import { useArbitrageExecution } from '@/hooks/use-arbitrage-execution';
+import { useState } from 'react';
 
 interface PositionControlsSectionContentProps {
   className?: string;
@@ -30,6 +43,68 @@ export function PositionControlsSectionContent({
   onOpenPosition,
 }: PositionControlsSectionContentProps) {
   const isLoggedIn = useAtomValue(isLoggedInAtom);
+  const [margin] = useAtom(marginAtom);
+  const [leverage] = useAtom(leverageAtom);
+  const [selectedPair] = useAtom(selectedArbitragePairAtom);
+  const [selectedAsset] = useAtom(selectedAssetAtom);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const { executeArbitrage, isExecuting, error, result } =
+    useArbitrageExecution();
+
+  const loginWithEVM = useAtomValue(loginWithEVMWalletAtom);
+
+  const handleConnectWallet = async () => {
+    if (onConnectWallet) {
+      onConnectWallet();
+      return;
+    }
+
+    // Default: Try EVM wallet first
+    // await loginWithEVM();
+  };
+
+  const handleOpenPosition = async () => {
+    if (onOpenPosition) {
+      onOpenPosition();
+      return;
+    }
+
+    // Validate inputs
+    if (!selectedPair) {
+      alert('Please select an arbitrage pair');
+      return;
+    }
+
+    if (!margin || parseFloat(margin) <= 0) {
+      alert('Please enter a valid margin amount');
+      return;
+    }
+
+    if (!isLoggedIn) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    // Execute arbitrage
+    const executionResult = await executeArbitrage({
+      pairId: selectedPair.id,
+      margin,
+      leverage,
+    });
+
+    if (executionResult.success) {
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 5000);
+    }
+  };
+
+  const canExecute =
+    isLoggedIn &&
+    selectedPair &&
+    margin &&
+    parseFloat(margin) > 0 &&
+    !isExecuting;
 
   return (
     <PositionControlsSection
@@ -51,6 +126,9 @@ export function PositionControlsSectionContent({
 
         {/* Content */}
         <div className='flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6'>
+          {/* Arbitrage Pair Selector */}
+          {/* <ArbitragePairSelector /> */}
+
           {/* Position Size Section */}
           <PositionSizeSection />
 
@@ -58,10 +136,34 @@ export function PositionControlsSectionContent({
           <LeverageSection />
 
           {/* Position Details Section */}
-          <PositionDetailsSection />
+          <PositionDetailsSection currentPrice={mockAssetPrice.currentPrice} />
 
           {/* Trade Details Section */}
           <TradeDetailsSection />
+
+          {/* Error Message */}
+          {error && (
+            <div className='flex items-start gap-2 p-3 rounded-xl bg-red-900/20 border border-red-500/30'>
+              <AlertCircle className='h-4 w-4 text-red-400 mt-0.5 flex-shrink-0' />
+              <div className='flex-1'>
+                <p className='text-xs font-medium text-red-400'>Error</p>
+                <p className='text-xs text-red-300 mt-0.5'>{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {showSuccess && result?.success && (
+            <div className='flex items-start gap-2 p-3 rounded-xl bg-green-900/20 border border-green-500/30'>
+              <CheckCircle2 className='h-4 w-4 text-green-400 mt-0.5 flex-shrink-0' />
+              <div className='flex-1'>
+                <p className='text-xs font-medium text-green-400'>Success</p>
+                <p className='text-xs text-green-300 mt-0.5'>
+                  {result.message || 'Arbitrage position opened successfully'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer - Wallet Connection / Open Position */}
@@ -75,10 +177,11 @@ export function PositionControlsSectionContent({
                 </span>
               </div>
               <ConnectWalletButton
-                onClick={onOpenPosition || onConnectWallet}
+                onClick={handleOpenPosition}
                 size='md'
                 fullWidth
-                text='OPEN POSITION'
+                text={isExecuting ? 'EXECUTING...' : 'OPEN POSITION'}
+                disabled={!canExecute || isExecuting}
               />
             </>
           ) : (
@@ -90,7 +193,7 @@ export function PositionControlsSectionContent({
                 </span>
               </div>
               <ConnectWalletButton
-                onClick={onConnectWallet}
+                onClick={handleConnectWallet}
                 size='md'
                 fullWidth
               />

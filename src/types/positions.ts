@@ -42,7 +42,7 @@ export interface ArbitragePosition {
 export interface PositionDetailsCard {
   label: string;
   platform: string;
-  gradientColor: 'hyperliquid' | 'lighter';
+  gradientColor: 'hyperliquid' | 'pacifica';
   margin: string;
   size: string;
 }
@@ -101,7 +101,7 @@ export interface AssetDropdownItem {
   assetLogo: string;
   maxLeverage: number;
   hyperliquidFundingRate: number;
-  lighterFundingRate: number;
+  pacificaFundingRate: number; // Changed from lighterFundingRate
   netAPY: number;
   apy30D: number;
 }
