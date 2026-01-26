@@ -29,7 +29,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
   return (
     <div className='border-b border-border-white-10/30 last:border-0 border-l-2 border-l-transparent hover:border-l-accent/50 hover:bg-card/20 hover:backdrop-blur-sm transition-all duration-200 group'>
       <div className='px-4 md:px-6 py-2.5'>
-        <div className='grid grid-cols-[120px_200px_80px_80px_100px_120px_100px_40px] gap-4 items-center'>
+        <div className='grid grid-cols-[minmax(100px,1fr)_minmax(180px,1.5fr)_minmax(70px,0.8fr)_minmax(70px,0.8fr)_minmax(90px,1fr)_minmax(110px,1.2fr)_minmax(90px,1fr)_40px] gap-3 lg:gap-4 items-center max-w-full'>
           {/* ASSET */}
           <div className='flex items-center gap-2'>
             <Image
@@ -67,24 +67,24 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           </div>
 
           {/* SIZE */}
-          <div>
-            <span className='text-xs font-medium text-text-primary tabular-nums'>
+          <div className='min-w-0'>
+            <span className='text-xs font-medium text-text-primary tabular-nums truncate block'>
               {position.size}
             </span>
           </div>
 
           {/* APR */}
-          <div>
-            <span className='text-xs font-medium text-green-400 tabular-nums'>
+          <div className='min-w-0'>
+            <span className='text-xs font-medium text-green-400 tabular-nums truncate block'>
               {position.apr}
             </span>
           </div>
 
           {/* PRICE PNL */}
-          <div>
+          <div className='min-w-0'>
             <span
               className={cn(
-                'text-xs font-medium tabular-nums',
+                'text-xs font-medium tabular-nums truncate block',
                 isPricePnlPositive ? 'text-green-400' : 'text-red-400'
               )}>
               {position.pricePnl}
@@ -92,24 +92,24 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           </div>
 
           {/* FUNDING PNL */}
-          <div className='flex flex-col gap-0'>
+          <div className='flex flex-col gap-0 min-w-0'>
             <span
               className={cn(
-                'text-xs font-medium tabular-nums',
+                'text-xs font-medium tabular-nums truncate block',
                 isFundingPnlPositive ? 'text-green-400' : 'text-red-400'
               )}>
               {position.fundingPnl.current}
             </span>
-            <span className='text-[10px] text-text-muted-60 tabular-nums leading-tight'>
+            <span className='text-[10px] text-text-muted-60 tabular-nums leading-tight truncate block'>
               {position.fundingPnl.estimated}
             </span>
           </div>
 
           {/* TOTAL PNL */}
-          <div>
+          <div className='min-w-0'>
             <span
               className={cn(
-                'text-xs font-semibold tabular-nums',
+                'text-xs font-semibold tabular-nums truncate block',
                 isTotalPnlPositive ? 'text-green-400' : 'text-red-400'
               )}>
               {position.totalPnl}

@@ -42,7 +42,7 @@ export interface ArbitragePosition {
 export interface PositionDetailsCard {
   label: string;
   platform: string;
-  gradientColor: 'hyperliquid' | 'pacifica';
+  gradientColor: 'long' | 'short';
   margin: string;
   size: string;
 }

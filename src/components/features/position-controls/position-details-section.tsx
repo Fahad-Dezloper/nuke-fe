@@ -6,7 +6,7 @@
  * Calculates values based on user input (margin, leverage, price)
  */
 
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom } from 'jotai';
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { PositionDetailsCard } from '@/components/ui/position-details-card';
@@ -65,35 +65,27 @@ export function PositionDetailsSection({
       return formatPrice(amount, 'USD', 'en-US', 2, 2);
     };
 
-    // Determine protocol names based on selected pair
-    // Default to HyperLiquid for LONG and Pacifica for SHORT if no pair selected
-    const longProtocol = selectedPair?.longProtocol === 'hyperliquid' 
-      ? 'HYPERLIQUID' 
-      : selectedPair?.longProtocol === 'pacifica'
-      ? 'PACIFICA'
-      : 'HYPERLIQUID'; // Default
-    const shortProtocol = selectedPair?.shortProtocol === 'hyperliquid'
-      ? 'HYPERLIQUID'
-      : selectedPair?.shortProtocol === 'pacifica'
-      ? 'PACIFICA'
-      : 'PACIFICA'; // Default
+    // Get protocol names directly from selected pair
+    // LONG defaults to HYPERLIQUID, SHORT defaults to PACIFICA if no pair selected
+    const longProtocolName = selectedPair?.longProtocol 
+      ? selectedPair.longProtocol.toUpperCase() 
+      : 'HYPERLIQUID';
+    const shortProtocolName = selectedPair?.shortProtocol 
+      ? selectedPair.shortProtocol.toUpperCase() 
+      : 'PACIFICA';
 
     return [
       {
         label: 'LONG',
-        platform: longProtocol,
-        gradientColor: (selectedPair?.longProtocol === 'hyperliquid' 
-          ? 'hyperliquid' 
-          : 'pacifica') as 'hyperliquid' | 'pacifica',
+        platform: longProtocolName,
+        gradientColor: 'long' as const,
         margin: formatMargin(halfMargin),
         size: calculateSize(halfMargin),
       },
       {
         label: 'SHORT',
-        platform: shortProtocol,
-        gradientColor: (selectedPair?.shortProtocol === 'hyperliquid'
-          ? 'hyperliquid'
-          : 'pacifica') as 'hyperliquid' | 'pacifica',
+        platform: shortProtocolName,
+        gradientColor: 'short' as const,
         margin: formatMargin(halfMargin),
         size: calculateSize(halfMargin),
       },
