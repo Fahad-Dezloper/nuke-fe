@@ -53,15 +53,19 @@ export function Slider({
         {...props}
       />
       {marks && (
-        <div className='flex justify-between mt-2'>
-          {marks.map((mark) => (
-            <span
-              key={mark}
-              className='text-xs text-text-muted-60'
-              style={{ marginLeft: mark === marks[0] ? 0 : '-8px' }}>
-              {mark}x
-            </span>
-          ))}
+        <div className='relative mt-2' style={{ height: '16px' }}>
+          {marks.map((mark) => {
+            // Calculate the percentage position of this mark
+            const markPercentage = ((mark - min) / (max - min)) * 100;
+            return (
+              <span
+                key={mark}
+                className='absolute text-xs text-text-muted-60 transform -translate-x-1/2'
+                style={{ left: `${markPercentage}%` }}>
+                {mark}x
+              </span>
+            );
+          })}
         </div>
       )}
     </div>

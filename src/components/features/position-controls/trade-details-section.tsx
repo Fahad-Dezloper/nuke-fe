@@ -6,23 +6,88 @@
  * Collapsible dropdown with basic info shown by default
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useAtom, useAtomValue } from 'jotai';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TradeDetailRow } from '@/components/ui/trade-detail-row';
-import { mockTradeDetails } from '@/lib/mocks';
-import type { TradeDetails } from '@/types/positions';
+import { marginAtom, leverageAtom } from './store';
+import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
+import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 
 interface TradeDetailsSectionProps {
   className?: string;
-  tradeData?: TradeDetails;
 }
 
 export function TradeDetailsSection({
   className,
-  tradeData = mockTradeDetails,
 }: TradeDetailsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [margin] = useAtom(marginAtom);
+  const [leverage] = useAtom(leverageAtom);
+  const selectedAsset = useAtomValue(selectedAssetAtom);
+
+  // Calculate trade details from selected asset, margin, and leverage
+  const tradeDetails = useMemo(() => {
+    const marginValue = parseFloat(margin) || 0;
+    const price = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
+    
+    // Determine best pair
+    const getBestPair = () => {
+      if (!selectedAsset) {
+        return { long: 'hyperliquid', short: 'pacifica' };
+      }
+      const hyperliquidRate = selectedAsset.hyperliquidFundingRate;
+      const pacificaRate = selectedAsset.pacificaFundingRate;
+      const isHyperliquidLower = hyperliquidRate < pacificaRate;
+      return {
+        long: isHyperliquidLower ? 'hyperliquid' : 'pacifica',
+        short: isHyperliquidLower ? 'pacifica' : 'hyperliquid',
+      };
+    };
+
+    const bestPair = getBestPair();
+    const longProtocol = selectedAsset?.protocols?.[bestPair.long];
+    const shortProtocol = selectedAsset?.protocols?.[bestPair.short];
+
+    // Position size = margin * leverage
+    const positionSize = marginValue * leverage;
+    
+    // Entry prices (use mark prices from protocols)
+    const entryLong = longProtocol?.markPx || price;
+    const entryShort = shortProtocol?.markPx || price;
+    
+    // Funding rates
+    const fundingLong = longProtocol?.fundingRateYearly || selectedAsset?.hyperliquidFundingRate || 0;
+    const fundingShort = shortProtocol?.fundingRateYearly || selectedAsset?.pacificaFundingRate || 0;
+    
+    // Estimated APR (Net APR from selected asset)
+    const estimatedAPR = selectedAsset?.netAPR || 0;
+    
+    // Liquidation prices (simplified calculation: entry * (1 - 1/leverage))
+    const liqLong = entryLong * (1 - 1 / leverage);
+    const liqShort = entryShort * (1 + 1 / leverage);
+
+    return {
+      positionSize: formatPrice(positionSize, 'USD', 'en-US', 2, 2),
+      margin: formatPrice(marginValue, 'USD', 'en-US', 2, 2),
+      estimatedFees: formatPrice(marginValue * 0.001, 'USD', 'en-US', 2, 2), // 0.1% fee estimate
+      entryPrice: {
+        long: formatPrice(entryLong, 'USD', 'en-US', 2, 4),
+        short: formatPrice(entryShort, 'USD', 'en-US', 2, 4),
+      },
+      liquidationPrice: {
+        long: formatPrice(liqLong, 'USD', 'en-US', 2, 4),
+        short: formatPrice(liqShort, 'USD', 'en-US', 2, 4),
+      },
+      fundingRate: {
+        long: formatPercentWithSign(fundingLong),
+        short: formatPercentWithSign(fundingShort),
+      },
+      estimatedAPR: formatPercentWithSign(estimatedAPR),
+      maxDrawdown: formatPercentWithSign(100 / leverage), // Simplified: 100% / leverage
+    };
+  }, [margin, leverage, selectedAsset]);
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
@@ -34,9 +99,9 @@ export function TradeDetailsSection({
         <div className='px-3 py-2.5 space-y-0'>
           <TradeDetailRow
             label='Position Size'
-            value={tradeData.positionSize}
+            value={tradeDetails.positionSize}
           />
-          <TradeDetailRow label='Margin' value={tradeData.margin} />
+          <TradeDetailRow label='Margin' value={tradeDetails.margin} />
         </div>
 
         {/* Expandable Section */}
@@ -45,45 +110,45 @@ export function TradeDetailsSection({
             <div className='pt-2 space-y-0'>
               <TradeDetailRow
                 label='Est. Fees'
-                value={tradeData.estimatedFees}
+                value={tradeDetails.estimatedFees}
                 valueColor='muted'
               />
               <TradeDetailRow
                 label='Entry (Long)'
-                value={tradeData.entryPrice.long}
+                value={tradeDetails.entryPrice.long}
               />
               <TradeDetailRow
                 label='Entry (Short)'
-                value={tradeData.entryPrice.short}
+                value={tradeDetails.entryPrice.short}
               />
               <TradeDetailRow
                 label='Liq. (Long)'
-                value={tradeData.liquidationPrice.long}
+                value={tradeDetails.liquidationPrice.long}
                 valueColor='red'
               />
               <TradeDetailRow
                 label='Liq. (Short)'
-                value={tradeData.liquidationPrice.short}
+                value={tradeDetails.liquidationPrice.short}
                 valueColor='red'
               />
               <TradeDetailRow
                 label='Funding (Long)'
-                value={tradeData.fundingRate.long}
+                value={tradeDetails.fundingRate.long}
                 valueColor='green'
               />
               <TradeDetailRow
                 label='Funding (Short)'
-                value={tradeData.fundingRate.short}
+                value={tradeDetails.fundingRate.short}
                 valueColor='green'
               />
               <TradeDetailRow
                 label='Est. APR'
-                value={tradeData.estimatedAPR}
+                value={tradeDetails.estimatedAPR}
                 valueColor='green'
               />
               <TradeDetailRow
                 label='Max Drawdown'
-                value={tradeData.maxDrawdown}
+                value={tradeDetails.maxDrawdown}
                 valueColor='red'
               />
             </div>

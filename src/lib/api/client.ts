@@ -20,7 +20,10 @@ class ApiClient {
   private baseURL: string;
 
   constructor(baseURL?: string) {
-    this.baseURL = baseURL || process.env.NEXT_PUBLIC_API_URL || '';
+    this.baseURL =
+      baseURL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'http://localhost:8000';
   }
 
   private async request<T>(
@@ -30,7 +33,11 @@ class ApiClient {
     const { method = 'GET', headers = {}, body, params } = config;
 
     // Build URL with query parameters
-    const url = new URL(endpoint, this.baseURL);
+    // If endpoint is absolute (starts with http), use it directly
+    // Otherwise, combine with baseURL
+    const url = endpoint.startsWith('http')
+      ? new URL(endpoint)
+      : new URL(endpoint, this.baseURL);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         url.searchParams.append(key, String(value));

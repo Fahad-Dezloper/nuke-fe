@@ -93,16 +93,35 @@ export interface MarketOverviewData {
 }
 
 /**
+ * Protocol-specific data for an asset
+ * Modular structure to support multiple protocols
+ */
+export interface ProtocolData {
+  protocol: string; // 'hyperliquid' | 'pacifica' | etc.
+  markPx: number; // Mark price
+  fundingRate: number; // Hourly funding rate
+  fundingRateYearly: number; // Yearly funding rate (percentage)
+  fundingRate30D: number; // 30-day APR (percentage)
+  maxLeverage: number;
+}
+
+/**
  * Asset Dropdown Data
  * Complete asset information for dropdown selection
+ * Modular structure supporting multiple protocols
  */
 export interface AssetDropdownItem {
   asset: string;
   assetLogo: string;
-  maxLeverage: number;
+  maxLeverage: number; // Minimum across all protocols
+  protocols: Record<string, ProtocolData>; // Protocol name -> ProtocolData
+  // Legacy fields for backward compatibility (derived from protocols)
   hyperliquidFundingRate: number;
-  pacificaFundingRate: number; // Changed from lighterFundingRate
-  netAPY: number;
-  apy30D: number;
+  pacificaFundingRate: number;
+  netAPR: number;
+  apr30D: number;
+  markPx?: number; // Primary mark price (from first protocol)
+  hyperliquidMarkPx?: number;
+  pacificaMarkPx?: number;
 }
 

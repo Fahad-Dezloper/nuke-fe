@@ -9,7 +9,7 @@
   --text-primary: #ffffff;
   --accent: oklch(0.967 0.003 264.542);
   --accent-secondary: #3a5866;
-  
+
   /* Chart Colors */
   --chart-hyperliquid: #3B9797;
   --chart-lighter: #16476A;
@@ -99,13 +99,13 @@
   --color-gradient-blue: rgba(59, 130, 246, 0.1);
   --color-gradient-purple: rgba(168, 85, 247, 0.1);
   --color-gradient-pink: rgba(236, 72, 153, 0.1);
-  
+
   /* Chart Colors */
   --color-chart-hyperliquid: var(--chart-hyperliquid);
   --color-chart-lighter: var(--chart-lighter);
   --color-chart-pink: var(--chart-pink);
   --color-chart-dark-blue: var(--chart-dark-blue);
-  
+
   /* Font */
   --font-mono: var(--font-roboto-mono);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -152,7 +152,7 @@ body {
 }
 
 .dark,
-  :root {
+:root {
   --background: #020202;
   --foreground: oklch(0.985 0.002 247.839);
   --card: #111;
@@ -190,6 +190,7 @@ body {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -246,4 +247,14 @@ input[type='range']::-moz-range-track {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
 }

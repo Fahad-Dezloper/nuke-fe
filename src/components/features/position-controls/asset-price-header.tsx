@@ -5,52 +5,30 @@
  * Displays asset name, logo, and real-time price in a compact card style
  */
 
-import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useAtomValue } from 'jotai';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown } from 'lucide-react';
 import { AnimatedNumber } from '@/components/ui/animated-number';
-import { formatPrice, formatPriceChange } from '@/lib/utils';
-import { mockAssetPrice } from '@/lib/mocks';
-import type { AssetPrice } from '@/types/positions';
+import { formatPrice } from '@/lib/utils';
+import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import Image from 'next/image';
 
 interface AssetPriceHeaderProps {
-  data?: AssetPrice;
   className?: string;
 }
 
 export function AssetPriceHeader({
-  data = mockAssetPrice,
   className,
 }: AssetPriceHeaderProps) {
-  const {
-    asset,
-    assetLogo,
-    currentPrice,
-    priceChange: initialPriceChange,
-  } = data;
-  const [displayPrice, setDisplayPrice] = useState(currentPrice);
-  const [priceKey, setPriceKey] = useState(0);
-  const [priceChange, setPriceChange] = useState(initialPriceChange);
-
-  // Animate price changes in real-time
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Simulate small price fluctuations
-      const change = (Math.random() - 0.5) * 0.1;
-      const newPrice = displayPrice + (displayPrice * change) / 100;
-      setDisplayPrice(newPrice);
-      setPriceChange(change);
-      setPriceKey((k) => k + 1);
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [displayPrice]);
+  // Get selected asset from global store
+  const selectedAsset = useAtomValue(selectedAssetAtom);
+  
+  const asset = selectedAsset?.asset || 'N/A';
+  const assetLogo = `https://app.hyperliquid.xyz/coins/${selectedAsset?.asset.toUpperCase()}.svg`;
+  const currentPrice = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
 
   const priceFormatter = (val: number) => formatPrice(val);
 
-  const isPositive = priceChange >= 0;
+  // const isPositive = priceChange >= 0;
 
   return (
     <div
@@ -92,28 +70,12 @@ export function AssetPriceHeader({
         <div className='flex flex-col items-end gap-1'>
           <div className='flex items-center gap-2'>
             <AnimatedNumber
-              value={displayPrice}
+              value={currentPrice}
               formatter={priceFormatter}
               duration={300}
               className='text-base font-bold'
             />
           </div>
-          <motion.div
-            key={`change-${priceKey}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={cn(
-              'flex items-center gap-1 text-xs font-medium tabular-nums',
-              isPositive ? 'text-green-400' : 'text-red-400'
-            )}>
-            {isPositive ? (
-              <TrendingUp className='h-3 w-3' />
-            ) : (
-              <TrendingDown className='h-3 w-3' />
-            )}
-            <span>{formatPriceChange(priceChange)}</span>
-            <span className='text-text-muted-60'>(24H)</span>
-          </motion.div>
         </div>
       </div>
     </div>

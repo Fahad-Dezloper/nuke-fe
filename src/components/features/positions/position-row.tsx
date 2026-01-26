@@ -33,7 +33,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           {/* ASSET */}
           <div className='flex items-center gap-2'>
             <Image
-              src={position.assetLogo}
+              src={`https://app.hyperliquid.xyz/coins/${position.asset.toUpperCase()}.svg`}
               alt={position.asset}
               width={20}
               height={20}

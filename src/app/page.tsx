@@ -8,11 +8,11 @@ import {
   PositionsTableSectionContent,
   PositionControlsSectionContent,
 } from '@/components/features';
-import { selectedAssetAtom } from '@/components/features/position-controls/store';
+import { selectedAssetAtom as positionSelectedAssetAtom } from '@/components/features/position-controls/store';
 import type { AssetDropdownItem } from '@/types/positions';
 
 export default function Home() {
-  const setSelectedAsset = useSetAtom(selectedAssetAtom);
+  const setPositionSelectedAsset = useSetAtom(positionSelectedAssetAtom);
 
   // Normalize asset name (e.g., "BTC-PERP" -> "BTC")
   const normalizeAssetName = (asset: string): string => {
@@ -21,8 +21,11 @@ export default function Home() {
   };
 
   const handleAssetChange = (asset: AssetDropdownItem) => {
+    // Sync with position controls store (for filtering pairs)
     const normalizedAsset = normalizeAssetName(asset.asset);
-    setSelectedAsset(normalizedAsset);
+    setPositionSelectedAsset(normalizedAsset);
+    // The full asset data is already stored in market-feed.store.selectedAssetAtom
+    // by the AssetDropdown component
   };
 
   return (

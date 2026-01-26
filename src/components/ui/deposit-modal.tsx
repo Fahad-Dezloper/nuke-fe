@@ -128,7 +128,7 @@ export function DepositModal({
                 <div className='relative w-3.5 h-3.5 flex items-center justify-center'>
                   {!baseImageError ? (
                     <Image
-                      src={BASE_LOGO_URL}
+                      src='/tokens/base.jpg'
                       alt='Base'
                       width={14}
                       height={14}
@@ -232,9 +232,9 @@ export function DepositModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.25 }}
-        className='p-3 rounded-lg bg-accent/10 border border-accent/20'>
+        className='p-3 rounded-lg text-yellow-600 bg-yellow-700/10 border border-accent/20'>
         <p className='text-xs text-text-muted-60 leading-relaxed'>
-          ⚠️ Only send USDC on Base network. Other tokens or networks may result in permanent loss.
+          Only send USDC on Base network. Other tokens or networks may result in permanent loss.
         </p>
       </motion.div>
     </Modal>

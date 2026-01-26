@@ -122,7 +122,7 @@ export function PositionControlsSectionContent({
         </div>
 
         {/* Asset Price Header */}
-        <AssetPriceHeader data={mockAssetPrice} />
+        <AssetPriceHeader />
 
         {/* Content */}
         <div className='flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6'>
@@ -136,7 +136,7 @@ export function PositionControlsSectionContent({
           <LeverageSection />
 
           {/* Position Details Section */}
-          <PositionDetailsSection currentPrice={mockAssetPrice.currentPrice} />
+          <PositionDetailsSection />
 
           {/* Trade Details Section */}
           <TradeDetailsSection />

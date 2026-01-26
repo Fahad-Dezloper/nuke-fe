@@ -17,6 +17,9 @@ export const API_ENDPOINTS = {
     history: '/arbitrage/history',
     stats: '/arbitrage/stats',
   },
+  market: {
+    feed: '/aggregated/live/market-feed',
+  },
   // Add more endpoint groups as needed
 } as const;
 

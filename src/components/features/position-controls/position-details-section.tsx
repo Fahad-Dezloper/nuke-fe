@@ -6,7 +6,7 @@
  * Calculates values based on user input (margin, leverage, price)
  */
 
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { PositionDetailsCard } from '@/components/ui/position-details-card';
@@ -15,24 +15,23 @@ import {
   leverageAtom,
   selectedArbitragePairAtom,
 } from './store';
-import { mockAssetPrice } from '@/lib/mocks';
+import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { formatPrice } from '@/lib/utils';
 
 interface PositionDetailsSectionProps {
   className?: string;
-  currentPrice?: number; // Optional price override
 }
 
 export function PositionDetailsSection({
   className,
-  currentPrice,
 }: PositionDetailsSectionProps) {
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const [selectedPair] = useAtom(selectedArbitragePairAtom);
+  const selectedAsset = useAtomValue(selectedAssetAtom);
 
-  // Use provided price or fall back to mock price
-  const price = currentPrice ?? mockAssetPrice.currentPrice;
+  // Get price from selected asset (use hyperliquid mark price as primary)
+  const price = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
 
   // Calculate position details
   const positionDetails = useMemo(() => {
@@ -65,14 +64,26 @@ export function PositionDetailsSection({
       return formatPrice(amount, 'USD', 'en-US', 2, 2);
     };
 
-    // Get protocol names directly from selected pair
-    // LONG defaults to HYPERLIQUID, SHORT defaults to PACIFICA if no pair selected
-    const longProtocolName = selectedPair?.longProtocol 
-      ? selectedPair.longProtocol.toUpperCase() 
-      : 'HYPERLIQUID';
-    const shortProtocolName = selectedPair?.shortProtocol 
-      ? selectedPair.shortProtocol.toUpperCase() 
-      : 'PACIFICA';
+      // Determine best pair based on funding rates
+    // Long on lower funding rate, Short on higher funding rate
+    const getBestPair = () => {
+      if (!selectedAsset) {
+        return { long: 'HYPERLIQUID', short: 'PACIFICA' };
+      }
+      
+      const hyperliquidRate = selectedAsset.hyperliquidFundingRate;
+      const pacificaRate = selectedAsset.pacificaFundingRate;
+      const isHyperliquidLower = hyperliquidRate < pacificaRate;
+      
+      return {
+        long: isHyperliquidLower ? 'HYPERLIQUID' : 'PACIFICA',
+        short: isHyperliquidLower ? 'PACIFICA' : 'HYPERLIQUID',
+      };
+    };
+
+    const bestPair = getBestPair();
+    const longProtocolName = bestPair.long;
+    const shortProtocolName = bestPair.short;
 
     return [
       {
