@@ -5,9 +5,10 @@
 
 /**
  * Platform information for long/short positions
+ * Uses protocol ID (lowercase) for consistency
  */
 export interface PlatformInfo {
-  platform: string;
+  platform: string; // Protocol ID (e.g., 'hyperliquid', 'pacifica', 'drift')
 }
 
 /**
@@ -17,6 +18,22 @@ export interface FundingPnL {
   current: string;
   estimated: string;
 }
+
+/**
+ * Protocol-specific position data for tooltips
+ * Uses protocol ID as key for modularity
+ */
+export interface ProtocolPositionData {
+  size: string;
+  pnl: string;
+  funding: string;
+}
+
+/**
+ * Protocol data map for positions
+ * Key is protocol ID (lowercase), value is position data
+ */
+export type ProtocolDataMap = Record<string, ProtocolPositionData | null>;
 
 /**
  * Arbitrage Position Data
@@ -33,6 +50,9 @@ export interface ArbitragePosition {
   pricePnl: string;
   fundingPnl: FundingPnL;
   totalPnl: string;
+  // Protocol-specific data for tooltips
+  // Uses protocol ID as key for modularity (e.g., 'hyperliquid', 'pacifica', 'drift')
+  protocolData?: ProtocolDataMap;
 }
 
 /**

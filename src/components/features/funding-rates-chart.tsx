@@ -9,7 +9,6 @@ import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import {
   ChartTabs,
-  ChartControls,
   PnLChart,
   CumulativePnLChart,
   FundingRateChart,
@@ -18,6 +17,7 @@ import {
   generateCumulativePnLData,
   type ChartTab,
 } from './charts';
+import { useFundingRateChart } from '@/hooks/use-funding-rate-chart';
 
 interface FundingRatesChartProps {
   className?: string;
@@ -25,20 +25,24 @@ interface FundingRatesChartProps {
 
 export function FundingRatesChart({ className }: FundingRatesChartProps) {
   const [activeTab, setActiveTab] = useState<ChartTab>('funding');
-  const [duration, setDuration] = useState('1 Week');
-  const [resolution, setResolution] = useState('1 Hour');
+  // Hardcode duration to 1 Hour for now
+  const duration = '1 Hour';
 
-  const fundingData = useMemo(
-    () => generateFundingRateData(duration, resolution),
-    [duration, resolution]
-  );
+  // Use real API data for funding rate chart
+  const {
+    data: fundingData,
+    loading: fundingLoading,
+    error: fundingError,
+  } = useFundingRateChart({ duration });
+
+  // Keep mock data for other charts (using default resolution for compatibility)
   const pnlData = useMemo(
-    () => generatePnLData(duration, resolution),
-    [duration, resolution]
+    () => generatePnLData(duration, '1 Hour'),
+    [duration]
   );
   const cumulativeData = useMemo(
-    () => generateCumulativePnLData(duration, resolution),
-    [duration, resolution]
+    () => generateCumulativePnLData(duration, '1 Hour'),
+    [duration]
   );
 
   return (
@@ -55,13 +59,7 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
         onTabChange={setActiveTab}
       />
 
-      {/* Chart Controls */}
-      <ChartControls
-        duration={duration}
-        resolution={resolution}
-        onDurationChange={setDuration}
-        onResolutionChange={setResolution}
-      />
+      {/* Chart Controls - Removed for now, hardcoded to 1 Hour */}
 
       {/* Chart Content */}
       <div className='px-3 md:px-4 lg:px-5 pb-4'>
@@ -69,7 +67,23 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
         {activeTab === 'cumulative' && (
           <CumulativePnLChart data={cumulativeData} />
         )}
-        {activeTab === 'funding' && <FundingRateChart data={fundingData} />}
+        {activeTab === 'funding' && (
+          <>
+            {fundingLoading && (
+              <div className='h-[260px] flex items-center justify-center text-text-muted-60'>
+                Loading chart data...
+              </div>
+            )}
+            {fundingError && (
+              <div className='h-[260px] flex items-center justify-center text-red-400'>
+                Error loading chart data: {fundingError.message}
+              </div>
+            )}
+            {!fundingLoading && !fundingError && (
+              <FundingRateChart data={fundingData} duration={duration} />
+            )}
+          </>
+        )}
       </div>
     </div>
   );

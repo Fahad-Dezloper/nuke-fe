@@ -58,12 +58,12 @@ export function Slider({
             // Calculate the percentage position of this mark
             const markPercentage = ((mark - min) / (max - min)) * 100;
             return (
-              <span
-                key={mark}
+            <span
+              key={mark}
                 className='absolute text-xs text-text-muted-60 transform -translate-x-1/2'
                 style={{ left: `${markPercentage}%` }}>
-                {mark}x
-              </span>
+              {mark}x
+            </span>
             );
           })}
         </div>

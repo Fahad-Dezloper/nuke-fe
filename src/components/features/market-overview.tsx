@@ -73,56 +73,56 @@ export function MarketOverview({
 
           {/* Metrics Grid */}
           {selectedAsset ? (
-            <div className='flex flex-wrap items-center gap-6 md:gap-8 flex-1 '>
-              {/* Current Price */}
+          <div className='flex flex-wrap items-center gap-6 md:gap-8 flex-1 '>
+            {/* Current Price */}
               <MetricItem label='CURRENT PRICE'>
-                <AnimatedNumber
+              <AnimatedNumber
                   value={currentPrice}
-                  formatter={priceFormatter}
-                  duration={300}
-                  className='text-base font-semibold'
-                />
-              </MetricItem>
+                formatter={priceFormatter}
+                duration={300}
+                className='text-base font-semibold'
+              />
+            </MetricItem>
 
-              {/* Long Funding Rate (Hyperliquid) */}
-              <MetricItem label='LONG FUNDING RATE'>
-                <div className='flex items-center gap-1.5'>
-                  <div className='p-1 rounded bg-[var(--chart-hyperliquid)]/20'>
-                    <ArrowUp className='h-3 w-3 text-[var(--chart-hyperliquid)]' />
-                  </div>
+            {/* Long Funding Rate (Hyperliquid) */}
+            <MetricItem label='LONG FUNDING RATE'>
+              <div className='flex items-center gap-1.5'>
+                <div className='p-1 rounded bg-[var(--chart-hyperliquid)]/20'>
+                  <ArrowUp className='h-3 w-3 text-[var(--chart-hyperliquid)]' />
+                </div>
                   <span className={cn(
                     'text-sm tabular-nums '
                   )}>
                     {formatPercentWithSign(longFundingRate)}
-                  </span>
-                </div>
-              </MetricItem>
+                </span>
+              </div>
+            </MetricItem>
 
-              {/* Short Funding Rate (Pacifica) */}
-              <MetricItem label='SHORT FUNDING RATE'>
-                <div className='flex items-center gap-1.5'>
-                  <div className='p-1 rounded bg-[var(--chart-pink)]/20'>
-                    <ArrowDown className='h-3 w-3 text-[var(--chart-pink)]' />
-                  </div>
+            {/* Short Funding Rate (Pacifica) */}
+            <MetricItem label='SHORT FUNDING RATE'>
+              <div className='flex items-center gap-1.5'>
+                <div className='p-1 rounded bg-[var(--chart-pink)]/20'>
+                  <ArrowDown className='h-3 w-3 text-[var(--chart-pink)]' />
+                </div>
                   <span className={cn(
                     'text-sm tabular-nums '
                   )}>
                     {formatPercentWithSign(shortFundingRate)}
-                  </span>
-                </div>
-              </MetricItem>
+                </span>
+              </div>
+            </MetricItem>
 
               {/* Estimated APR (NET APR) */}
               <MetricItem label='EST. APR'>
-                <div className='flex items-center gap-1.5'>
+              <div className='flex items-center gap-1.5'>
                   <div className='px-2 py-0.5 rounded-lg backdrop-blur-sm border shadow-sm bg-green-900/30 border-green-500/20'>
                     <span className='text-sm font-semibold tabular-nums text-green-400'>
                       {formatPercentWithSign(estimatedAPR)}
-                    </span>
-                  </div>
+                  </span>
                 </div>
-              </MetricItem>
-            </div>
+              </div>
+            </MetricItem>
+          </div>
           ) : (
             <div className='flex items-center text-text-muted-60 text-sm'>
               Select an asset to view metrics

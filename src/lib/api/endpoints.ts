@@ -16,9 +16,12 @@ export const API_ENDPOINTS = {
     strategies: '/arbitrage/strategies',
     history: '/arbitrage/history',
     stats: '/arbitrage/stats',
+    openPositions: (evmAddress: string, solanaAddress: string) =>
+      `/open-positions/${evmAddress}/${solanaAddress}`,
   },
   market: {
     feed: '/aggregated/live/market-feed',
+    chart: (assetName: string) => `/aggregated/chart/${assetName}`,
   },
   // Add more endpoint groups as needed
 } as const;

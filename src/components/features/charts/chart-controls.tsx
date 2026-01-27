@@ -10,17 +10,13 @@ import { cn } from '@/lib/utils';
 
 interface ChartControlsProps {
   duration: string;
-  resolution: string;
   onDurationChange: (duration: string) => void;
-  onResolutionChange: (resolution: string) => void;
   className?: string;
 }
 
 export function ChartControls({
   duration,
-  resolution,
   onDurationChange,
-  onResolutionChange,
   className,
 }: ChartControlsProps) {
   return (
@@ -35,23 +31,9 @@ export function ChartControls({
           value={duration}
           onChange={(e) => onDurationChange(e.target.value)}
           className='appearance-none bg-card border border-border-white-10 rounded px-2.5 py-1 pr-7 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer'>
-          <option>1 Week</option>
-          <option>1 Month</option>
-          <option>3 Months</option>
-          <option>1 Year</option>
-        </select>
-        <ChevronDown className='absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-text-muted-60 pointer-events-none' />
-      </div>
-
-      {/* Resolution Dropdown */}
-      <div className='relative'>
-        <select
-          value={resolution}
-          onChange={(e) => onResolutionChange(e.target.value)}
-          className='appearance-none bg-card border border-border-white-10 rounded px-2.5 py-1 pr-7 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer'>
           <option>1 Hour</option>
-          <option>4 Hours</option>
           <option>1 Day</option>
+          <option>1 Week</option>
         </select>
         <ChevronDown className='absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-text-muted-60 pointer-events-none' />
       </div>

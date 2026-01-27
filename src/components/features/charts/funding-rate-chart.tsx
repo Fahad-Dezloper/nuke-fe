@@ -2,10 +2,11 @@
 
 /**
  * Funding Rate Chart Component
- * Line chart comparing funding rates between Hyperliquid and Pacifica
+ * Modular line chart comparing funding rates across protocols
  */
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, TooltipProps } from 'recharts';
 import {
   ChartContainer,
   ChartTooltip,
@@ -13,33 +14,188 @@ import {
   ChartLegend,
   type ChartConfig,
 } from '@/components/ui/chart';
+import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
+import { getProtocolConfig, getAllProtocolIds } from '@/lib/protocols/config';
 
-const chartConfig = {
-  hyperliquid: {
-    label: 'HYPERLIQUID (LONG)',
-    color: 'var(--chart-hyperliquid)',
-  },
-  pacifica: {
-    label: 'PACIFICA (SHORT)',
-    color: 'var(--chart-pink)',
-  },
-  projected: {
-    label: 'PROJECTED',
-    color: '#ffffff',
-  },
-} satisfies ChartConfig;
+/**
+ * Build chart config dynamically from protocol configurations
+ */
+function buildChartConfig(): ChartConfig {
+  const config: ChartConfig = {
+    projected: {
+      label: 'PROJECTED',
+      color: '#ffffff',
+    },
+  };
 
-interface FundingRateChartProps {
-  data: Array<{
-    time: string;
-    hyperliquid: number;
-    pacifica: number;
-    projectedHyperliquid: number | null;
-    projectedPacifica: number | null;
-  }>;
+  // Add all protocols dynamically
+  getAllProtocolIds().forEach((protocolId) => {
+    const protocolConfig = getProtocolConfig(protocolId);
+    if (protocolConfig) {
+      config[protocolId] = {
+        label: protocolConfig.displayName.toUpperCase(),
+        color: `var(${protocolConfig.colorVar})`,
+      };
+    }
+  });
+
+  return config;
 }
 
-export function FundingRateChart({ data }: FundingRateChartProps) {
+const chartConfig = buildChartConfig();
+
+interface FundingRateChartProps {
+  data: ChartDataPoint[];
+  duration?: string;
+}
+
+/**
+ * Custom Tooltip Component
+ */
+function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
+  if (!active || !payload || payload.length === 0) {
+    return null;
+  }
+
+  const data = payload[0].payload as ChartDataPoint;
+  if (!data) return null;
+
+  // Get protocol display names from config
+  const longProtocolConfig = getProtocolConfig(data.longProtocol);
+  const shortProtocolConfig = getProtocolConfig(data.shortProtocol);
+  const longProtocolName = longProtocolConfig?.displayName || data.longProtocol;
+  const shortProtocolName = shortProtocolConfig?.displayName || data.shortProtocol;
+
+  // Format percentage with sign
+  const formatPercent = (value: number): string => {
+    const sign = value >= 0 ? '+' : '';
+    return `${sign}${value.toFixed(4)}%`;
+  };
+
+  // Get all protocols with data dynamically
+  const protocolsWithData = getAllProtocolIds()
+    .map((protocolId) => {
+      const protocolConfig = getProtocolConfig(protocolId);
+      if (!protocolConfig) return null;
+
+      // Get data value based on protocol ID
+      let value: number | null = null;
+      if (protocolId === 'hyperliquid') {
+        value = data.hyperliquid;
+      } else if (protocolId === 'pacifica') {
+        value = data.pacifica;
+      }
+      // Future protocols can be added here
+
+      if (value === null || value === undefined) return null;
+
+      const isLong = data.longProtocol === protocolId;
+      const isShort = data.shortProtocol === protocolId;
+      const hasBothData = data.hyperliquid !== null && data.pacifica !== null;
+
+      return {
+        protocolId,
+        displayName: protocolConfig.displayName,
+        value,
+        color: `var(${protocolConfig.colorVar})`,
+        label: hasBothData
+          ? isLong
+            ? `${protocolConfig.displayName} (Long)`
+            : isShort
+              ? `${protocolConfig.displayName} (Short)`
+              : protocolConfig.displayName
+          : protocolConfig.displayName,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  const hasBothData = data.hyperliquid !== null && data.pacifica !== null;
+
+  return (
+    <div className='rounded-lg border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md'>
+      <div className='mb-2 text-text-muted-60'>{data.fullTimestamp}</div>
+      <div className='space-y-1'>
+        {protocolsWithData.map((protocol) => (
+          <div key={protocol.protocolId} className='flex items-center gap-2'>
+            <div
+              className='h-2 w-2 rounded-full'
+              style={{
+                backgroundColor: protocol.color,
+              }}
+            />
+            <span className='text-text-muted-60'>{protocol.label}:</span>
+            <span className='font-medium' style={{ color: protocol.color }}>
+              {formatPercent(protocol.value)}
+            </span>
+          </div>
+        ))}
+        {hasBothData && data.netRate > 0 && (
+          <div className='flex items-center gap-2 pt-1 border-t border-border-white-10'>
+            <span className='text-text-muted-60'>Net:</span>
+            <span className='font-medium text-yellow-400'>
+              {formatPercent(data.netRate)}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChartProps) {
+  // Determine which protocol is LONG and which is SHORT based on the first data point
+  const longProtocol = useMemo(() => {
+    if (data.length === 0) return 'hyperliquid';
+    return data[0].longProtocol;
+  }, [data]);
+
+  const shortProtocol = useMemo(() => {
+    if (data.length === 0) return 'pacifica';
+    return data[0].shortProtocol;
+  }, [data]);
+
+  // Get protocol display names from config
+  const longProtocolConfig = getProtocolConfig(longProtocol);
+  const shortProtocolConfig = getProtocolConfig(shortProtocol);
+  const longProtocolName = longProtocolConfig?.displayName.toUpperCase() || longProtocol.toUpperCase();
+  const shortProtocolName = shortProtocolConfig?.displayName.toUpperCase() || shortProtocol.toUpperCase();
+
+  // Calculate domain based on data (only include non-null values)
+  // Dynamically get all protocol values
+  const domain = useMemo(() => {
+    if (data.length === 0) return [-60, 120];
+    
+    const allValues: number[] = [];
+    data.forEach((d) => {
+      // Add all protocol values dynamically
+      getAllProtocolIds().forEach((protocolId) => {
+        if (protocolId === 'hyperliquid') {
+          if (d.hyperliquid !== null && d.hyperliquid !== undefined) allValues.push(d.hyperliquid);
+          if (d.projectedHyperliquid !== null && d.projectedHyperliquid !== undefined) allValues.push(d.projectedHyperliquid);
+        } else if (protocolId === 'pacifica') {
+          if (d.pacifica !== null && d.pacifica !== undefined) allValues.push(d.pacifica);
+          if (d.projectedPacifica !== null && d.projectedPacifica !== undefined) allValues.push(d.projectedPacifica);
+        }
+        // Future protocols can be added here
+      });
+    });
+    
+    if (allValues.length === 0) return [-60, 120];
+    
+    const min = Math.min(...allValues);
+    const max = Math.max(...allValues);
+    const padding = (max - min) * 0.1 || 10;
+    return [Math.floor(min - padding), Math.ceil(max + padding)];
+  }, [data]);
+
+  if (data.length === 0) {
+    return (
+      <div className='h-[260px] w-full flex items-center justify-center text-text-muted-60'>
+        No data available
+      </div>
+    );
+  }
+
   return (
     <ChartContainer
       config={chartConfig}
@@ -57,16 +213,53 @@ export function FundingRateChart({ data }: FundingRateChartProps) {
           tick={{ fill: 'rgba(255, 255, 255, 0.6)', fontSize: 11 }}
           tickLine={false}
           axisLine={false}
-          interval='preserveStartEnd'
-          minTickGap={30}
-          tickFormatter={(value) => {
-            // If it's a date format (MM/DD), show as is
-            if (value.includes('/')) {
+          interval={0}
+          minTickGap={20}
+          tickFormatter={(value, index) => {
+            if (!value) return '';
+            
+            // For 1 Hour view, show hourly labels
+            // Data comes in 30-min intervals, but we only show hourly labels
+            if (duration === '1 Hour') {
+              if (value.includes(':')) {
+                const [hours, minutes] = value.split(':').map(Number);
+                
+                // Always show first and last labels
+                const isFirst = index === 0;
+                const isLast = index === data.length - 1;
+                
+                // Show label if:
+                // 1. It's exactly on the hour (minutes === 0)
+                // 2. It's the first tick
+                // 3. It's the last tick
+                // 4. It's close to an hour mark (within 10 minutes)
+                const isOnHour = minutes === 0;
+                const isNearHour = minutes <= 10 || minutes >= 50;
+                
+                if (isOnHour || isFirst || isLast || isNearHour) {
+                  // Round to nearest hour for display
+                  const displayHour = minutes >= 30 ? (hours + 1) % 24 : hours;
+                  return `${String(displayHour).padStart(2, '0')}:00`;
+                }
+                return '';
+              }
               return value;
+            } else if (duration === '1 Day') {
+              // Show every 4 hours for 1 day view
+              if (value.includes(' ')) {
+                const timePart = value.split(' ')[1];
+                if (timePart && timePart.includes(':')) {
+                  const hour = parseInt(timePart.split(':')[0]);
+                  return hour % 4 === 0 ? value : '';
+                }
+              }
+              return value;
+            } else if (duration === '1 Week') {
+              // Show every day for 1 week view
+              return value; // Already formatted as MM/DD
             }
-            // If it's time format, show every 6 hours
-            const hour = parseInt(value.split(':')[0]);
-            return hour % 6 === 0 ? value : '';
+            
+            return value;
           }}
         />
         <YAxis
@@ -74,80 +267,82 @@ export function FundingRateChart({ data }: FundingRateChartProps) {
           tickLine={false}
           axisLine={false}
           tickFormatter={(value) => `${value.toFixed(0)}%`}
-          domain={[-60, 120]}
+          domain={domain}
         />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              indicator='line'
-              labelFormatter={(value) => `Time: ${value}`}
-            />
-          }
-        />
-        <Line
-          type='monotone'
-          dataKey='hyperliquid'
-          stroke='var(--chart-hyperliquid)'
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 4 }}
-        />
-        <Line
-          type='monotone'
-          dataKey='pacifica'
-          stroke='var(--chart-pink)'
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 4 }}
-        />
-        <Line
-          type='monotone'
-          dataKey='projectedHyperliquid'
-          stroke='var(--chart-hyperliquid)'
-          strokeWidth={2}
-          strokeDasharray='5 5'
-          dot={false}
-          connectNulls={false}
-        />
-        <Line
-          type='monotone'
-          dataKey='projectedPacifica'
-          stroke='var(--chart-pink)'
-          strokeWidth={2}
-          strokeDasharray='5 5'
-          dot={false}
-          connectNulls={false}
-        />
+        <ChartTooltip content={<CustomTooltip />} />
+        {/* Render lines dynamically for all protocols */}
+        {getAllProtocolIds().flatMap((protocolId) => {
+          const protocolConfig = getProtocolConfig(protocolId);
+          if (!protocolConfig) return [];
+
+          // Map protocol ID to data key (for now, only hyperliquid and pacifica are supported)
+          const dataKey = protocolId === 'hyperliquid' ? 'hyperliquid' : protocolId === 'pacifica' ? 'pacifica' : null;
+          const projectedDataKey = protocolId === 'hyperliquid' ? 'projectedHyperliquid' : protocolId === 'pacifica' ? 'projectedPacifica' : null;
+
+          if (!dataKey || !projectedDataKey) return [];
+
+          return [
+            <Line
+              key={protocolId}
+              type='monotone'
+              dataKey={dataKey}
+              stroke={`var(${protocolConfig.colorVar})`}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4 }}
+              connectNulls={false}
+            />,
+            <Line
+              key={`${protocolId}-projected`}
+              type='monotone'
+              dataKey={projectedDataKey}
+              stroke={`var(${protocolConfig.colorVar})`}
+              strokeWidth={2}
+              strokeDasharray='5 5'
+              dot={false}
+              connectNulls={false}
+            />,
+          ];
+        })}
         <ChartLegend
-          content={() => (
-            <div className='flex items-center justify-start gap-6 pt-3 px-4'>
-              <div className='flex items-center gap-2'>
-                <div
-                  className='h-2 w-6'
-                  style={{ backgroundColor: 'var(--chart-hyperliquid)' }}
-                />
-                <span className='text-xs text-text-muted-60'>
-                  HYPERLIQUID (LONG)
-                </span>
+          content={() => {
+            const longConfig = getProtocolConfig(longProtocol);
+            const shortConfig = getProtocolConfig(shortProtocol);
+            
+            return (
+              <div className='flex items-center justify-start gap-6 pt-3 px-4'>
+                {longConfig && (
+                  <div className='flex items-center gap-2'>
+                    <div
+                      className='h-2 w-6'
+                      style={{ backgroundColor: `var(${longConfig.colorVar})` }}
+                    />
+                    <span className='text-xs text-text-muted-60'>
+                      {longProtocolName} (LONG)
+                    </span>
+                  </div>
+                )}
+                {shortConfig && (
+                  <div className='flex items-center gap-2'>
+                    <div
+                      className='h-2 w-6'
+                      style={{ backgroundColor: `var(${shortConfig.colorVar})` }}
+                    />
+                    <span className='text-xs text-text-muted-60'>
+                      {shortProtocolName} (SHORT)
+                    </span>
+                  </div>
+                )}
+                <div className='flex items-center gap-2'>
+                  <div
+                    className='h-0.5 w-6 border-t-2 border-dashed'
+                    style={{ borderColor: '#ffffff' }}
+                  />
+                  <span className='text-xs text-text-muted-60'>PROJECTED</span>
+                </div>
               </div>
-              <div className='flex items-center gap-2'>
-                <div
-                  className='h-2 w-6'
-                  style={{ backgroundColor: 'var(--chart-pink)' }}
-                />
-                <span className='text-xs text-text-muted-60'>
-                  PACIFICA (SHORT)
-                </span>
-              </div>
-              <div className='flex items-center gap-2'>
-                <div
-                  className='h-0.5 w-6 border-t-2 border-dashed'
-                  style={{ borderColor: '#ffffff' }}
-                />
-                <span className='text-xs text-text-muted-60'>PROJECTED</span>
-              </div>
-            </div>
-          )}
+            );
+          }}
         />
       </LineChart>
     </ChartContainer>

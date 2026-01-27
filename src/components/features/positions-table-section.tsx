@@ -9,27 +9,34 @@ import { PositionsTableSection } from './trading-dashboard';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { PositionsTable } from './positions/positions-table';
-import { mockArbitragePositions } from '@/lib/mocks';
-import type { ArbitragePosition } from '@/types/positions';
+import { usePositions } from '@/hooks';
 
 interface PositionsTableSectionContentProps {
   className?: string;
-  initialPositions?: ArbitragePosition[];
+  evmAddress?: string;
+  solanaAddress?: string;
 }
 
 export function PositionsTableSectionContent({
   className,
-  initialPositions = mockArbitragePositions,
+  evmAddress,
+  solanaAddress,
 }: PositionsTableSectionContentProps) {
   const [activeTab, setActiveTab] = useState<'positions' | 'closed'>(
     'positions'
   );
-  const [positions, setPositions] = useState(initialPositions);
+  
+  // Fetch positions using the hook
+  // For testing, addresses are optional and hardcoded data will be used
+  const { positions, loading, error } = usePositions({
+    evmAddress,
+    solanaAddress,
+    enabled: true,
+  });
 
   const handleClosePosition = (asset: string) => {
-    setPositions((prev) =>
-      prev.filter((p) => `${p.asset}-${p.leverage}` !== asset)
-    );
+    // TODO: Implement actual close position API call
+    console.log('Close position:', asset);
   };
 
   return (
@@ -70,10 +77,26 @@ export function PositionsTableSectionContent({
         {/* Content */}
         <div className='flex-1 min-h-0 overflow-hidden'>
           {activeTab === 'positions' ? (
-            <PositionsTable
-              positions={positions}
-              onClosePosition={handleClosePosition}
-            />
+            <>
+              {loading && (
+                <div className='flex items-center justify-center py-12'>
+                  <p className='text-text-muted-60 text-sm'>Loading positions...</p>
+                </div>
+              )}
+              {error && (
+                <div className='flex items-center justify-center py-12'>
+                  <p className='text-red-400 text-sm'>
+                    Error loading positions: {error.message}
+                  </p>
+                </div>
+              )}
+              {!loading && !error && (
+                <PositionsTable
+                  positions={positions}
+                  onClosePosition={handleClosePosition}
+                />
+              )}
+            </>
           ) : (
             <div className='flex items-center justify-center py-12'>
               <p className='text-text-muted-60 text-sm'>No closed positions</p>
