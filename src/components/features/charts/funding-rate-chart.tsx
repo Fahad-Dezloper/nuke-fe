@@ -318,7 +318,7 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
                       style={{ backgroundColor: `var(${longConfig.colorVar})` }}
                     />
                     <span className='text-xs text-text-muted-60'>
-                      {longProtocolName} (LONG)
+                      {longProtocolName}
                     </span>
                   </div>
                 )}
@@ -329,7 +329,7 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
                       style={{ backgroundColor: `var(${shortConfig.colorVar})` }}
                     />
                     <span className='text-xs text-text-muted-60'>
-                      {shortProtocolName} (SHORT)
+                      {shortProtocolName}
                     </span>
                   </div>
                 )}

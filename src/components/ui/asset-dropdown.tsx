@@ -223,7 +223,7 @@ export function AssetDropdown({
       {isOpen && (
         <div
           className={cn(
-            'absolute top-full left-0 mt-2 z-[10000]',
+            'absolute top-full left-0 mt-2 z-[10002]',
             'w-auto min-w-[900px] max-w-[1200px] max-h-[500px] overflow-hidden',
             'bg-background/95 backdrop-blur-xl border border-border-white-20/50',
             'rounded-2xl shadow-2xl shadow-black/60',
@@ -277,7 +277,7 @@ export function AssetDropdown({
           </div>
 
           {/* Table Header */}
-          <div className='sticky top-0 z-10 px-5 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md shadow-lg shadow-black/20 shrink-0'>
+          <div className='sticky top-0 z-[10001] px-5 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md shadow-lg shadow-black/20 shrink-0'>
             <div className='grid grid-cols-[minmax(140px,auto)_minmax(140px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(90px,auto)_minmax(90px,auto)] gap-4'>
               <span className='text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold'>
                 ASSET

@@ -36,7 +36,7 @@ function formatTimeLabel(timestamp: string, duration: string): string {
     // Show MM/DD format
     return `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
   }
-  
+
   // Default to HH:MM
   return `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
@@ -96,7 +96,7 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
       setLoading(true);
       setError(null);
       try {
-        const data = await chartService.getChartData(selectedAsset.asset);
+        const data = await chartService.getChartData(selectedAsset?.asset || '');
         if (!cancelled) {
           setChartData(data);
         }
@@ -150,7 +150,7 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
     // This helps match timestamps that are close but not identical
     const normalizeTimestamp = (timestamp: string): string => {
       const date = new Date(timestamp);
-      
+
       if (duration === '1 Hour') {
         // Round to nearest minute for 1 hour view
         date.setSeconds(0, 0);
@@ -165,7 +165,7 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
         date.setMinutes(0);
         date.setSeconds(0, 0);
       }
-      
+
       return date.toISOString();
     };
 
