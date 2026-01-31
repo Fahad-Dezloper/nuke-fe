@@ -16,9 +16,9 @@ interface ChartTabsProps {
 }
 
 const tabs: { id: ChartTab; label: string }[] = [
-  { id: 'pnl', label: 'PnL' },
-  { id: 'cumulative', label: 'Cumulative PnL' },
   { id: 'funding', label: 'Funding Rate' },
+  { id: 'pnl', label: 'PnL' },
+  // { id: 'cumulative', label: 'Cumulative PnL' },
 ];
 
 export function ChartTabs({

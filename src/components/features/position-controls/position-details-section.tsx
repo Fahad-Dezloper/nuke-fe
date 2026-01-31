@@ -109,12 +109,31 @@ export function PositionDetailsSection({
         POSITION DETAILS
       </label>
       <div className='grid grid-cols-2 gap-3'>
-        {positionDetails.map((card) => (
-          <PositionDetailsCard
-            key={card.label}
-            {...card}
-          />
-        ))}
+        {positionDetails.map((card) => {
+          const buttonGradientClass =
+            card.gradientColor === 'long'
+              ? 'bg-gradient-to-br from-[var(--chart-hyperliquid)]/10 via-[var(--chart-hyperliquid)]/5 to-[var(--chart-hyperliquid)]/3'
+              : 'bg-gradient-to-br from-[var(--chart-pink)]/10 via-[var(--chart-pink)]/5 to-[var(--chart-pink)]/3';
+          
+          return (
+            <div key={card.label} className='flex flex-col gap-2'>
+              <PositionDetailsCard {...card} />
+              <button
+                className={cn(
+                  'w-full py-2 px-3 rounded-xl border border-border-white-10/50',
+                  'backdrop-blur-md bg-gradient-to-br',
+                  'text-xs font-medium text-text-primary',
+                  'hover:border-border-white-20 hover:bg-opacity-80',
+                  'transition-all duration-200',
+                  'shadow-sm shadow-black/10',
+                  buttonGradientClass
+                )}
+              >
+                Fund hedge leg
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

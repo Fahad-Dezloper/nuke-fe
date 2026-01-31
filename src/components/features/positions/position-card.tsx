@@ -74,3 +74,4 @@ export function PositionCard({ position, onClose }: PositionCardProps) {
   );
 }
 
+ 

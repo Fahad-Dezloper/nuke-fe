@@ -15,12 +15,12 @@ export interface MarketFeedApiResponse {
         mark_px: number;
         funding: number; // Hourly funding rate
         max_leverage: number;
-    };
+    } | null;
     pacifica: {
         mark_px: number;
         funding: number; // Hourly funding rate
         max_leverage: number;
-    };
+    } | null;
 }
 
 /**
@@ -71,13 +71,19 @@ function hourlyTo30DayAPR(hourlyRate: number): number {
 function transformMarketFeedData(
     apiData: MarketFeedApiResponse[]
 ): AssetDropdownItem[] {
-    return apiData.map((item) => {
+    return apiData
+        .filter((item) => item.hyperliquid && item.pacifica) // Filter out items with null protocols
+        .map((item) => {
+        // TypeScript now knows these are not null after filter
+        const hyperliquid = item.hyperliquid!;
+        const pacifica = item.pacifica!;
+        
         const hyperliquidYearly = hourlyToYearlyPercentage(
-            item.hyperliquid.funding
+            hyperliquid.funding
         );
-        const pacificaYearly = hourlyToYearlyPercentage(item.pacifica.funding);
-        const hyperliquid30D = hourlyTo30DayAPR(item.hyperliquid.funding);
-        const pacifica30D = hourlyTo30DayAPR(item.pacifica.funding);
+        const pacificaYearly = hourlyToYearlyPercentage(pacifica.funding);
+        const hyperliquid30D = hourlyTo30DayAPR(hyperliquid.funding);
+        const pacifica30D = hourlyTo30DayAPR(pacifica.funding);
 
         // Best pair logic: Long on lower funding rate, Short on higher funding rate
         // Net APR = (Short rate) - (Long rate) = (Higher rate) - (Lower rate)
@@ -92,27 +98,27 @@ function transformMarketFeedData(
 
         // Use the minimum of the two max leverages
         const maxLeverage = Math.min(
-            item.hyperliquid.max_leverage,
-            item.pacifica.max_leverage
+            hyperliquid.max_leverage,
+            pacifica.max_leverage
         );
 
         // Create modular protocol structure
         const protocols: Record<string, import('@/types/positions').ProtocolData> = {
             hyperliquid: {
                 protocol: 'hyperliquid',
-                markPx: item.hyperliquid.mark_px,
-                fundingRate: item.hyperliquid.funding,
+                markPx: hyperliquid.mark_px,
+                fundingRate: hyperliquid.funding,
                 fundingRateYearly: hyperliquidYearly,
                 fundingRate30D: hyperliquid30D,
-                maxLeverage: item.hyperliquid.max_leverage,
+                maxLeverage: hyperliquid.max_leverage,
             },
             pacifica: {
                 protocol: 'pacifica',
-                markPx: item.pacifica.mark_px,
-                fundingRate: item.pacifica.funding,
+                markPx: pacifica.mark_px,
+                fundingRate: pacifica.funding,
                 fundingRateYearly: pacificaYearly,
                 fundingRate30D: pacifica30D,
-                maxLeverage: item.pacifica.max_leverage,
+                maxLeverage: pacifica.max_leverage,
             },
         };
 
@@ -126,9 +132,9 @@ function transformMarketFeedData(
             pacificaFundingRate: pacificaYearly,
             netAPR,
             apr30D,
-            markPx: item.hyperliquid.mark_px, // Use Hyperliquid mark price for sorting
-            hyperliquidMarkPx: item.hyperliquid.mark_px,
-            pacificaMarkPx: item.pacifica.mark_px,
+            markPx: hyperliquid.mark_px, // Use Hyperliquid mark price for sorting
+            hyperliquidMarkPx: hyperliquid.mark_px,
+            pacificaMarkPx: pacifica.mark_px,
         };
     });
 }

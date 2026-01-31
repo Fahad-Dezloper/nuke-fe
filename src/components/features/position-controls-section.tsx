@@ -170,12 +170,12 @@ export function PositionControlsSectionContent({
         <div className='px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-xl'>
           {isLoggedIn ? (
             <>
-              <div className='flex items-center gap-2'>
+              {/* <div className='flex items-center gap-2'>
                 <div className='h-2 w-2 rounded-full bg-green-500' />
                 <span className='text-xs text-text-muted-60'>
                   Wallet connected
                 </span>
-              </div>
+              </div> */}
               <ConnectWalletButton
                 onClick={handleOpenPosition}
                 size='md'
@@ -186,12 +186,7 @@ export function PositionControlsSectionContent({
             </>
           ) : (
             <>
-              <div className='flex items-center gap-2'>
-                <div className='h-2 w-2 rounded-full bg-green-500' />
-                <span className='text-xs text-text-muted-60'>
-                  Connect your wallet to start trading
-                </span>
-              </div>
+            
               <ConnectWalletButton
                 onClick={handleConnectWallet}
                 size='md'
