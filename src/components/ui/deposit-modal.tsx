@@ -10,7 +10,10 @@ import { Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Modal } from './modal';
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useTurnkey } from '@/lib/turnkey/hooks';
+import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
+import { useUSDCBalanceBase } from '@/hooks/use-usdc-balance-base';
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -19,25 +22,56 @@ interface DepositModalProps {
   balance?: string;
 }
 
-// Hardcoded values for now - will be replaced with Turnkey wallet address later
-const DEFAULT_ADDRESS = '0x1234567890123456789012345678901234567890';
-const DEFAULT_BALANCE = '0.00';
 
-// Base and USDC logo URLs - using CDN links
-// Fallback to simple colored circles if images fail to load
-const BASE_LOGO_URL = 'https://assets.coingecko.com/coins/images/27509/small/base.png?1696526211';
+// USDC logo URL - using CDN link
+// Fallback to simple colored circles if image fails to load
 const USDC_LOGO_URL = 'https://assets.coingecko.com/coins/images/6319/small/USD_Coin_icon.png?1547042389';
 
 export function DepositModal({
   isOpen,
   onClose,
-  walletAddress = DEFAULT_ADDRESS,
-  balance = DEFAULT_BALANCE,
+  walletAddress: propWalletAddress,
+  balance: propBalance,
 }: DepositModalProps) {
+  const { state: turnkeyState } = useTurnkey();
+  const {
+    formattedBalance,
+    isLoading: isLoadingBalance,
+    refresh,
+  } = useUSDCBalanceBase();
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [usdcImageError, setUsdcImageError] = useState(false);
   const [baseImageError, setBaseImageError] = useState(false);
+  const lastFetchedAddressRef = useRef<string>('');
+
+  // Get wallet address from Turnkey if not provided
+  // Extract address first to avoid dependency on array reference
+  const extractedAddress = propWalletAddress || 
+    (turnkeyState.isLoggedIn && turnkeyState.userWallets?.length 
+      ? getEVMAddress(turnkeyState.userWallets) || ''
+      : '');
+  
+  // Memoize based on the actual address string, not the wallets array
+  const walletAddress = useMemo(() => extractedAddress, [extractedAddress]);
+
+  // Use prop balance if provided, otherwise use global balance
+  const balance = propBalance || formattedBalance;
+
+  // Fetch balance when modal opens or wallet address changes (only once per address)
+  useEffect(() => {
+    if (isOpen && walletAddress && !propBalance && !isLoadingBalance) {
+      // Only fetch if we haven't fetched for this address yet
+      if (lastFetchedAddressRef.current !== walletAddress) {
+        lastFetchedAddressRef.current = walletAddress;
+        refresh();
+      }
+    } else if (!isOpen) {
+      // Reset when modal closes
+      lastFetchedAddressRef.current = '';
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, walletAddress, propBalance]);
 
   const handleCopyAddress = async () => {
     try {
@@ -50,9 +84,16 @@ export function DepositModal({
   };
 
   const handleRefreshBalance = async () => {
+    if (!walletAddress) return;
+    
     setIsRefreshing(true);
-    // TODO: Implement balance refresh logic
-    setTimeout(() => setIsRefreshing(false), 1000);
+    try {
+      await refresh();
+    } catch (error) {
+      console.error('Error refreshing balance:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleViewOnExplorer = () => {
@@ -115,9 +156,15 @@ export function DepositModal({
                 )}
               </div>
               <div className='flex items-baseline gap-1.5'>
-                <span className='text-xl font-semibold text-text-primary'>
-                  {balance}
-                </span>
+                {isLoadingBalance ? (
+                  <span className='text-xl font-semibold text-text-muted-60'>
+                    ...
+                  </span>
+                ) : (
+                  <span className='text-xl font-semibold text-text-primary'>
+                    {balance}
+                  </span>
+                )}
                 <span className='text-sm text-text-muted-60 font-medium'>
                   USDC
                 </span>

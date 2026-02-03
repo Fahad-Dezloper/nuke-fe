@@ -24,10 +24,10 @@ interface UsePositionsReturn {
  */
 const HARDCODED_TEST_DATA: PositionApiResponse[] = [
   {
-    symbol: 'BNB',
+    symbol: 'SOL',
     hyperliquid: {
-      symbol: 'BNB',
-      size: '8.023',
+      symbol: 'SOL',
+      size: '18.023',
       side: 'Short',
       pnl: '214.940815',
       funding: '64.149738',
@@ -36,8 +36,8 @@ const HARDCODED_TEST_DATA: PositionApiResponse[] = [
       liquidationPrice: '3294.6049140528',
     },
     pacifica: {
-      symbol: 'BNB',
-      size: '8.023',
+      symbol: 'SOL',
+      size: '18.023',
       side: 'Long',
       pnl: '-212.659',
       funding: '-13.552109',
