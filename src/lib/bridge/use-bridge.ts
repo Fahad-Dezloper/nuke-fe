@@ -7,10 +7,11 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { useTurnkey } from '@/lib/turnkey/hooks';
-import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
+import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { bridgeService } from './bridge.service';
 import { depositService } from './deposit.service';
 import { signPermitWithTurnkey } from './signing';
+import { signTransferWithAuthorizationWithTurnkey } from './solana-signing';
 import {
     getUSDCBalanceOnBase,
     formatUSDCBalance,
@@ -23,6 +24,7 @@ import type {
     BridgeError,
     QuoteRequest,
     PermitData,
+    TransferWithAuthorizationData,
     RelayStatus,
 } from './types';
 import { CHAIN_IDS, TOKEN_ADDRESSES, MIN_DEPOSIT_AMOUNT } from './types';
@@ -32,6 +34,7 @@ interface UseBridgeOptions {
     onError?: (error: BridgeError) => void;
     protocol?: 'hyperliquid' | 'pacifica'; // Protocol to deposit to after bridge
     feePayerAddress?: string; // Fee payer address for deposit (required if protocol is provided)
+    solanaRecipient?: string; // Solana recipient address (required for Solana bridge)
 }
 
 interface UseBridgeReturn {
@@ -40,7 +43,8 @@ interface UseBridgeReturn {
     bridge: (
         amount: string,
         protocol?: 'hyperliquid' | 'pacifica',
-        feePayerAddress?: string
+        feePayerAddress?: string,
+        solanaRecipient?: string
     ) => Promise<void>;
     checkBalance: (address: string) => Promise<string>;
     isLoading: boolean;
@@ -185,7 +189,8 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
         async (
             amount: string,
             protocol?: 'hyperliquid' | 'pacifica',
-            feePayerAddress?: string
+            feePayerAddress?: string,
+            solanaRecipient?: string
         ) => {
             try {
                 setError(null);
@@ -211,6 +216,21 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
                     throw new Error('No EVM wallet address found');
                 }
 
+                // Get Solana address if bridging to Solana
+                const isSolanaBridge = protocol === 'pacifica';
+                let solanaRecipientAddress: string | undefined;
+                if (isSolanaBridge) {
+                    solanaRecipientAddress =
+                        solanaRecipient ||
+                        options?.solanaRecipient ||
+                        getSolanaAddress(wallets);
+                    if (!solanaRecipientAddress) {
+                        throw new Error(
+                            'No Solana wallet address found. Please ensure you have a Solana wallet connected.'
+                        );
+                    }
+                }
+
                 // Check balance
                 const balance = await getUSDCBalanceOnBase(
                     walletAddress as `0x${string}`
@@ -221,18 +241,30 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
                     throw new Error('Insufficient USDC balance on Base');
                 }
 
+                // Determine destination chain based on protocol
+                // Hyperliquid uses Arbitrum, Pacifica uses Solana
+                const destinationChainId = isSolanaBridge
+                    ? CHAIN_IDS.SOLANA
+                    : CHAIN_IDS.ARBITRUM;
+                const destinationCurrency = isSolanaBridge
+                    ? TOKEN_ADDRESSES.SOLANA_USDC
+                    : TOKEN_ADDRESSES.ARBITRUM_USDC;
+                const recipient = isSolanaBridge
+                    ? solanaRecipientAddress!
+                    : walletAddress;
+
                 // Step 1: Get Quote
                 setStatus('getting-quote');
                 const quoteRequest: QuoteRequest = {
                     user: walletAddress,
                     originChainId: CHAIN_IDS.BASE,
-                    destinationChainId: CHAIN_IDS.ARBITRUM,
+                    destinationChainId: destinationChainId,
                     originCurrency: TOKEN_ADDRESSES.BASE_USDC,
-                    destinationCurrency: TOKEN_ADDRESSES.ARBITRUM_USDC,
+                    destinationCurrency: destinationCurrency,
                     amount: amount,
                     tradeType: 'EXACT_INPUT',
                     usePermit: true,
-                    recipient: walletAddress,
+                    recipient: recipient,
                 };
 
                 const quoteResponse = await bridgeService.getQuote(quoteRequest);
@@ -247,27 +279,59 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
                 }
 
                 const requestId = signatureStep.requestId;
-                const permitData = signatureStep.items[0]?.data as PermitData;
 
-                if (!permitData) {
-                    throw new Error('Permit data not found in signature step');
+                // Step 3: Sign based on destination chain
+                setStatus('signing-permit');
+                let signature: string;
+                let executeKind: string;
+                let executeApi: string;
+
+                if (isSolanaBridge) {
+                    // Solana uses EIP-3009 TransferWithAuthorization
+                    // Signature data is nested in data.sign
+                    const signData = signatureStep.items[0]?.data?.sign as TransferWithAuthorizationData;
+
+                    if (!signData) {
+                        throw new Error(
+                            'TransferWithAuthorization data not found in signature step'
+                        );
+                    }
+
+                    signature = await signTransferWithAuthorizationWithTurnkey(
+                        signData,
+                        walletAddress,
+                        turnkeyState.turnkeySubOrgId
+                    );
+
+                    // Extract execute parameters from post.body if available, otherwise use defaults
+                    const postBody = signatureStep.items[0]?.data?.post?.body;
+                    executeKind = postBody?.kind || 'eip3009';
+                    executeApi = postBody?.api || 'swap';
+                } else {
+                    // Arbitrum uses EIP-2612 Permit
+                    const permitData = signatureStep.items[0]?.data as PermitData;
+
+                    if (!permitData) {
+                        throw new Error('Permit data not found in signature step');
+                    }
+
+                    signature = await signPermitWithTurnkey(
+                        permitData,
+                        walletAddress,
+                        turnkeyState.turnkeySubOrgId
+                    );
+
+                    executeKind = 'PERMIT';
+                    executeApi = 'relay';
                 }
 
-                // Step 3: Sign Permit
-                setStatus('signing-permit');
-                const signature = await signPermitWithTurnkey(
-                    permitData,
-                    walletAddress,
-                    turnkeyState.turnkeySubOrgId
-                );
-
-                // Step 4: Execute Permit
+                // Step 4: Execute Permit/Authorization
                 setStatus('executing-permit');
                 await bridgeService.executePermit({
                     signature,
-                    kind: 'PERMIT', // Typically "PERMIT" for EIP-2612
+                    kind: executeKind,
                     requestId,
-                    api: 'relay',
+                    api: executeApi,
                 });
 
                 // Store requestId for status polling
@@ -277,11 +341,12 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
                 setStatus('waiting-finality');
                 await pollBridgeStatus(requestId);
 
-                // Step 6: If protocol is specified, proceed with deposit
+                // Step 6: If protocol is specified and it's Hyperliquid (Arbitrum), proceed with deposit
+                // Note: Pacifica (Solana) doesn't require deposit step as it's handled differently
                 const depositProtocol = protocol || options?.protocol;
                 const depositFeePayer = feePayerAddress || options?.feePayerAddress;
 
-                if (depositProtocol && depositFeePayer) {
+                if (depositProtocol === 'hyperliquid' && depositFeePayer) {
                     try {
                         // Fetch USDC balance on Arbitrum
                         setStatus('depositing');

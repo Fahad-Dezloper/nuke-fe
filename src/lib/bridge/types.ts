@@ -1,6 +1,6 @@
 /**
  * Bridge Types
- * Type definitions for bridge operations (Base to Arbitrum)
+ * Type definitions for bridge operations (Base to Arbitrum/Solana)
  */
 
 /**
@@ -9,6 +9,7 @@
 export const CHAIN_IDS = {
     BASE: 8453,
     ARBITRUM: 42161,
+    SOLANA: 792703809,
 } as const;
 
 /**
@@ -17,6 +18,7 @@ export const CHAIN_IDS = {
 export const TOKEN_ADDRESSES = {
     BASE_USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     ARBITRUM_USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    SOLANA_USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Base58 encoded Solana mint address
 } as const;
 
 /**
@@ -130,9 +132,34 @@ export interface PermitData {
  */
 export interface ExecutePermitRequest {
     signature: string; // Hex-encoded signature (0x...) - 65 bytes (r + s + v)
-    kind: string; // Permit kind/type (typically "PERMIT" or "PERMIT2")
+    kind: string; // Permit kind/type: "PERMIT" or "PERMIT2" for Arbitrum, "eip3009" for Solana
     requestId: string; // The requestId from the signature step in quote response
-    api: string; // API identifier (typically "relay")
+    api: string; // API identifier: "relay" for Arbitrum, "swap" for Solana
+}
+
+/**
+ * TransferWithAuthorization Data (EIP-3009) for Solana
+ */
+export interface TransferWithAuthorizationData {
+    domain: {
+        name: string;
+        version: string;
+        chainId: number;
+        verifyingContract: `0x${string}`;
+    };
+    types: {
+        TransferWithAuthorization: Array<{ name: string; type: string }>;
+        EIP712Domain?: Array<{ name: string; type: string }>;
+    };
+    primaryType: 'TransferWithAuthorization';
+    value: {
+        from: string;
+        to: string;
+        value: string;
+        validAfter: number;
+        validBefore: number;
+        nonce: string; // bytes32 hex string
+    };
 }
 
 /**

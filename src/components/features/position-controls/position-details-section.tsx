@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { PositionDetailsCard } from '@/components/ui/position-details-card';
 import { BridgeStatusModal } from '@/components/ui/bridge-status-modal';
 import { useBridge } from '@/lib/bridge';
+import { useTurnkey } from '@/lib/turnkey/hooks';
+import { getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import {
   marginAtom,
   leverageAtom,
@@ -29,6 +31,7 @@ export function PositionDetailsSection({
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const { state: turnkeyState } = useTurnkey();
   const [isBridging, setIsBridging] = useState(false);
   const [selectedProtocol, setSelectedProtocol] = useState<'hyperliquid' | 'pacifica'>('hyperliquid');
   const [bridgeError, setBridgeError] = useState<string | null>(null);
@@ -141,7 +144,20 @@ export function PositionDetailsSection({
 
             try {
               const feePayerAddress = process.env.NEXT_PUBLIC_HYPERLIQUID_FEEPAYER_ADDRESS;
-              await bridge(amountInSmallestUnit, protocol, feePayerAddress);
+              
+              // Get Solana address for Pacifica bridge
+              let solanaRecipient: string | undefined;
+              if (protocol === 'pacifica') {
+                const wallets = turnkeyState.userWallets;
+                if (wallets && wallets.length > 0) {
+                  solanaRecipient = getSolanaAddress(wallets);
+                  if (!solanaRecipient) {
+                    throw new Error('No Solana wallet address found. Please ensure you have a Solana wallet connected.');
+                  }
+                }
+              }
+              
+              await bridge(amountInSmallestUnit, protocol, feePayerAddress, solanaRecipient);
             } catch (err) {
               // Error is handled by useBridge onError callback
               console.error('Bridge error:', err);
