@@ -147,4 +147,3 @@ export const mockAssets: AssetDropdownItem[] = [
     apy30D: 8.5,
   },
 ];
-

@@ -1,12 +1,6 @@
 import { Turnkey } from '@turnkey/sdk-browser';
 import type { Wallet, WalletCreationResult, TurnkeyState } from './types';
-import {
-  WALLET_NAMES,
-  ADDRESS_FORMATS,
-  CURVES,
-  PATH_FORMATS,
-  DERIVATION_PATHS,
-} from './constants';
+import { WALLET_NAMES, ADDRESS_FORMATS, CURVES, PATH_FORMATS, DERIVATION_PATHS } from './constants';
 import { ErrorCode, createError, toAppError, getUserMessage } from '@/lib/errors';
 
 /**
@@ -25,7 +19,7 @@ export class WalletManager {
     private turnkey: Turnkey,
     private getState: () => TurnkeyState,
     private updateWallets: (wallets: Wallet[]) => void
-  ) { }
+  ) {}
 
   /**
    * Creates a new wallet with both Ethereum and Solana account support.
@@ -82,9 +76,7 @@ export class WalletManager {
             addressFormat: address.startsWith('0x')
               ? ADDRESS_FORMATS.ETHEREUM
               : ADDRESS_FORMATS.SOLANA,
-            path: address.startsWith('0x')
-              ? DERIVATION_PATHS.ETHEREUM
-              : DERIVATION_PATHS.SOLANA,
+            path: address.startsWith('0x') ? DERIVATION_PATHS.ETHEREUM : DERIVATION_PATHS.SOLANA,
             publicKey: state.publicKey!,
           })),
         ],
@@ -265,8 +257,7 @@ export class WalletManager {
     const hasEthereum = wallets.some((wallet) =>
       wallet.accounts?.some(
         (account) =>
-          account.addressFormat === ADDRESS_FORMATS.ETHEREUM ||
-          account.address?.startsWith('0x')
+          account.addressFormat === ADDRESS_FORMATS.ETHEREUM || account.address?.startsWith('0x')
       )
     );
 
@@ -304,17 +295,12 @@ export class WalletManager {
       const wallets = this.getState().userWallets;
 
       if (wallets.length === 0) {
-        console.log(
-          'No wallets found, creating default wallet with both chains...'
-        );
+        console.log('No wallets found, creating default wallet with both chains...');
         const createResult = await this.createWallet(WALLET_NAMES.DEFAULT);
         if (createResult.success) {
           console.log('Default wallet created successfully');
         } else {
-          console.error(
-            'Failed to create default wallet:',
-            createResult.error
-          );
+          console.error('Failed to create default wallet:', createResult.error);
         }
         return;
       }
@@ -323,9 +309,7 @@ export class WalletManager {
 
       // Create Solana wallet if missing
       if (!hasSolana) {
-        console.log(
-          'User does not have Solana wallet, creating Solana wallet...'
-        );
+        console.log('User does not have Solana wallet, creating Solana wallet...');
         const createResult = await this.createSolanaWallet();
         if (createResult.success) {
           console.log('Solana wallet created successfully');
@@ -335,17 +319,12 @@ export class WalletManager {
       }
 
       if (!hasEthereum) {
-        console.log(
-          'User does not have Ethereum wallet, creating Ethereum wallet...'
-        );
+        console.log('User does not have Ethereum wallet, creating Ethereum wallet...');
         const createResult = await this.createEthereumWallet();
         if (createResult.success) {
           console.log('Ethereum wallet created successfully');
         } else {
-          console.error(
-            'Failed to create Ethereum wallet:',
-            createResult.error
-          );
+          console.error('Failed to create Ethereum wallet:', createResult.error);
         }
       }
     } catch (error) {

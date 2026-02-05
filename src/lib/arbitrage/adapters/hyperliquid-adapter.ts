@@ -1,9 +1,9 @@
 /**
  * HyperLiquid Protocol Adapter
- * 
+ *
  * Wraps the HyperLiquidService to provide a unified interface
  * for the arbitrage orchestrator.
- * 
+ *
  * This adapter converts between unified types and HyperLiquid-specific types
  * without modifying the existing HyperLiquidService.
  */
@@ -12,9 +12,7 @@ import { HyperLiquidService } from '@/lib/services/hyperliquid';
 import type { CreatePositionRequest, ClosePositionRequest } from '@/lib/services/hyperliquid/types';
 import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
 import { MarketPriceHelper } from '@/dex/hyperliquid/utils/market-price';
-import type {
-  ProtocolAdapter,
-} from './protocol-adapter.interface';
+import type { ProtocolAdapter } from './protocol-adapter.interface';
 import type {
   UnifiedPositionParams,
   UnifiedPositionResult,
@@ -24,7 +22,7 @@ import type {
 
 /**
  * HyperLiquid Protocol Adapter
- * 
+ *
  * Implements the ProtocolAdapter interface for HyperLiquid protocol.
  * Wraps HyperLiquidService and converts between unified and protocol-specific types.
  */
@@ -39,9 +37,7 @@ export class HyperLiquidAdapter implements ProtocolAdapter {
   /**
    * Opens a position on HyperLiquid
    */
-  async openPosition(
-    params: UnifiedPositionParams
-  ): Promise<UnifiedPositionResult> {
+  async openPosition(params: UnifiedPositionParams): Promise<UnifiedPositionResult> {
     try {
       // Convert asset name to asset index
       const assetIndex = await perpTickerToIndex(params.asset.toUpperCase());
@@ -104,10 +100,7 @@ export class HyperLiquidAdapter implements ProtocolAdapter {
       const hyperLiquidRequest: CreatePositionRequest = {
         assetIndex,
         assetName: params.asset.toUpperCase(),
-        price:
-          parseFloat(entryPrice) > 0
-            ? parseFloat(entryPrice)
-            : 0, // 0 is okay for market orders
+        price: parseFloat(entryPrice) > 0 ? parseFloat(entryPrice) : 0, // 0 is okay for market orders
         size: positionSizeUSD, // Size in USD
         leverage: params.leverage,
         isLong: params.direction === 'long',
@@ -131,10 +124,7 @@ export class HyperLiquidAdapter implements ProtocolAdapter {
           if (typeof response.data === 'object' && response.data !== null) {
             const data = response.data as Record<string, unknown>;
             positionId =
-              (data.orderId as string) ||
-              (data.positionId as string) ||
-              (data.id as string) ||
-              '';
+              (data.orderId as string) || (data.positionId as string) || (data.id as string) || '';
           }
         }
 
@@ -160,10 +150,7 @@ export class HyperLiquidAdapter implements ProtocolAdapter {
           protocol: this.protocolName,
           asset: params.asset,
           direction: params.direction,
-          size:
-            finalSizeInAsset > 0
-              ? finalSizeInAsset.toString()
-              : positionSizeUSD, // Fallback to USD if asset amount not calculated
+          size: finalSizeInAsset > 0 ? finalSizeInAsset.toString() : positionSizeUSD, // Fallback to USD if asset amount not calculated
           entryPrice: finalEntryPrice,
           margin: params.margin,
           leverage: params.leverage,
@@ -186,8 +173,7 @@ export class HyperLiquidAdapter implements ProtocolAdapter {
         };
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
         positionId: '',
@@ -232,14 +218,11 @@ export class HyperLiquidAdapter implements ProtocolAdapter {
 
   /**
    * Gets information about an existing position
-   * 
+   *
    * Note: This is a placeholder - HyperLiquid position querying
    * would need to be implemented based on their API
    */
-  async getPosition(
-    positionId: string,
-    walletAddress: string
-  ): Promise<UnifiedPosition> {
+  async getPosition(positionId: string, walletAddress: string): Promise<UnifiedPosition> {
     // Placeholder implementation
     // In production, this would query HyperLiquid API for position details
     throw new Error('getPosition not yet implemented for HyperLiquid');
@@ -291,15 +274,11 @@ export class HyperLiquidAdapter implements ProtocolAdapter {
 
   /**
    * Calculates position size from margin and leverage
-   * 
+   *
    * Returns size in asset units (e.g., 0.001 BTC)
    * Formula: (margin * leverage) / price = size in asset units
    */
-  calculatePositionSize(
-    margin: string,
-    leverage: number,
-    price?: string
-  ): string {
+  calculatePositionSize(margin: string, leverage: number, price?: string): string {
     if (!price || parseFloat(price) <= 0) {
       throw new Error('Price is required to calculate position size in asset units');
     }

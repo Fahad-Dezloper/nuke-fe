@@ -1,16 +1,11 @@
-import { encode } from "@msgpack/msgpack";
-import { keccak_256 } from "@noble/hashes/sha3.js";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
-import { HYPERLIQUID_API, marketSlippage } from "./constants";
-import {
-  Hex,
-  PerpOrderRequest,
-  PerpOrderTypedDataReturn,
-  ValueMap,
-} from "./types";
-import { perpTickerToIndex } from "./utils/asset-index-converter";
-import { MarketPriceHelper } from "./utils/market-price";
-import { createMainnetExchangeTypedData } from "./utils/signing";
+import { encode } from '@msgpack/msgpack';
+import { keccak_256 } from '@noble/hashes/sha3.js';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
+import { HYPERLIQUID_API, marketSlippage } from './constants';
+import { Hex, PerpOrderRequest, PerpOrderTypedDataReturn, ValueMap } from './types';
+import { perpTickerToIndex } from './utils/asset-index-converter';
+import { MarketPriceHelper } from './utils/market-price';
+import { createMainnetExchangeTypedData } from './utils/signing';
 
 export class PerpOrders {
   protected baseUrl = HYPERLIQUID_API;
@@ -21,7 +16,7 @@ export class PerpOrders {
   ERROR : PRICE GOING IN BTC INSTEAD
   */
   async createPerpPositionTypedData(
-    orderRequest: PerpOrderRequest,
+    orderRequest: PerpOrderRequest
   ): Promise<PerpOrderTypedDataReturn> {
     try {
       const {
@@ -34,14 +29,10 @@ export class PerpOrders {
         isMarket = false,
       } = orderRequest;
 
-      if (!isMarket && !price)
-        throw new Error("Order is limit order, but no limit price received");
+      if (!isMarket && !price) throw new Error('Order is limit order, but no limit price received');
 
       const marketPriceHelper = new MarketPriceHelper();
-      const tickInfo = await marketPriceHelper.getTickAndLotSize(
-        assetName,
-        "perps",
-      );
+      const tickInfo = await marketPriceHelper.getTickAndLotSize(assetName, 'perps');
 
       if (!tickInfo) {
         throw new Error(`Could not get tick info for ${assetName}`);
@@ -51,13 +42,13 @@ export class PerpOrders {
         ? (
             await marketPriceHelper.getMarketPriceForTrading(
               assetName,
-              "perps",
-              isLong ? "buy" : "sell",
+              'perps',
+              isLong ? 'buy' : 'sell'
             )
           ).price
         : price;
 
-      if (price < 0) throw new Error("Price cannot be less than 0");
+      if (price < 0) throw new Error('Price cannot be less than 0');
 
       //size here is actually in USD, but we need to convert it to the asset amount
       let buyingAmount = size;
@@ -65,7 +56,7 @@ export class PerpOrders {
       if (buyingPrice && !isNaN(parseFloat(size))) {
         buyingAmount = tickInfo.roundSize(parseFloat(size) / buyingPrice);
       } else {
-        const tradingError = "Invalid price or amount";
+        const tradingError = 'Invalid price or amount';
         throw new Error(tradingError);
       }
 
@@ -79,7 +70,7 @@ export class PerpOrders {
       }
 
       const action: ValueMap = {
-        type: "order",
+        type: 'order',
         orders: [
           {
             a: assetIndex,
@@ -87,10 +78,10 @@ export class PerpOrders {
             p: tickInfo.roundPrice(buyingPrice),
             s: buyingAmount,
             r: false,
-            t: { limit: { tif: isMarket ? "Ioc" : "Gtc" } },
+            t: { limit: { tif: isMarket ? 'Ioc' : 'Gtc' } },
           },
         ],
-        grouping: "na",
+        grouping: 'na',
         //TODO: add builder address
         // builder: {
         //   b: HYPERLIQUID_BUILDER_ADDRESS,
@@ -102,7 +93,7 @@ export class PerpOrders {
       const typedData = createMainnetExchangeTypedData(
         action,
         nonce,
-        vaultAddress as `0x${string}`,
+        vaultAddress as `0x${string}`
       );
 
       return {
@@ -112,13 +103,13 @@ export class PerpOrders {
         endpoint: `${this.baseUrl}/exchange`,
       };
     } catch (error) {
-      console.error("Error creating long position:", error);
+      console.error('Error creating long position:', error);
       throw error;
     }
   }
 
   async closePerpPositionTypedData(
-    orderRequest: PerpOrderRequest,
+    orderRequest: PerpOrderRequest
   ): Promise<PerpOrderTypedDataReturn> {
     try {
       const {
@@ -132,10 +123,7 @@ export class PerpOrders {
       } = orderRequest;
 
       const marketPriceHelper = new MarketPriceHelper();
-      const tickInfo = await marketPriceHelper.getTickAndLotSize(
-        assetName,
-        "perps",
-      );
+      const tickInfo = await marketPriceHelper.getTickAndLotSize(assetName, 'perps');
 
       if (!tickInfo) {
         throw new Error(`Could not get tick info for ${assetName}`);
@@ -145,9 +133,9 @@ export class PerpOrders {
         ? (
             await marketPriceHelper.getMarketPriceForTrading(
               assetName,
-              "perps",
+              'perps',
               //since we are closing the position, the order should be reversed, if isLong then sell else buy
-              isLong ? "sell" : "buy",
+              isLong ? 'sell' : 'buy'
             )
           ).price
         : price;
@@ -164,7 +152,7 @@ export class PerpOrders {
       }
 
       const action: ValueMap = {
-        type: "order",
+        type: 'order',
         orders: [
           {
             a: assetIndex,
@@ -172,10 +160,10 @@ export class PerpOrders {
             p: tickInfo.roundPrice(sellingPrice),
             s: size,
             r: true,
-            t: { limit: { tif: isMarket ? "Ioc" : "Gtc" } },
+            t: { limit: { tif: isMarket ? 'Ioc' : 'Gtc' } },
           },
         ],
-        grouping: "na",
+        grouping: 'na',
         //TODO: add builder address
         // builder: {
         //   b: HYPERLIQUID_BUILDER_ADDRESS,
@@ -184,11 +172,7 @@ export class PerpOrders {
       };
 
       const nonce = Date.now();
-      const typedData = createMainnetExchangeTypedData(
-        action,
-        nonce,
-        vaultAddress as Hex,
-      );
+      const typedData = createMainnetExchangeTypedData(action, nonce, vaultAddress as Hex);
 
       return {
         action,
@@ -197,7 +181,7 @@ export class PerpOrders {
         endpoint: `${this.baseUrl}/exchange`,
       };
     } catch (error) {
-      console.error("Error closing position:", error);
+      console.error('Error closing position:', error);
       throw error;
     }
   }
@@ -214,27 +198,21 @@ export class PerpOrders {
 
       return closePositionTypedDataArray;
     } catch (error) {
-      console.error("Error closing all positions: ", error);
+      console.error('Error closing all positions: ', error);
       throw error;
     }
   }
 
-  async cancelPerpOrderTypedData(
-    assetTicker: string,
-    orderId: string,
-    vaultAddress?: string,
-  ) {
+  async cancelPerpOrderTypedData(assetTicker: string, orderId: string, vaultAddress?: string) {
     try {
       const assetIndex = await perpTickerToIndex(assetTicker);
 
       if (assetIndex < 0) {
-        throw new Error(
-          `Could not find asset index for ticker: ${assetTicker}`,
-        );
+        throw new Error(`Could not find asset index for ticker: ${assetTicker}`);
       }
 
       const action = {
-        type: "cancel",
+        type: 'cancel',
         cancels: [
           {
             a: assetIndex,
@@ -247,9 +225,7 @@ export class PerpOrders {
 
       // Create the hash without normalizing integers (required for cancel orders)
       const msgPackBytes = encode(action);
-      const data = new Uint8Array(
-        msgPackBytes.length + (vaultAddress ? 29 : 9),
-      );
+      const data = new Uint8Array(msgPackBytes.length + (vaultAddress ? 29 : 9));
       data.set(msgPackBytes);
       const view = new DataView(data.buffer);
       view.setBigUint64(msgPackBytes.length, BigInt(nonce));
@@ -264,21 +240,20 @@ export class PerpOrders {
 
       const typedData = {
         domain: {
-          name: "Exchange",
-          version: "1",
+          name: 'Exchange',
+          version: '1',
           chainId: 1337,
-          verifyingContract:
-            "0x0000000000000000000000000000000000000000" as Hex,
+          verifyingContract: '0x0000000000000000000000000000000000000000' as Hex,
         },
         types: {
           Agent: [
-            { name: "source", type: "string" },
-            { name: "connectionId", type: "bytes32" },
+            { name: 'source', type: 'string' },
+            { name: 'connectionId', type: 'bytes32' },
           ],
         },
-        primaryType: "Agent",
+        primaryType: 'Agent',
         message: {
-          source: "a", // "a" for mainnet
+          source: 'a', // "a" for mainnet
           connectionId: actionHash,
         },
       };
@@ -290,7 +265,7 @@ export class PerpOrders {
         endpoint: `${this.baseUrl}/exchange`,
       };
     } catch (error) {
-      console.error("Failed to create typed data for cancel perp order", error);
+      console.error('Failed to create typed data for cancel perp order', error);
       throw error;
     }
   }

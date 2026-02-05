@@ -54,28 +54,24 @@ export function Navbar({
         'bg-gradient-to-r from-background via-background to-background/95',
         'backdrop-blur-md supports-[backdrop-filter]:bg-background/80',
         className
-      )}>
-      <div className=' mx-auto flex py-2 items-center justify-between px-3 md:px-4 lg:px-5'>
+      )}
+    >
+      <div className=" mx-auto flex py-2 items-center justify-between px-3 md:px-4 lg:px-5">
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className='flex items-center'>
+          className="flex items-center"
+        >
           {logo || (
-            <Link
-              href='/'
-              className='flex items-center gap-2 group'>
+            <Link href="/" className="flex items-center gap-2 group">
               <motion.span
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className='text-lg font-bold text-primary tracking-tight flex items-center gap-1'>
-                <Image
-                  src='/logo.png'
-                  alt='logo'
-                  width={40}
-                  height={40}
-                />
+                className="text-lg font-bold text-primary tracking-tight flex items-center gap-1"
+              >
+                <Image src="/logo.png" alt="logo" width={40} height={40} />
                 Nuke
               </motion.span>
             </Link>
@@ -102,20 +98,15 @@ export function Navbar({
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className='flex items-center gap-2.5'>
+          className="flex items-center gap-2.5"
+        >
           {state.isLoggedIn ? (
             <>
-              <DepositButton 
-                size='sm' 
-                walletAddress={getEVMAddress(state.userWallets)}
-              />
+              <DepositButton size="sm" walletAddress={getEVMAddress(state.userWallets)} />
               <WalletStatus />
             </>
           ) : (
-            <ConnectWalletButton
-              onClick={onConnectWallet}
-              size='sm'
-            />
+            <ConnectWalletButton onClick={onConnectWallet} size="sm" />
           )}
         </motion.div>
       </div>
@@ -135,7 +126,8 @@ function NavTab({ item, isActive, index }: NavTabProps) {
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.15 + index * 0.05 }}
-      className='relative'>
+      className="relative"
+    >
       <Link
         href={item.href}
         className={cn(
@@ -143,17 +135,16 @@ function NavTab({ item, isActive, index }: NavTabProps) {
           'text-text-muted-60 hover:text-text-primary',
           isActive && 'text-text-primary',
           item.soon && 'cursor-not-allowed opacity-60 pointer-events-none'
-        )}>
-        {item.label}
-        {item.soon && (
-          <span className='ml-2 text-xs text-text-muted-40'>SOON</span>
         )}
+      >
+        {item.label}
+        {item.soon && <span className="ml-2 text-xs text-text-muted-40">SOON</span>}
 
         {/* Active Indicator */}
         {isActive && (
           <motion.div
-            layoutId='activeTab'
-            className='absolute bottom-0 left-0 right-0 h-0.5 bg-accent z-10'
+            layoutId="activeTab"
+            className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent z-10"
             initial={false}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
           />
@@ -163,7 +154,7 @@ function NavTab({ item, isActive, index }: NavTabProps) {
       {/* Hover Effect - Behind the link */}
       {!item.soon && (
         <motion.div
-          className='absolute inset-0 rounded-md bg-card/50 opacity-0 pointer-events-none'
+          className="absolute inset-0 rounded-md bg-card/50 opacity-0 pointer-events-none"
           whileHover={{ opacity: 1 }}
           transition={{ duration: 0.2 }}
         />

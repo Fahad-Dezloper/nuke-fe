@@ -20,7 +20,7 @@ export class PhantomSolanaWallet implements SolanaWalletInterface {
    *
    * @param publicKey - The Solana public key (hex-encoded)
    */
-  constructor(private publicKey: string) { }
+  constructor(private publicKey: string) {}
 
   /**
    * Gets the Solana public key.
@@ -51,9 +51,7 @@ export class PhantomSolanaWallet implements SolanaWalletInterface {
 
     const signed = await window.solana.signMessage(encodedMessage, 'utf8');
 
-    const hex = [...signed.signature]
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+    const hex = [...signed.signature].map((b) => b.toString(16).padStart(2, '0')).join('');
     return hex;
   }
 }
@@ -83,8 +81,7 @@ export async function loginWithEVMWallet(): Promise<LoginResult> {
 
     const turnkey = new Turnkey({
       apiBaseUrl: TURNKEY_API_BASE_URL,
-      defaultOrganizationId:
-        process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID || '',
+      defaultOrganizationId: process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID || '',
     });
 
     const indexedDbClient = await turnkey.indexedDbClient();
@@ -112,10 +109,7 @@ export async function loginWithEVMWallet(): Promise<LoginResult> {
 
     const suborgsData = await getSuborgsResponse.json();
 
-    if (
-      !suborgsData.organizationIds ||
-      suborgsData.organizationIds.length <= 0
-    ) {
+    if (!suborgsData.organizationIds || suborgsData.organizationIds.length <= 0) {
       const apiKeys = [
         {
           apiKeyName: 'Wallet Auth - Embedded Wallet',
@@ -209,8 +203,7 @@ export async function loginWithSolanaWallet(): Promise<LoginResult> {
 
     const turnkey = new Turnkey({
       apiBaseUrl: TURNKEY_API_BASE_URL,
-      defaultOrganizationId:
-        process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID || '',
+      defaultOrganizationId: process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID || '',
     });
 
     const indexedDbClient = await turnkey.indexedDbClient();
@@ -218,9 +211,7 @@ export async function loginWithSolanaWallet(): Promise<LoginResult> {
 
     const publicKey = await indexedDbClient?.getPublicKey();
 
-    const walletClient = turnkey.walletClient(
-      new PhantomSolanaWallet(hexPubKey)
-    );
+    const walletClient = turnkey.walletClient(new PhantomSolanaWallet(hexPubKey));
 
     const getSuborgsResponse = await fetch('/api/turnkey/getSuborg', {
       method: 'POST',
@@ -233,10 +224,7 @@ export async function loginWithSolanaWallet(): Promise<LoginResult> {
 
     const suborgsData = await getSuborgsResponse.json();
 
-    if (
-      !suborgsData.organizationIds ||
-      suborgsData.organizationIds.length === 0
-    ) {
+    if (!suborgsData.organizationIds || suborgsData.organizationIds.length === 0) {
       const createSuborgResponse = await fetch('/api/turnkey/createSuborg', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -289,10 +277,7 @@ declare global {
       isPhantom?: boolean;
       connect: () => Promise<{ publicKey: { toString: () => string } }>;
       publicKey?: { toString: () => string };
-      signMessage: (
-        message: Uint8Array,
-        encoding: string
-      ) => Promise<{ signature: Uint8Array }>;
+      signMessage: (message: Uint8Array, encoding: string) => Promise<{ signature: Uint8Array }>;
     };
     Buffer?: typeof Buffer;
   }

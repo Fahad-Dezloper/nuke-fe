@@ -69,22 +69,15 @@ export function generateFundingRateData(
       time: timeLabel,
       hyperliquid: Number((hyperliquidBase + noise()).toFixed(4)),
       pacifica: Number((pacificaBase + noise()).toFixed(4)),
-      projectedHyperliquid: isProjected
-        ? Number((hyperliquidBase + noise()).toFixed(4))
-        : null,
-      projectedPacifica: isProjected
-        ? Number((pacificaBase + noise()).toFixed(4))
-        : null,
+      projectedHyperliquid: isProjected ? Number((hyperliquidBase + noise()).toFixed(4)) : null,
+      projectedPacifica: isProjected ? Number((pacificaBase + noise()).toFixed(4)) : null,
     });
   }
 
   return data;
 }
 
-export function generatePnLData(
-  duration: string = '1 Week',
-  resolution: string = '1 Hour'
-) {
+export function generatePnLData(duration: string = '1 Week', resolution: string = '1 Hour') {
   const data = [];
   const random = seededRandom(0.5);
 
@@ -130,7 +123,7 @@ export function generatePnLData(
     // Generate values that can be positive (profit) or negative (loss)
     let value: number;
     const progress = i / numPoints;
-    
+
     if (progress < 0.1) {
       // Early period: more losses
       value = -(random() * 2); // Negative values (losses)
@@ -214,12 +207,9 @@ export function generateCumulativePnLData(
       time: timeLabel,
       cumulative: Number(cumulative.toFixed(2)),
       initial: 10000,
-      projected: isProjected
-        ? Number((cumulative + change * 2).toFixed(2))
-        : null,
+      projected: isProjected ? Number((cumulative + change * 2).toFixed(2)) : null,
     });
   }
 
   return data;
 }
-

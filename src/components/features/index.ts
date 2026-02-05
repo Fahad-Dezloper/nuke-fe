@@ -14,4 +14,3 @@ export { ChartSectionContent } from './chart-section';
 export { PositionsTableSectionContent } from './positions-table-section';
 export { PositionControlsSectionContent } from './position-controls-section';
 export { FundingRatesChart } from './funding-rates-chart';
-

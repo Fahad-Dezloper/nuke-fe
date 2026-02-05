@@ -1,6 +1,6 @@
 /**
  * Protocol Adapters
- * 
+ *
  * Exports all protocol adapters that implement the ProtocolAdapter interface
  */
 

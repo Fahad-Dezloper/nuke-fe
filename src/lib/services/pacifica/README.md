@@ -25,7 +25,7 @@ const result = await pacificaService.createMarketOrder(
     reduce_only: false,
   },
   walletAddress, // Turnkey Solana wallet address
-  organizationId  // Turnkey organization ID
+  organizationId // Turnkey organization ID
 );
 
 if (result.success) {
@@ -38,6 +38,7 @@ if (result.success) {
 ## Dependencies
 
 This service requires:
+
 - `@turnkey/solana` - For TurnkeySigner (Solana message signing)
 - `@turnkey/sdk-browser` - For Turnkey wallet integration
 - `bs58` - For Base58 encoding/decoding (already installed)
@@ -59,6 +60,7 @@ All dependencies should already be installed.
 ## Signing Implementation
 
 The signing implementation uses `TurnkeySigner` from `@turnkey/solana`, which provides direct message signing:
+
 - Uses `TurnkeySigner.signMessage()` to sign the message bytes directly
 - Returns a 64-byte Ed25519 signature (Uint8Array)
 - Converts the signature to Base58 encoding for the Pacifica API
@@ -75,6 +77,7 @@ This is the proper way to sign messages for Pacifica, as it directly signs the m
 ## State Management
 
 The service includes Jotai atoms for state management:
+
 - `pacificaTradingStateAtom` - Main trading state
 - `isPacificaTradingLoadingAtom` - Loading state
 - `pacificaTradingErrorAtom` - Error state

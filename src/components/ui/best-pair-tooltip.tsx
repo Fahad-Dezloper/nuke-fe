@@ -15,11 +15,7 @@ interface BestPairTooltipProps {
   position?: { x: number; y: number };
 }
 
-export function BestPairTooltip({
-  asset,
-  isVisible,
-  position,
-}: BestPairTooltipProps) {
+export function BestPairTooltip({ asset, isVisible, position }: BestPairTooltipProps) {
   if (!isVisible) return null;
 
   // Determine best pair based on funding rates
@@ -27,7 +23,7 @@ export function BestPairTooltip({
   const hyperliquidRate = asset.hyperliquidFundingRate;
   const pacificaRate = asset.pacificaFundingRate;
   const isHyperliquidLower = hyperliquidRate < pacificaRate;
-  
+
   const longProtocol = isHyperliquidLower ? 'HyperLiquid' : 'Pacifica';
   const shortProtocol = isHyperliquidLower ? 'Pacifica' : 'HyperLiquid';
 
@@ -42,25 +38,21 @@ export function BestPairTooltip({
       )}
       style={{
         left: `${(position?.x ?? 0) - 80}px`,
-        top: `${(position?.y ?? 0)}px`,
-      }}>
+        top: `${position?.y ?? 0}px`,
+      }}
+    >
       {/* Best Pair Info */}
-      <div className='flex items-center gap-2 '>
-        <div className='flex items-center gap-1.5'>
-          <ArrowUpRight className='h-3.5 w-3.5 text-[var(--chart-hyperliquid)]' />
-          <span className='text-xs font-semibold text-text-primary'>
-            Long {longProtocol}
-          </span>
+      <div className="flex items-center gap-2 ">
+        <div className="flex items-center gap-1.5">
+          <ArrowUpRight className="h-3.5 w-3.5 text-[var(--chart-hyperliquid)]" />
+          <span className="text-xs font-semibold text-text-primary">Long {longProtocol}</span>
         </div>
-        <span className='text-text-muted-60'>→</span>
-        <div className='flex items-center gap-1.5'>
-          <ArrowDownRight className='h-3.5 w-3.5 text-[var(--chart-pink)]' />
-          <span className='text-xs font-semibold text-text-primary'>
-            Short {shortProtocol}
-          </span>
+        <span className="text-text-muted-60">→</span>
+        <div className="flex items-center gap-1.5">
+          <ArrowDownRight className="h-3.5 w-3.5 text-[var(--chart-pink)]" />
+          <span className="text-xs font-semibold text-text-primary">Short {shortProtocol}</span>
         </div>
       </div>
-
     </div>
   );
 }

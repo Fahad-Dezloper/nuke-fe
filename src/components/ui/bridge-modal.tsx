@@ -22,27 +22,14 @@ interface BridgeModalProps {
   defaultAmount?: number; // Pre-filled amount in USD
 }
 
-export function BridgeModal({
-  isOpen,
-  onClose,
-  protocol,
-  defaultAmount = 0,
-}: BridgeModalProps) {
+export function BridgeModal({ isOpen, onClose, protocol, defaultAmount = 0 }: BridgeModalProps) {
   const { state: turnkeyState } = useTurnkey();
   // Initialize amount with defaultAmount, will be reset via key prop
-  const [amount, setAmount] = useState(() => 
-    defaultAmount > 0 ? defaultAmount.toFixed(6) : ''
-  );
+  const [amount, setAmount] = useState(() => (defaultAmount > 0 ? defaultAmount.toFixed(6) : ''));
   const [balance, setBalance] = useState<string | null>(null);
   const [isCheckingBalance, setIsCheckingBalance] = useState(false);
 
-  const {
-    status,
-    error,
-    bridge,
-    checkBalance,
-    isLoading,
-  } = useBridge({
+  const { status, error, bridge, checkBalance, isLoading } = useBridge({
     onSuccess: (result) => {
       console.log('Bridge successful:', result);
       onClose();
@@ -65,7 +52,7 @@ export function BridgeModal({
       setBalance(null);
       return;
     }
-    
+
     // Check balance when modal opens
     if (turnkeyState.isLoggedIn) {
       const walletAddress = getEVMAddress(turnkeyState.userWallets || []);
@@ -93,9 +80,7 @@ export function BridgeModal({
     }
 
     // Convert amount to smallest unit (USDC has 6 decimals)
-    const amountInSmallestUnit = BigInt(
-      Math.floor(parseFloat(amount) * 1_000_000)
-    ).toString();
+    const amountInSmallestUnit = BigInt(Math.floor(parseFloat(amount) * 1_000_000)).toString();
 
     await bridge(amountInSmallestUnit);
   };
@@ -126,9 +111,7 @@ export function BridgeModal({
           {isCheckingBalance ? (
             <Loader2 className="w-4 h-4 animate-spin text-text-muted-60" />
           ) : balance !== null ? (
-            <span className="text-sm font-medium text-text-primary">
-              {balance} USDC
-            </span>
+            <span className="text-sm font-medium text-text-primary">{balance} USDC</span>
           ) : (
             <span className="text-xs text-text-muted-60">Unable to fetch</span>
           )}
@@ -170,9 +153,7 @@ export function BridgeModal({
             <div className="flex-1">
               <p className="text-xs font-medium text-red-400">{error.message}</p>
               {error.details && (
-                <p className="text-xs text-red-400/70 mt-1">
-                  {String(error.details)}
-                </p>
+                <p className="text-xs text-red-400/70 mt-1">{String(error.details)}</p>
               )}
             </div>
           </div>
@@ -194,12 +175,7 @@ export function BridgeModal({
 
         {/* Action Buttons */}
         <div className="flex gap-3 pt-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1"
-          >
+          <Button variant="outline" onClick={onClose} disabled={isLoading} className="flex-1">
             Cancel
           </Button>
           <Button
@@ -226,8 +202,8 @@ export function BridgeModal({
         {/* Info */}
         <div className="pt-2 border-t border-border-white-10/50">
           <p className="text-xs text-text-muted-60">
-            This will bridge USDC from Base to Arbitrum. After bridging, you
-            can deposit to {protocolName}.
+            This will bridge USDC from Base to Arbitrum. After bridging, you can deposit to{' '}
+            {protocolName}.
           </p>
         </div>
       </div>

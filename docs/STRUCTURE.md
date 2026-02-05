@@ -75,6 +75,7 @@ Basic, reusable UI components that are style-only and don't contain business log
 - **Add more**: Select, Modal, Toast, etc.
 
 **Pattern:**
+
 ```typescript
 // components/ui/button.tsx
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -102,6 +103,7 @@ Feature-specific components organized by domain:
 - Export via `index.ts` for clean imports
 
 **Example:**
+
 ```typescript
 // components/features/positions/position-card.tsx
 export function PositionCard({ position }: { position: Position }) {
@@ -118,12 +120,14 @@ export { PositionList } from './position-list';
 ### API Client (`lib/api/client.ts`)
 
 Centralized HTTP client with:
+
 - Request/response handling
 - Error handling
 - Type safety
 - Query parameter support
 
 **Usage:**
+
 ```typescript
 import { apiClient } from '@/lib/api';
 
@@ -164,13 +168,10 @@ export const arbitrageService = {
 Handles API calls with loading and error states:
 
 ```typescript
-const { data, loading, error, execute } = useApi(
-  () => arbitrageService.getPositions(),
-  {
-    onSuccess: (data) => console.log(data),
-    onError: (error) => console.error(error),
-  }
-);
+const { data, loading, error, execute } = useApi(() => arbitrageService.getPositions(), {
+  onSuccess: (data) => console.log(data),
+  onError: (error) => console.error(error),
+});
 ```
 
 ### useDebounce Hook
@@ -309,8 +310,9 @@ NEXT_PUBLIC_API_URL=http://localhost:3001/api
 ```
 
 Access in code:
+
 ```typescript
-process.env.NEXT_PUBLIC_API_URL
+process.env.NEXT_PUBLIC_API_URL;
 ```
 
 ## Import Paths
@@ -323,4 +325,3 @@ import { useApi } from '@/hooks';
 import { apiClient } from '@/lib/api';
 import type { Position } from '@/types';
 ```
-

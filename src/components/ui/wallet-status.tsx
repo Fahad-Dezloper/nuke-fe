@@ -35,16 +35,15 @@ export function WalletStatus() {
       : walletAddress;
 
   return (
-    <div className='flex items-center gap-2'>
+    <div className="flex items-center gap-2">
       {/* Wallet Info */}
       <motion.div
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
-        className='flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card/50 border border-border-white-10/50'>
-        <Wallet className='w-4 h-4 text-text-primary' />
-        <span className='text-xs font-medium text-text-primary'>
-          {displayAddress}
-        </span>
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card/50 border border-border-white-10/50"
+      >
+        <Wallet className="w-4 h-4 text-text-primary" />
+        <span className="text-xs font-medium text-text-primary">{displayAddress}</span>
       </motion.div>
 
       {/* Logout Button */}
@@ -61,11 +60,12 @@ export function WalletStatus() {
           'transition-colors duration-200',
           isLoggingOut && 'opacity-50 cursor-not-allowed'
         )}
-        title='Logout'>
+        title="Logout"
+      >
         {isLoggingOut ? (
-          <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-text-primary' />
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-text-primary" />
         ) : (
-          <LogOut className='w-4 h-4' />
+          <LogOut className="w-4 h-4" />
         )}
       </motion.button>
     </div>

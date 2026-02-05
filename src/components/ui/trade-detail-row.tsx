@@ -27,11 +27,8 @@ export function TradeDetailRow({
 
   return (
     <div className={cn('flex items-center justify-between py-1.5', className)}>
-      <span className='text-xs text-text-muted-60'>{label}</span>
-      <span className={cn('text-xs font-medium tabular-nums', valueClass)}>
-        {value}
-      </span>
+      <span className="text-xs text-text-muted-60">{label}</span>
+      <span className={cn('text-xs font-medium tabular-nums', valueClass)}>{value}</span>
     </div>
   );
 }
-

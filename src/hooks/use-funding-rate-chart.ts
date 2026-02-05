@@ -170,7 +170,7 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
     };
 
     // Create maps with normalized timestamps
-    const hyperliquidMap = new Map<string, typeof filteredHyperliquid[0]>();
+    const hyperliquidMap = new Map<string, (typeof filteredHyperliquid)[0]>();
     filteredHyperliquid.forEach((item) => {
       const normalized = normalizeTimestamp(item.timestamp);
       // Keep the most recent data point if multiple map to same bucket
@@ -180,7 +180,7 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
       }
     });
 
-    const pacificaMap = new Map<string, typeof filteredPacifica[0]>();
+    const pacificaMap = new Map<string, (typeof filteredPacifica)[0]>();
     filteredPacifica.forEach((item) => {
       const normalized = normalizeTimestamp(item.timestamp);
       // Keep the most recent data point if multiple map to same bucket

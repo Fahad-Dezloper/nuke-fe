@@ -76,14 +76,13 @@ export function ConnectWalletButton({
           sizeClasses[size],
           fullWidth && 'w-full',
           className
-        )}>
+        )}
+      >
         {/* Glassmorphism overlay */}
-        <div className='absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl' />
-        
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+
         {/* Button text */}
-        <span className='relative z-10'>
-          {children || text || 'CONNECT WALLET'}
-        </span>
+        <span className="relative z-10">{children || text || 'CONNECT WALLET'}</span>
       </motion.button>
 
       <ConnectWalletModal
@@ -95,4 +94,3 @@ export function ConnectWalletButton({
     </>
   );
 }
-

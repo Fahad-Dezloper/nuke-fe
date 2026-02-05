@@ -1,4 +1,4 @@
-import { BACKEND_URL } from "@/constants";
+import { BACKEND_URL } from '@/constants';
 
 export async function getPerpMeta() {
   const response = await fetch(`${BACKEND_URL}/hyperliquid/perp-metadata`);

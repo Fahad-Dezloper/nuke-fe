@@ -1,23 +1,23 @@
-import { encode } from "@msgpack/msgpack";
-import { keccak_256 } from "@noble/hashes/sha3.js";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { encode } from '@msgpack/msgpack';
+import { keccak_256 } from '@noble/hashes/sha3.js';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 
-import { HYPERLIQUID_API, marketSlippage } from "./constants";
-import { perpIndexToTicker } from "./utils/asset-index-converter";
-import { MarketPriceHelper } from "./utils/market-price";
+import { HYPERLIQUID_API, marketSlippage } from './constants';
+import { perpIndexToTicker } from './utils/asset-index-converter';
+import { MarketPriceHelper } from './utils/market-price';
 import {
   createMainnetExchangeTypedData,
   createTestnetExchangeTypedData,
   ValueType,
-} from "./utils/signing";
-import { CancelTpSlParms, Hex, TpSlOrder, TpSlParams } from "./types";
+} from './utils/signing';
+import { CancelTpSlParms, Hex, TpSlOrder, TpSlParams } from './types';
 
 export class TpSlManager {
   private baseUrl = HYPERLIQUID_API;
 
   constructor(private isTestnet: boolean = false) {
     if (this.isTestnet) {
-      this.baseUrl = "https://api.hyperliquid-testnet.xyz";
+      this.baseUrl = 'https://api.hyperliquid-testnet.xyz';
     }
   }
 
@@ -30,15 +30,12 @@ export class TpSlManager {
 
       const assetName = await perpIndexToTicker(params.assetId);
 
-      if (!assetName) throw new Error("Asset name not found");
+      if (!assetName) throw new Error('Asset name not found');
 
       const marketPriceHelper = new MarketPriceHelper();
-      const tickInfo = await marketPriceHelper.getTickAndLotSize(
-        assetName,
-        "perps",
-      );
+      const tickInfo = await marketPriceHelper.getTickAndLotSize(assetName, 'perps');
 
-      if (!tickInfo) throw new Error("Tick info details not found");
+      if (!tickInfo) throw new Error('Tick info details not found');
 
       // Take Profit Order
       if (
@@ -53,11 +50,11 @@ export class TpSlManager {
         const priceWithSlippage = params.isLong
           ? tickInfo.roundPrice(
               Number(params.finalTakeProfitPrice) -
-                (Number(params.finalTakeProfitPrice) * marketSlippage) / 100,
+                (Number(params.finalTakeProfitPrice) * marketSlippage) / 100
             )
           : tickInfo.roundPrice(
               Number(params.finalTakeProfitPrice) +
-                (Number(params.finalTakeProfitPrice) * marketSlippage) / 100,
+                (Number(params.finalTakeProfitPrice) * marketSlippage) / 100
             );
 
         orders.push({
@@ -69,10 +66,8 @@ export class TpSlManager {
           t: {
             trigger: {
               isMarket: true,
-              triggerPx: tickInfo.roundPrice(
-                Number(params.finalTakeProfitPrice),
-              ),
-              tpsl: "tp",
+              triggerPx: tickInfo.roundPrice(Number(params.finalTakeProfitPrice)),
+              tpsl: 'tp',
             },
           },
         });
@@ -90,11 +85,11 @@ export class TpSlManager {
         const priceWithSlippage = params.isLong
           ? tickInfo.roundPrice(
               Number(params.finalStopLossPrice) -
-                (Number(params.finalStopLossPrice) * marketSlippage) / 100,
+                (Number(params.finalStopLossPrice) * marketSlippage) / 100
             )
           : tickInfo.roundPrice(
               Number(params.finalStopLossPrice) +
-                (Number(params.finalStopLossPrice) * marketSlippage) / 100,
+                (Number(params.finalStopLossPrice) * marketSlippage) / 100
             );
 
         orders.push({
@@ -107,22 +102,20 @@ export class TpSlManager {
             trigger: {
               isMarket: true,
               triggerPx: tickInfo.roundPrice(Number(params.finalStopLossPrice)),
-              tpsl: "sl",
+              tpsl: 'sl',
             },
           },
         });
       }
 
       if (orders.length === 0) {
-        throw new Error(
-          "No take profit or stop loss price provided, or position size is zero.",
-        );
+        throw new Error('No take profit or stop loss price provided, or position size is zero.');
       }
 
       const action: ValueType = {
-        type: "order",
+        type: 'order',
         orders,
-        grouping: "na",
+        grouping: 'na',
         //TODO: add builder fee
         // builder: {
         //   b: HYPERLIQUID_BUILDER_ADDRESS,
@@ -142,7 +135,7 @@ export class TpSlManager {
         endpoint: `${this.baseUrl}/exchange`,
       };
     } catch (error) {
-      console.error("Error placing TP/SL orders:", error);
+      console.error('Error placing TP/SL orders:', error);
       throw error;
     }
   }
@@ -153,7 +146,7 @@ export class TpSlManager {
   public async cancelTpSlOrders(params: CancelTpSlParms) {
     try {
       const action = {
-        type: "cancel",
+        type: 'cancel',
         cancels: params.orderIds.map((orderId) => ({
           a: params.assetId,
           o: orderId,
@@ -165,18 +158,13 @@ export class TpSlManager {
       // another issue with cancelling orders (the oid from hyperliquid is always parsed to a bigint in signing logic which breaks it. Why does Hyperliquid hate us like this?)
       // this really needs to be centralized to a single helper function
       const msgPackBytes = encode(action);
-      const data = new Uint8Array(
-        msgPackBytes.length + (params.vaultAddress ? 29 : 9),
-      );
+      const data = new Uint8Array(msgPackBytes.length + (params.vaultAddress ? 29 : 9));
       data.set(msgPackBytes);
       const view = new DataView(data.buffer);
       view.setBigUint64(msgPackBytes.length, BigInt(nonce));
       if (params.vaultAddress) {
         view.setUint8(msgPackBytes.length + 8, 1);
-        data.set(
-          hexToBytes(params.vaultAddress.slice(2)),
-          msgPackBytes.length + 9,
-        );
+        data.set(hexToBytes(params.vaultAddress.slice(2)), msgPackBytes.length + 9);
       } else {
         view.setUint8(msgPackBytes.length + 8, 0);
       }
@@ -185,21 +173,20 @@ export class TpSlManager {
 
       const typedData = {
         domain: {
-          name: "Exchange",
-          version: "1",
+          name: 'Exchange',
+          version: '1',
           chainId: 1337, // use 1337 even for mainnet?
-          verifyingContract:
-            "0x0000000000000000000000000000000000000000" as `0x${string}`,
+          verifyingContract: '0x0000000000000000000000000000000000000000' as `0x${string}`,
         },
         types: {
           Agent: [
-            { name: "source", type: "string" },
-            { name: "connectionId", type: "bytes32" },
+            { name: 'source', type: 'string' },
+            { name: 'connectionId', type: 'bytes32' },
           ],
         },
-        primaryType: "Agent",
+        primaryType: 'Agent',
         message: {
-          source: "a", // "a" for mainnet
+          source: 'a', // "a" for mainnet
           connectionId: actionHash,
         },
       };
@@ -211,7 +198,7 @@ export class TpSlManager {
         endpoint: `${this.baseUrl}/exchange`,
       };
     } catch (error) {
-      console.error("Error canceling TP/SL orders:", error);
+      console.error('Error canceling TP/SL orders:', error);
       throw error;
     }
   }
@@ -229,7 +216,7 @@ export class TpSlManager {
       vaultAddress?: string;
     },
     existingTpOrderId?: number, //  optional
-    existingSlOrderId?: number, //  optional
+    existingSlOrderId?: number //  optional
   ) {
     const transactions: Array<any> = [];
 
@@ -256,7 +243,7 @@ export class TpSlManager {
 
       return transactions;
     } catch (error) {
-      console.error("Error updating TP/SL orders:", error);
+      console.error('Error updating TP/SL orders:', error);
       throw error;
     }
   }

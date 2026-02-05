@@ -36,14 +36,8 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
   } = useFundingRateChart({ duration });
 
   // Keep mock data for other charts (using default resolution for compatibility)
-  const pnlData = useMemo(
-    () => generatePnLData(duration, '1 Hour'),
-    [duration]
-  );
-  const cumulativeData = useMemo(
-    () => generateCumulativePnLData(duration, '1 Hour'),
-    [duration]
-  );
+  const pnlData = useMemo(() => generatePnLData(duration, '1 Hour'), [duration]);
+  const cumulativeData = useMemo(() => generateCumulativePnLData(duration, '1 Hour'), [duration]);
 
   return (
     <div
@@ -52,30 +46,26 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
         'border border-border-white-10/50 rounded-2xl py-4 mt-4',
         'backdrop-blur-md shadow-xl shadow-black/30',
         className
-      )}>
+      )}
+    >
       {/* Tabs */}
-      <ChartTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
+      <ChartTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Chart Controls - Removed for now, hardcoded to 1 Hour */}
 
       {/* Chart Content */}
-      <div className='px-3 md:px-4 lg:px-5 pb-4'>
+      <div className="px-3 md:px-4 lg:px-5 pb-4">
         {activeTab === 'pnl' && <PnLChart data={pnlData} />}
-        {activeTab === 'cumulative' && (
-          <CumulativePnLChart data={cumulativeData} />
-        )}
+        {activeTab === 'cumulative' && <CumulativePnLChart data={cumulativeData} />}
         {activeTab === 'funding' && (
           <>
             {fundingLoading && (
-              <div className='h-[260px] flex items-center justify-center text-text-muted-60'>
+              <div className="h-[260px] flex items-center justify-center text-text-muted-60">
                 Loading chart data...
               </div>
             )}
             {fundingError && (
-              <div className='h-[260px] flex items-center justify-center text-red-400'>
+              <div className="h-[260px] flex items-center justify-center text-red-400">
                 Error loading chart data: {fundingError.message}
               </div>
             )}

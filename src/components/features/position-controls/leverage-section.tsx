@@ -20,17 +20,17 @@ interface LeverageSectionProps {
 export function LeverageSection({ className }: LeverageSectionProps) {
   const [leverage, setLeverage] = useAtom(leverageAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
-  
+
   // Get max leverage from selected asset, default to 5 if not available
   const maxLeverage = selectedAsset?.maxLeverage || 5;
-  
+
   // Ensure current leverage doesn't exceed max leverage when asset changes
   useEffect(() => {
     if (leverage > maxLeverage) {
       setLeverage(maxLeverage);
     }
   }, [maxLeverage, leverage, setLeverage]);
-  
+
   // Ensure current leverage doesn't exceed max leverage
   const currentLeverage = Math.min(leverage, maxLeverage);
 
@@ -68,11 +68,9 @@ export function LeverageSection({ className }: LeverageSectionProps) {
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      <label className='text-xs text-text-muted-60 uppercase tracking-wide'>
-        LEVERAGE
-      </label>
-      <div className='flex items-center gap-4'>
-        <div className='flex-1'>
+      <label className="text-xs text-text-muted-60 uppercase tracking-wide">LEVERAGE</label>
+      <div className="flex items-center gap-4">
+        <div className="flex-1">
           <Slider
             min={1}
             max={maxLeverage}
@@ -80,19 +78,19 @@ export function LeverageSection({ className }: LeverageSectionProps) {
             value={currentLeverage}
             onValueChange={handleSliderChange}
             marks={marks}
-            className='w-full'
+            className="w-full"
           />
         </div>
-        <div className='flex items-center gap-1'>
+        <div className="flex items-center gap-1">
           <Input
-            type='number'
+            type="number"
             min={1}
             max={maxLeverage}
             value={currentLeverage}
             onChange={handleInputChange}
-            className='w-12 h-8 bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-xl text-text-primary text-sm text-center p-0 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20'
+            className="w-12 h-8 bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-xl text-text-primary text-sm text-center p-0 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20"
           />
-          <span className='text-sm text-text-muted-60'>x</span>
+          <span className="text-sm text-text-muted-60">x</span>
         </div>
       </div>
     </div>

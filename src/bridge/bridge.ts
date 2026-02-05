@@ -1,11 +1,11 @@
-import { BACKEND_URL } from "@/constants";
-import { QuoteParams } from "./types";
+import { BACKEND_URL } from '@/constants';
+import { QuoteParams } from './types';
 
 export async function getQuote(quoteParams: QuoteParams) {
   const response = await fetch(`${BACKEND_URL}/bridge/quote`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(quoteParams),
   });
@@ -20,7 +20,7 @@ export async function executeBridgeTransfer(quoteParams: QuoteParams) {
 
   const quoteData = quote.steps[0].items[0].data;
   // TODO: sign the transaction here for quote.steps[0].items[0].data.sign
-  const signature = "";
+  const signature = '';
 
   const permitRequest = {
     signature,
@@ -30,9 +30,9 @@ export async function executeBridgeTransfer(quoteParams: QuoteParams) {
   };
 
   const response = await fetch(`${BACKEND_URL}/bridge/execute/permit`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(permitRequest),
   });

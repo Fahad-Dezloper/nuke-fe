@@ -36,19 +36,19 @@ export function FlipAnimation({ value, className }: FlipAnimationProps) {
 
   return (
     <div className={cn('relative inline-block overflow-hidden', className)}>
-      <AnimatePresence mode='wait'>
+      <AnimatePresence mode="wait">
         <motion.span
           key={key}
-          initial={{ 
+          initial={{
             rotateX: -90,
             opacity: 0,
             transformOrigin: '50% 50%',
           }}
-          animate={{ 
+          animate={{
             rotateX: 0,
             opacity: 1,
           }}
-          exit={{ 
+          exit={{
             rotateX: 90,
             opacity: 0,
             transformOrigin: '50% 50%',
@@ -61,7 +61,8 @@ export function FlipAnimation({ value, className }: FlipAnimationProps) {
             transformStyle: 'preserve-3d',
             display: 'inline-block',
           }}
-          className='inline-block'>
+          className="inline-block"
+        >
           {displayValue}
         </motion.span>
       </AnimatePresence>

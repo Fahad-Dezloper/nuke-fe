@@ -5,15 +5,7 @@
  * Bar chart showing funding profit and loss
  */
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ReferenceLine,
-  Cell,
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, Cell } from 'recharts';
 import {
   ChartContainer,
   ChartTooltip,
@@ -58,30 +50,21 @@ export function PnLChart({ data }: PnLChartProps) {
   }));
 
   return (
-    <ChartContainer
-      config={chartConfig}
-      className='h-[260px] w-full'>
+    <ChartContainer config={chartConfig} className="h-[260px] w-full">
       <BarChart
         data={transformedData}
         margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-        barCategoryGap='1%'
-        barGap={0}>
-        <CartesianGrid
-          strokeDasharray='3 3'
-          stroke='rgba(255, 255, 255, 0.1)'
-          vertical={false}
-        />
-        <ReferenceLine
-          y={0}
-          stroke='rgba(255, 255, 255, 0.2)'
-          strokeWidth={1}
-        />
+        barCategoryGap="1%"
+        barGap={0}
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" vertical={false} />
+        <ReferenceLine y={0} stroke="rgba(255, 255, 255, 0.2)" strokeWidth={1} />
         <XAxis
-          dataKey='time'
+          dataKey="time"
           tick={{ fill: 'rgba(255, 255, 255, 0.6)', fontSize: 11 }}
           tickLine={false}
           axisLine={false}
-          interval='preserveStartEnd'
+          interval="preserveStartEnd"
           minTickGap={30}
           tickFormatter={(value) => {
             // If it's a date format (MM/DD), show as is
@@ -105,57 +88,45 @@ export function PnLChart({ data }: PnLChartProps) {
         />
         <ChartTooltip
           content={
-            <ChartTooltipContent
-              indicator='line'
-              labelFormatter={(value) => `Time: ${value}`}
-            />
+            <ChartTooltipContent indicator="line" labelFormatter={(value) => `Time: ${value}`} />
           }
         />
         {/* Main PnL bars - colored based on value (green up, red down) */}
-        <Bar
-          dataKey='pnlValue'
-          radius={0}
-          barSize={6}>
+        <Bar dataKey="pnlValue" radius={0} barSize={6}>
           {transformedData.map((entry, index) => {
             // Color based on positive (green) or negative (red)
             return (
               <Cell
                 key={`cell-${index}`}
-                fill={
-                  entry.pnlValue && entry.pnlValue >= 0 ? '#22c55e' : '#ef4444'
-                }
+                fill={entry.pnlValue && entry.pnlValue >= 0 ? '#22c55e' : '#ef4444'}
               />
             );
           })}
         </Bar>
         {/* Projected bars (green outline) */}
         <Bar
-          dataKey='projectedValue'
-          fill='transparent'
-          stroke='#22c55e'
+          dataKey="projectedValue"
+          fill="transparent"
+          stroke="#22c55e"
           strokeWidth={2}
-          strokeDasharray='4 4'
+          strokeDasharray="4 4"
           radius={0}
           barSize={6}
         />
         <ChartLegend
           content={() => (
-            <div className='flex items-center justify-start gap-6 pt-3 px-4'>
-              <div className='flex items-center gap-2'>
-                <div className='h-2 w-2 rounded-full bg-green-500' />
-                <span className='text-xs text-text-muted-60'>
-                  FUNDING PROFIT
-                </span>
+            <div className="flex items-center justify-start gap-6 pt-3 px-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500" />
+                <span className="text-xs text-text-muted-60">FUNDING PROFIT</span>
               </div>
-              <div className='flex items-center gap-2'>
-                <div className='h-2 w-2 rounded-full bg-red-500' />
-                <span className='text-xs text-text-muted-60'>FUNDING LOSS</span>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-red-500" />
+                <span className="text-xs text-text-muted-60">FUNDING LOSS</span>
               </div>
-              <div className='flex items-center gap-2'>
-                <div className='h-2 w-2 rounded-full bg-green-500 border-2 border-dashed border-green-400' />
-                <span className='text-xs text-text-muted-60'>
-                  PROJECTED FUNDING
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500 border-2 border-dashed border-green-400" />
+                <span className="text-xs text-text-muted-60">PROJECTED FUNDING</span>
               </div>
             </div>
           )}

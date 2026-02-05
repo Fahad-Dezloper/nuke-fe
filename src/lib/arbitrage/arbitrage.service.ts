@@ -1,6 +1,6 @@
 /**
  * Arbitrage Service
- * 
+ *
  * High-level service that provides easy access to arbitrage functionality.
  * Initializes and manages the orchestrator, registries, and adapters.
  */
@@ -17,7 +17,7 @@ import type { ArbitragePair } from './types';
 
 /**
  * Arbitrage Service
- * 
+ *
  * Provides a simple interface for executing arbitrage pairs.
  * Handles initialization of all components.
  */
@@ -30,10 +30,7 @@ export class ArbitrageService {
   constructor() {
     this.pairRegistry = new ArbitragePairRegistry();
     this.protocolRegistry = new ProtocolRegistry();
-    this.orchestrator = new ArbitrageOrchestrator(
-      this.pairRegistry,
-      this.protocolRegistry
-    );
+    this.orchestrator = new ArbitrageOrchestrator(this.pairRegistry, this.protocolRegistry);
   }
 
   /**
@@ -57,13 +54,11 @@ export class ArbitrageService {
 
   /**
    * Executes an arbitrage pair
-   * 
+   *
    * @param params - Execution parameters
    * @returns Execution result
    */
-  async executePair(
-    params: ExecuteArbitragePairParams
-  ): Promise<ArbitrageExecutionResult> {
+  async executePair(params: ExecuteArbitragePairParams): Promise<ArbitrageExecutionResult> {
     if (!this.initialized) {
       this.initialize();
     }
@@ -73,7 +68,7 @@ export class ArbitrageService {
 
   /**
    * Gets all available pairs for an asset
-   * 
+   *
    * @param asset - Asset symbol
    * @returns Array of arbitrage pairs
    */
@@ -87,7 +82,7 @@ export class ArbitrageService {
 
   /**
    * Gets a specific pair by ID
-   * 
+   *
    * @param pairId - Pair ID
    * @returns The pair or null
    */
@@ -101,7 +96,7 @@ export class ArbitrageService {
 
   /**
    * Gets all available assets
-   * 
+   *
    * @returns Array of asset symbols
    */
   getAvailableAssets(): string[] {
@@ -114,7 +109,7 @@ export class ArbitrageService {
 
   /**
    * Gets the orchestrator (for advanced usage)
-   * 
+   *
    * @returns The orchestrator instance
    */
   getOrchestrator(): ArbitrageOrchestrator {
@@ -127,7 +122,7 @@ export class ArbitrageService {
 
   /**
    * Gets the pair registry (for advanced usage)
-   * 
+   *
    * @returns The pair registry instance
    */
   getPairRegistry(): ArbitragePairRegistry {
@@ -140,7 +135,7 @@ export class ArbitrageService {
 
   /**
    * Gets the protocol registry (for advanced usage)
-   * 
+   *
    * @returns The protocol registry instance
    */
   getProtocolRegistry(): ProtocolRegistry {

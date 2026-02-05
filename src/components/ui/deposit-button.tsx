@@ -64,13 +64,14 @@ export function DepositButton({
           sizeClasses[size],
           fullWidth && 'w-full',
           className
-        )}>
+        )}
+      >
         {/* Glassmorphism overlay */}
-        <div className='absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl' />
-        
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+
         {/* Button content */}
-        <Wallet className='w-4 h-4' />
-        <span className='relative z-10'>DEPOSIT</span>
+        <Wallet className="w-4 h-4" />
+        <span className="relative z-10">DEPOSIT</span>
       </motion.button>
 
       <DepositModal

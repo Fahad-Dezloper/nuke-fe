@@ -5,9 +5,7 @@
 
 export const API_ENDPOINTS = {
   // Example endpoints - replace with your actual API endpoints
-  auth: {
-
-  },
+  auth: {},
   arbitrage: {
     openPositions: (evmAddress: string, solanaAddress: string) =>
       `/open-positions/${evmAddress}/${solanaAddress}`,
@@ -23,4 +21,3 @@ export const API_ENDPOINTS = {
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;
-

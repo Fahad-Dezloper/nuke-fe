@@ -3,7 +3,11 @@
  */
 
 import { useState, useEffect } from 'react';
-import { positionsService, transformPositionData, type PositionApiResponse } from '@/lib/api/services';
+import {
+  positionsService,
+  transformPositionData,
+  type PositionApiResponse,
+} from '@/lib/api/services';
 import type { ArbitragePosition } from '@/types/positions';
 
 interface UsePositionsOptions {
@@ -48,9 +52,7 @@ const HARDCODED_TEST_DATA: PositionApiResponse[] = [
   },
 ];
 
-export function usePositions(
-  options: UsePositionsOptions = {}
-): UsePositionsReturn {
+export function usePositions(options: UsePositionsOptions = {}): UsePositionsReturn {
   const { evmAddress, solanaAddress, enabled = true } = options;
   const [positions, setPositions] = useState<ArbitragePosition[]>([]);
   const [loading, setLoading] = useState(false);

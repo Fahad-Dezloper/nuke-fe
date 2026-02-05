@@ -22,7 +22,7 @@ export interface TpSlOrder {
     trigger: {
       isMarket: boolean;
       triggerPx: string;
-      tpsl: "tp" | "sl";
+      tpsl: 'tp' | 'sl';
     };
   };
 }

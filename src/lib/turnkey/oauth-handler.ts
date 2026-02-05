@@ -24,7 +24,7 @@ export class OAuthHandler {
     private getNonce: () => string | null,
     private checkExistingKeyPair: () => Promise<string | null>,
     private calculateSha256: (input: string) => Promise<string>
-  ) { }
+  ) {}
 
   /**
    * Handles OAuth redirect callback after user authentication.
@@ -145,7 +145,6 @@ export class OAuthHandler {
     return googleAuthUrl.toString();
   }
 
-
   /**
    * Redirects the browser to Google OAuth authentication page.
    * Generates the OAuth URL and immediately redirects the user.
@@ -185,7 +184,10 @@ export class OAuthHandler {
    * }
    * ```
    */
-  async loginWithGoogle(googleCredential: string, publicKeyOverride?: string): Promise<LoginResult> {
+  async loginWithGoogle(
+    googleCredential: string,
+    publicKeyOverride?: string
+  ): Promise<LoginResult> {
     try {
       const publicKey = publicKeyOverride || this.getPublicKey();
       if (!publicKey) {
@@ -207,19 +209,14 @@ export class OAuthHandler {
 
       const suborgsData = await getSuborgsResponse.json();
 
-      if (
-        suborgsData.organizationIds &&
-        suborgsData.organizationIds.length > 0
-      ) {
+      if (suborgsData.organizationIds && suborgsData.organizationIds.length > 0) {
         targetSubOrgId = suborgsData.organizationIds[0];
       } else {
         const createSuborgResponse = await fetch('/api/turnkey/createSuborg', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            oauthProviders: [
-              { providerName: 'Google-Test', oidcToken: googleCredential },
-            ],
+            oauthProviders: [{ providerName: 'Google-Test', oidcToken: googleCredential }],
             apiKeys: [],
           }),
         });

@@ -28,13 +28,11 @@ export interface PositionResponse {
   message?: string;
 }
 
-
 export interface HyperLiquidApiResponse {
   status: 'ok' | 'err';
   response?: string;
   data?: any;
 }
-
 
 export interface SignatureComponents {
   r: `0x${string}`;
@@ -42,13 +40,11 @@ export interface SignatureComponents {
   v: number;
 }
 
-
 export interface UpdateLeverageRequest {
   leverage: number;
   assetTicker: string;
   vaultAddress?: string;
 }
-
 
 export interface UserLeverageResponse {
   success: boolean;
@@ -62,7 +58,6 @@ export interface TradingOperationState {
   lastAction: string | null;
   signingInProgress: boolean;
 }
-
 
 export interface TypedDataForSigning {
   domain: {

@@ -49,8 +49,7 @@ export function PositionControlsSectionContent({
   const [selectedAsset] = useAtom(selectedAssetAtom);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const { executeArbitrage, isExecuting, error, result } =
-    useArbitrageExecution();
+  const { executeArbitrage, isExecuting, error, result } = useArbitrageExecution();
 
   const loginWithEVM = useAtomValue(loginWithEVMWalletAtom);
 
@@ -99,33 +98,27 @@ export function PositionControlsSectionContent({
     }
   };
 
-  const canExecute =
-    isLoggedIn &&
-    selectedPair &&
-    margin &&
-    parseFloat(margin) > 0 &&
-    !isExecuting;
+  const canExecute = isLoggedIn && selectedPair && margin && parseFloat(margin) > 0 && !isExecuting;
 
   return (
     <PositionControlsSection
       className={cn(
         'ml-4 lg:w-[400px] xl:w-[450px] lg:shrink-0 h-full overflow-hidden mt-4',
         className
-      )}>
-      <div className='flex flex-col h-full'>
+      )}
+    >
+      <div className="flex flex-col h-full">
         {/* Header */}
-        <div className='flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md rounded-t-xl shadow-lg shadow-black/20'>
-          <h2 className='text-sm font-medium text-text-primary'>
-            POSITION PANEL
-          </h2>
-          <ChevronRight className='h-4 w-4 text-text-muted-60' />
+        <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md rounded-t-xl shadow-lg shadow-black/20">
+          <h2 className="text-sm font-medium text-text-primary">POSITION PANEL</h2>
+          <ChevronRight className="h-4 w-4 text-text-muted-60" />
         </div>
 
         {/* Asset Price Header */}
         <AssetPriceHeader />
 
         {/* Content */}
-        <div className='flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6'>
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6">
           {/* Arbitrage Pair Selector */}
           {/* <ArbitragePairSelector /> */}
 
@@ -143,22 +136,22 @@ export function PositionControlsSectionContent({
 
           {/* Error Message */}
           {error && (
-            <div className='flex items-start gap-2 p-3 rounded-xl bg-red-900/20 border border-red-500/30'>
-              <AlertCircle className='h-4 w-4 text-red-400 mt-0.5 flex-shrink-0' />
-              <div className='flex-1'>
-                <p className='text-xs font-medium text-red-400'>Error</p>
-                <p className='text-xs text-red-300 mt-0.5'>{error}</p>
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-900/20 border border-red-500/30">
+              <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-medium text-red-400">Error</p>
+                <p className="text-xs text-red-300 mt-0.5">{error}</p>
               </div>
             </div>
           )}
 
           {/* Success Message */}
           {showSuccess && result?.success && (
-            <div className='flex items-start gap-2 p-3 rounded-xl bg-green-900/20 border border-green-500/30'>
-              <CheckCircle2 className='h-4 w-4 text-green-400 mt-0.5 flex-shrink-0' />
-              <div className='flex-1'>
-                <p className='text-xs font-medium text-green-400'>Success</p>
-                <p className='text-xs text-green-300 mt-0.5'>
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-green-900/20 border border-green-500/30">
+              <CheckCircle2 className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-medium text-green-400">Success</p>
+                <p className="text-xs text-green-300 mt-0.5">
                   {result.message || 'Arbitrage position opened successfully'}
                 </p>
               </div>
@@ -167,7 +160,7 @@ export function PositionControlsSectionContent({
         </div>
 
         {/* Footer - Wallet Connection / Open Position */}
-        <div className='px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-xl'>
+        <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-xl">
           {isLoggedIn ? (
             <>
               {/* <div className='flex items-center gap-2'>
@@ -178,7 +171,7 @@ export function PositionControlsSectionContent({
               </div> */}
               <ConnectWalletButton
                 onClick={handleOpenPosition}
-                size='md'
+                size="md"
                 fullWidth
                 text={isExecuting ? 'EXECUTING...' : 'OPEN POSITION'}
                 disabled={!canExecute || isExecuting}
@@ -186,12 +179,7 @@ export function PositionControlsSectionContent({
             </>
           ) : (
             <>
-            
-              <ConnectWalletButton
-                onClick={handleConnectWallet}
-                size='md'
-                fullWidth
-              />
+              <ConnectWalletButton onClick={handleConnectWallet} size="md" fullWidth />
             </>
           )}
         </div>

@@ -35,9 +35,7 @@ export function AnimatedNumber({
 }: AnimatedNumberProps) {
   const [displayValue, setDisplayValue] = useState(value);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [localDirection, setLocalDirection] = useState<'up' | 'down' | null>(
-    null
-  );
+  const [localDirection, setLocalDirection] = useState<'up' | 'down' | null>(null);
   const previousValueRef = useRef(value);
   const animationFrameRef = useRef<number>(0);
 
@@ -49,8 +47,8 @@ export function AnimatedNumber({
         (value > previousValueRef.current
           ? 'up'
           : value < previousValueRef.current
-          ? 'down'
-          : null);
+            ? 'down'
+            : null);
       setLocalDirection(dir);
       setIsAnimating(true);
 
@@ -112,7 +110,8 @@ export function AnimatedNumber({
         'inline-block tabular-nums transition-colors duration-200',
         colorClass,
         className
-      )}>
+      )}
+    >
       {formatter(displayValue)}
     </span>
   );

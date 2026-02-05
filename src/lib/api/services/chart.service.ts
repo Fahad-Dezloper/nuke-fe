@@ -40,9 +40,7 @@ export const chartService = {
    */
   async getChartData(assetName: string): Promise<ChartApiResponse> {
     try {
-      const response = await apiClient.get<ChartApiResponse>(
-        API_ENDPOINTS.market.chart(assetName)
-      );
+      const response = await apiClient.get<ChartApiResponse>(API_ENDPOINTS.market.chart(assetName));
       return response;
     } catch (error) {
       console.error(`Error fetching chart data for ${assetName}:`, error);

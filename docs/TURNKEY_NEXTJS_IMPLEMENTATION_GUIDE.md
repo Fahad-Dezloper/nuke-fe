@@ -38,10 +38,10 @@ The system supports **three login methods**, all of which create the same Turnke
 ### 3. Core Flow
 
 ```
-User Login (EVM/Solana/Google) 
-  → Create/Get SubOrg 
-  → Authenticate & Store Session in IndexedDB 
-  → Load User Data 
+User Login (EVM/Solana/Google)
+  → Create/Get SubOrg
+  → Authenticate & Store Session in IndexedDB
+  → Load User Data
   → Ensure Required Wallets Exist (Auto-create EVM + Solana)
   → Use Session-Based Keys for Signing
 ```
@@ -77,6 +77,7 @@ User Login (EVM/Solana/Google)
 ### Part 2: Environment Variables
 
 **Client-side (`.env.local` or `.env`):**
+
 ```env
 NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID=your-org-id
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
@@ -84,6 +85,7 @@ NEXT_PUBLIC_EXPORT_IFRAME_URL=https://export.turnkey.com
 ```
 
 **Server-side (`.env.local`):**
+
 ```env
 TURNKEY_API_PUBLIC_KEY=your-api-public-key
 TURNKEY_API_PRIVATE_KEY=your-api-private-key
@@ -131,7 +133,7 @@ export class TurnkeyClient {
   constructor(organizationId?: string) {
     this.turnkey = new Turnkey({
       apiBaseUrl: 'https://api.turnkey.com',
-      defaultOrganizationId: organizationId || ''
+      defaultOrganizationId: organizationId || '',
     });
 
     this.state = {
@@ -140,7 +142,7 @@ export class TurnkeyClient {
       userWallets: [],
       turnkeySubOrgId: null,
       publicKey: null,
-      nonce: null
+      nonce: null,
     };
   }
 
@@ -161,7 +163,7 @@ export class TurnkeyClient {
       },
       unsubscribe: () => {
         this.stateCallback = null;
-      }
+      },
     };
   }
 
@@ -220,7 +222,7 @@ export class TurnkeyClient {
 
       try {
         await indexedDbClient.getWallets({
-          organizationId: session.organizationId
+          organizationId: session.organizationId,
         });
         return true;
       } catch (error) {
@@ -229,7 +231,7 @@ export class TurnkeyClient {
           await indexedDbClient.refreshSession({
             sessionType: 'SESSION_TYPE_READ_WRITE',
             publicKey: publicKey,
-            expirationSeconds: SESSION_EXPIRATION_SECONDS.toString()
+            expirationSeconds: SESSION_EXPIRATION_SECONDS.toString(),
           });
           return true;
         } else {
@@ -263,7 +265,7 @@ export class TurnkeyClient {
         this.updateState({
           publicKey: publicKey,
           nonce: nonce,
-          isLoggedIn: false
+          isLoggedIn: false,
         });
       } else {
         console.error('No public key received from indexedDbClient');
@@ -285,7 +287,7 @@ export class TurnkeyClient {
       }
 
       const walletsResponse = await indexedDbClient.getWallets({
-        organizationId: subOrgId
+        organizationId: subOrgId,
       });
 
       const walletsWithAccounts = [];
@@ -293,12 +295,12 @@ export class TurnkeyClient {
         for (const wallet of walletsResponse.wallets) {
           try {
             const accountsResponse = await indexedDbClient.getWalletAccounts({
-              walletId: wallet.walletId
+              walletId: wallet.walletId,
             });
 
             const walletWithAccounts = {
               ...wallet,
-              accounts: accountsResponse?.accounts || []
+              accounts: accountsResponse?.accounts || [],
             };
 
             walletsWithAccounts.push(walletWithAccounts);
@@ -312,7 +314,7 @@ export class TurnkeyClient {
       this.updateState({
         isLoggedIn: true,
         turnkeySubOrgId: subOrgId,
-        userWallets: walletsWithAccounts
+        userWallets: walletsWithAccounts,
       });
 
       await this.ensureUserHasRequiredWallets();
@@ -343,7 +345,7 @@ export class TurnkeyClient {
                 const nonce = await this.calculateSha256(existingPublicKey);
                 this.updateState({
                   publicKey: existingPublicKey,
-                  nonce: nonce
+                  nonce: nonce,
                 });
               } else {
                 throw new Error('No public key available during OAuth redirect');
@@ -415,8 +417,8 @@ export class TurnkeyClient {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           filterType: 'OIDC_TOKEN',
-          filterValue: googleCredential
-        })
+          filterValue: googleCredential,
+        }),
       });
 
       const suborgsData = await getSuborgsResponse.json();
@@ -430,8 +432,8 @@ export class TurnkeyClient {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             oauthProviders: [{ providerName: 'Google-Test', oidcToken: googleCredential }],
-            apiKeys: []
-          })
+            apiKeys: [],
+          }),
         });
 
         const createResult = await createSuborgResponse.json();
@@ -445,8 +447,8 @@ export class TurnkeyClient {
         body: JSON.stringify({
           suborgID: targetSubOrgId,
           publicKey: this.state.publicKey,
-          oidcToken: googleCredential
-        })
+          oidcToken: googleCredential,
+        }),
       });
 
       const authResult = await authResponse.json();
@@ -461,7 +463,7 @@ export class TurnkeyClient {
         return {
           success: true,
           subOrgId: targetSubOrgId,
-          wallets: this.state.userWallets
+          wallets: this.state.userWallets,
         };
       } else {
         throw new Error('No session received from authentication');
@@ -470,7 +472,7 @@ export class TurnkeyClient {
       console.error('Login error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -527,15 +529,15 @@ export class TurnkeyClient {
             addressFormat: 'ADDRESS_FORMAT_ETHEREUM',
             curve: 'CURVE_SECP256K1',
             path: "m/44'/60'/0'/0/0",
-            pathFormat: 'PATH_FORMAT_BIP32'
+            pathFormat: 'PATH_FORMAT_BIP32',
           },
           {
             addressFormat: 'ADDRESS_FORMAT_SOLANA',
             curve: 'CURVE_ED25519',
             path: "m/44'/501'/0'/0/0",
-            pathFormat: 'PATH_FORMAT_BIP32'
-          }
-        ]
+            pathFormat: 'PATH_FORMAT_BIP32',
+          },
+        ],
       });
 
       const newWallet: Wallet = {
@@ -548,24 +550,24 @@ export class TurnkeyClient {
               ? 'ADDRESS_FORMAT_ETHEREUM'
               : 'ADDRESS_FORMAT_SOLANA',
             path: address.startsWith('0x') ? "m/44'/60'/0'/0/0" : "m/44'/501'/0'/0/0",
-            publicKey: this.state.publicKey!
-          }))
-        ]
+            publicKey: this.state.publicKey!,
+          })),
+        ],
       };
 
       this.updateState({
-        userWallets: [...this.state.userWallets, newWallet]
+        userWallets: [...this.state.userWallets, newWallet],
       });
 
       return {
         success: true,
-        wallet: newWallet
+        wallet: newWallet,
       };
     } catch (error: unknown) {
       console.error('Create wallet error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -584,18 +586,18 @@ export class TurnkeyClient {
         timestampMs: Date.now().toString(),
         organizationId: this.state.turnkeySubOrgId!,
         signWith: walletID,
-        unsignedTransaction
+        unsignedTransaction,
       });
 
       return {
         success: true,
-        signature: signResult.activity.result.signTransactionResult?.signedTransaction
+        signature: signResult.activity.result.signTransactionResult?.signedTransaction,
       };
     } catch (error: unknown) {
       console.error('Signing failed:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -619,18 +621,18 @@ export class TurnkeyClient {
         timestampMs: Date.now().toString(),
         organizationId: session.organizationId,
         signWith: walletAddress,
-        unsignedTransaction
+        unsignedTransaction,
       });
 
       return {
         success: true,
-        signature: signResult.activity.result.signTransactionResult?.signedTransaction
+        signature: signResult.activity.result.signTransactionResult?.signedTransaction,
       };
     } catch (error: unknown) {
       console.error('Solana signing failed:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -643,7 +645,7 @@ export class TurnkeyClient {
 
       const walletAddress = (
         await indexedDbClient.getWalletAccounts({
-          walletId: walletID
+          walletId: walletID,
         })
       ).accounts[0].address;
 
@@ -656,7 +658,8 @@ export class TurnkeyClient {
         signWith: walletAddress!,
         payload: hashedMessage,
         encoding: 'PAYLOAD_ENCODING_HEXADECIMAL',
-        hashFunction: addressType === 'ETH' ? 'HASH_FUNCTION_NO_OP' : 'HASH_FUNCTION_NOT_APPLICABLE'
+        hashFunction:
+          addressType === 'ETH' ? 'HASH_FUNCTION_NO_OP' : 'HASH_FUNCTION_NOT_APPLICABLE',
       });
 
       return {
@@ -664,14 +667,14 @@ export class TurnkeyClient {
         signature: {
           r: resp.r,
           s: resp.s,
-          v: Number(resp.v)
-        }
+          v: Number(resp.v),
+        },
       };
     } catch (error: unknown) {
       console.error('Signing failed:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -690,7 +693,7 @@ export class TurnkeyClient {
         userWallets: [],
         turnkeySubOrgId: null,
         publicKey: null,
-        nonce: null
+        nonce: null,
       });
 
       await this.prepareForLogin();
@@ -804,9 +807,9 @@ export class TurnkeyClient {
             addressFormat: 'ADDRESS_FORMAT_SOLANA',
             curve: 'CURVE_ED25519',
             path: "m/44'/501'/0'/0/0",
-            pathFormat: 'PATH_FORMAT_BIP32'
-          }
-        ]
+            pathFormat: 'PATH_FORMAT_BIP32',
+          },
+        ],
       });
 
       const newWallet: Wallet = {
@@ -816,23 +819,23 @@ export class TurnkeyClient {
           address: address,
           addressFormat: 'ADDRESS_FORMAT_SOLANA',
           path: "m/44'/501'/0'/0/0",
-          publicKey: this.state.publicKey!
-        }))
+          publicKey: this.state.publicKey!,
+        })),
       };
 
       this.updateState({
-        userWallets: [...this.state.userWallets, newWallet]
+        userWallets: [...this.state.userWallets, newWallet],
       });
 
       return {
         success: true,
-        wallet: newWallet
+        wallet: newWallet,
       };
     } catch (error: unknown) {
       console.error('Create Solana wallet error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -859,9 +862,9 @@ export class TurnkeyClient {
             addressFormat: 'ADDRESS_FORMAT_ETHEREUM',
             curve: 'CURVE_SECP256K1',
             path: "m/44'/60'/0'/0/0",
-            pathFormat: 'PATH_FORMAT_BIP32'
-          }
-        ]
+            pathFormat: 'PATH_FORMAT_BIP32',
+          },
+        ],
       });
 
       const newWallet: Wallet = {
@@ -871,23 +874,23 @@ export class TurnkeyClient {
           address: address,
           addressFormat: 'ADDRESS_FORMAT_ETHEREUM',
           path: "m/44'/60'/0'/0/0",
-          publicKey: this.state.publicKey!
-        }))
+          publicKey: this.state.publicKey!,
+        })),
       };
 
       this.updateState({
-        userWallets: [...this.state.userWallets, newWallet]
+        userWallets: [...this.state.userWallets, newWallet],
       });
 
       return {
         success: true,
-        wallet: newWallet
+        wallet: newWallet,
       };
     } catch (error: unknown) {
       console.error('Create Ethereum wallet error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -902,9 +905,7 @@ export class TurnkeyClient {
 }
 
 // Singleton instance
-export const turnkeyClient = new TurnkeyClient(
-  process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID
-);
+export const turnkeyClient = new TurnkeyClient(process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID);
 ```
 
 ### Part 4: State Management (React Context/Store)
@@ -1011,7 +1012,7 @@ export function TurnkeyProvider({ children }: { children: React.ReactNode }) {
     try {
       const { loginWithEVMWallet: loginEVM } = await import('@/lib/turnkey/wallet-helpers');
       const result = await loginEVM();
-      
+
       if (result.success && result.subOrgId) {
         await turnkeyClient.loadUserData(result.subOrgId);
         setState(turnkeyClient.getState());
@@ -1028,7 +1029,7 @@ export function TurnkeyProvider({ children }: { children: React.ReactNode }) {
     try {
       const { loginWithSolanaWallet: loginSolana } = await import('@/lib/turnkey/wallet-helpers');
       const result = await loginSolana();
-      
+
       if (result.success && result.subOrgId) {
         await turnkeyClient.loadUserData(result.subOrgId);
         setState(turnkeyClient.getState());
@@ -1080,7 +1081,7 @@ const turnkey = new Turnkey({
   apiBaseUrl: 'https://api.turnkey.com',
   apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY!,
   apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY!,
-  defaultOrganizationId: process.env.TURNKEY_ORGANIZATION_ID!
+  defaultOrganizationId: process.env.TURNKEY_ORGANIZATION_ID!,
 });
 
 const apiClient = turnkey.apiClient();
@@ -1092,16 +1093,13 @@ export async function POST(request: NextRequest) {
     const response = await apiClient.getSubOrgIds({
       organizationId: process.env.TURNKEY_ORGANIZATION_ID!,
       filterType,
-      filterValue
+      filterValue,
     });
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Get suborg error:', error);
-    return NextResponse.json(
-      { message: 'Something went wrong.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Something went wrong.' }, { status: 500 });
   }
 }
 ```
@@ -1118,7 +1116,7 @@ const turnkey = new Turnkey({
   apiBaseUrl: 'https://api.turnkey.com',
   apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY!,
   apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY!,
-  defaultOrganizationId: process.env.TURNKEY_ORGANIZATION_ID!
+  defaultOrganizationId: process.env.TURNKEY_ORGANIZATION_ID!,
 });
 
 export async function POST(request: NextRequest) {
@@ -1143,15 +1141,15 @@ export async function POST(request: NextRequest) {
             ? JSON.stringify({
                 name: decodedData?.name,
                 picture: decodedData?.picture,
-                time: String(Date.now())
+                time: String(Date.now()),
               })
             : `user-${String(Date.now())}`,
           userEmail: decodedData ? decodedData?.email : '',
           apiKeys: apiKeys || [],
           authenticators: [],
-          oauthProviders: oauthProviders || []
-        }
-      ]
+          oauthProviders: oauthProviders || [],
+        },
+      ],
     });
 
     const { subOrganizationId } = suborgResponse;
@@ -1162,10 +1160,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ subOrganizationId });
   } catch (error) {
     console.error('Create suborg error:', error);
-    return NextResponse.json(
-      { message: 'Something went wrong.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Something went wrong.' }, { status: 500 });
   }
 }
 ```
@@ -1182,7 +1177,7 @@ const turnkey = new Turnkey({
   apiBaseUrl: 'https://api.turnkey.com',
   apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY!,
   apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY!,
-  defaultOrganizationId: process.env.TURNKEY_ORGANIZATION_ID!
+  defaultOrganizationId: process.env.TURNKEY_ORGANIZATION_ID!,
 });
 
 export async function POST(request: NextRequest) {
@@ -1193,7 +1188,7 @@ export async function POST(request: NextRequest) {
       oidcToken,
       publicKey,
       organizationId: suborgID,
-      expirationSeconds: SESSION_EXPIRATION_SECONDS.toString()
+      expirationSeconds: SESSION_EXPIRATION_SECONDS.toString(),
     });
 
     const { session } = oauthResponse;
@@ -1210,7 +1205,7 @@ export async function POST(request: NextRequest) {
       {
         message: 'Something went wrong.',
         error: err.message,
-        details: err.toString()
+        details: err.toString(),
       },
       { status: 500 }
     );
@@ -1251,7 +1246,7 @@ export class PhantomSolanaWallet implements SolanaWalletInterface {
     const signed = await window.solana.signMessage(encodedMessage, 'utf8');
 
     // Convert Uint8Array to hex
-    const hex = [...signed.signature].map(b => b.toString(16).padStart(2, '0')).join('');
+    const hex = [...signed.signature].map((b) => b.toString(16).padStart(2, '0')).join('');
     return hex;
   }
 }
@@ -1270,7 +1265,7 @@ export async function loginWithEVMWallet(): Promise<{
 
     const turnkey = new Turnkey({
       apiBaseUrl: 'https://api.turnkey.com',
-      defaultOrganizationId: process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID || ''
+      defaultOrganizationId: process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID || '',
     });
 
     const indexedDbClient = await turnkey.indexedDbClient();
@@ -1291,8 +1286,8 @@ export async function loginWithEVMWallet(): Promise<{
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         filterType: 'PUBLIC_KEY',
-        filterValue: walletPublicKey
-      })
+        filterValue: walletPublicKey,
+      }),
     });
 
     const suborgsData = await getSuborgsResponse.json();
@@ -1303,8 +1298,8 @@ export async function loginWithEVMWallet(): Promise<{
         {
           apiKeyName: 'Wallet Auth - Embedded Wallet',
           publicKey: walletPublicKey,
-          curveType: 'API_KEY_CURVE_SECP256K1' as const
-        }
+          curveType: 'API_KEY_CURVE_SECP256K1' as const,
+        },
       ];
 
       const createSuborgResponse = await fetch('/api/turnkey/createSuborg', {
@@ -1312,8 +1307,8 @@ export async function loginWithEVMWallet(): Promise<{
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKeys: apiKeys,
-          oauthProviders: []
-        })
+          oauthProviders: [],
+        }),
       });
 
       const createResult = await createSuborgResponse.json();
@@ -1324,14 +1319,14 @@ export async function loginWithEVMWallet(): Promise<{
     await walletClient.loginWithWallet({
       publicKey,
       sessionType: SessionType.READ_WRITE,
-      expirationSeconds: SESSION_EXPIRATION_SECONDS.toString()
+      expirationSeconds: SESSION_EXPIRATION_SECONDS.toString(),
     });
 
     const session = await turnkey.getSession();
     if (session && session.organizationId) {
       return {
         success: true,
-        subOrgId: session.organizationId
+        subOrgId: session.organizationId,
       };
     } else {
       throw new Error('Failed to connect wallet');
@@ -1340,7 +1335,7 @@ export async function loginWithEVMWallet(): Promise<{
     console.error('EVM wallet login error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -1372,7 +1367,7 @@ export async function loginWithSolanaWallet(): Promise<{
 
     const turnkey = new Turnkey({
       apiBaseUrl: 'https://api.turnkey.com',
-      defaultOrganizationId: process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID || ''
+      defaultOrganizationId: process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID || '',
     });
 
     const indexedDbClient = await turnkey.indexedDbClient();
@@ -1388,8 +1383,8 @@ export async function loginWithSolanaWallet(): Promise<{
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         filterType: 'PUBLIC_KEY',
-        filterValue: hexPubKey
-      })
+        filterValue: hexPubKey,
+      }),
     });
 
     const suborgsData = await getSuborgsResponse.json();
@@ -1404,11 +1399,11 @@ export async function loginWithSolanaWallet(): Promise<{
             {
               apiKeyName: 'Wallet Auth - Solana Phantom',
               publicKey: hexPubKey,
-              curveType: 'API_KEY_CURVE_ED25519'
-            }
+              curveType: 'API_KEY_CURVE_ED25519',
+            },
           ],
-          oauthProviders: []
-        })
+          oauthProviders: [],
+        }),
       });
 
       const createResult = await createSuborgResponse.json();
@@ -1419,14 +1414,14 @@ export async function loginWithSolanaWallet(): Promise<{
     await walletClient.loginWithWallet({
       publicKey,
       sessionType: SessionType.READ_WRITE,
-      expirationSeconds: SESSION_EXPIRATION_SECONDS.toString()
+      expirationSeconds: SESSION_EXPIRATION_SECONDS.toString(),
     });
 
     const session = await turnkey.getSession();
     if (session && session.organizationId) {
       return {
         success: true,
-        subOrgId: session.organizationId
+        subOrgId: session.organizationId,
       };
     } else {
       throw new Error('Failed to connect wallet');
@@ -1435,7 +1430,7 @@ export async function loginWithSolanaWallet(): Promise<{
     console.error('Solana wallet login error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -1491,9 +1486,9 @@ export default function LoginPage() {
     try {
       setLoading('evm');
       setError('');
-      
+
       const result = await loginWithEVMWallet();
-      
+
       if (result.success && result.subOrgId) {
         // Load user data and ensure wallets are created
         await checkSession();
@@ -1511,9 +1506,9 @@ export default function LoginPage() {
     try {
       setLoading('solana');
       setError('');
-      
+
       const result = await loginWithSolanaWallet();
-      
+
       if (result.success && result.subOrgId) {
         // Load user data and ensure wallets are created
         await checkSession();
@@ -1680,7 +1675,7 @@ export default function WalletComponent() {
 
     const unsignedTx = '0x...'; // Your unsigned transaction
     const result = await signTransaction(unsignedTx, ethWallet.accounts[0].address);
-    
+
     if (result.success) {
       console.log('Signed transaction:', result.signature);
     }
@@ -1722,7 +1717,7 @@ export default function WalletComponent() {
 
       // Your unsigned Solana transaction (base58 encoded)
       const encodedTransaction = '...'; // base58 encoded
-      
+
       // Convert to hex for Turnkey
       const decodedData = bs58.decode(encodedTransaction);
       const hexTransaction = Buffer.from(decodedData).toString('hex');
@@ -1751,7 +1746,7 @@ export default function WalletComponent() {
   return (
     <div className="p-8">
       <h2 className="text-2xl font-bold mb-4">Your Wallets</h2>
-      
+
       {state.userWallets.map((wallet) => (
         <div key={wallet.walletId} className="mb-4 p-4 border rounded">
           <p className="font-semibold">{wallet.walletName}</p>
@@ -1787,12 +1782,14 @@ export default function WalletComponent() {
 ### Session-Based Signing Explained
 
 **Key Points:**
+
 1. **No Wallet Reconnection Needed**: Once logged in, the session is stored in IndexedDB
 2. **Automatic Key Access**: The indexedDB client automatically uses the stored keys
 3. **Works Across Page Refreshes**: Session persists, so signing works after refresh
 4. **Same for All Login Methods**: Whether you logged in with EVM wallet, Solana wallet, or Google, the signing process is identical
 
 **How It Works:**
+
 ```typescript
 // 1. Get indexedDB client (uses stored session automatically)
 const indexedDbClient = await turnkey.indexedDbClient();
@@ -1807,11 +1804,12 @@ const result = await indexedDbClient.signTransaction({
   timestampMs: Date.now().toString(),
   organizationId: session.organizationId,
   signWith: walletAddress, // Address of the wallet to sign with
-  unsignedTransaction: hexTransaction
+  unsignedTransaction: hexTransaction,
 });
 ```
 
 The `signWith` parameter is the **wallet address** (not wallet ID), and Turnkey automatically:
+
 - Looks up the private key in IndexedDB
 - Signs the transaction
 - Returns the signed transaction
@@ -1843,12 +1841,14 @@ export default function RootLayout({
 ## Key Features
 
 ### 1. **Three Login Methods**
+
 - **EVM Wallet**: Connect MetaMask or any EVM wallet
 - **Solana Wallet**: Connect Phantom or any Solana wallet
 - **Google OAuth**: Traditional email/password login
 - All methods create the same Turnkey wallets (EVM + Solana)
 
 ### 2. **Automatic Wallet Creation**
+
 - After any login method, system automatically ensures user has:
   - One Ethereum wallet (SECP256K1)
   - One Solana wallet (ED25519)
@@ -1856,24 +1856,28 @@ export default function RootLayout({
 - Keys stored securely in browser's IndexedDB
 
 ### 3. **IndexedDB Storage**
+
 - Keys and session data stored in browser's IndexedDB
 - Persists across page refreshes
 - No server-side key storage
 - Encrypted by Turnkey
 
 ### 4. **Session Management**
+
 - Automatic session refresh
 - 10-day session expiration
 - Session-based signing (no need to reconnect wallet)
 - Works with all three login methods
 
 ### 5. **Wallet Operations**
+
 - Create wallets (Ethereum, Solana)
 - List wallets and accounts
 - Sign transactions using session-based keys
 - Export wallets (via iframe)
 
 ### 6. **Multi-Chain Support**
+
 - Ethereum (SECP256K1) - EVM chains
 - Solana (ED25519) - Solana blockchain
 - Different address formats handled automatically

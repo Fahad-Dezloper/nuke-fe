@@ -36,18 +36,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang='en'
-      className='dark'>
+    <html lang="en" className="dark">
       <body className={`${robotoMono.variable} antialiased overflow-hidden`}>
         <TurnkeyProvider>
           <MarketFeedProvider>
-          <LoadingOverlay />
-          <div className='flex h-screen flex-col'>
-            <Navbar />
-            <main className='flex-1 overflow-hidden'>{children}</main>
-            {/* <Footer /> */}
-          </div>
+            <LoadingOverlay />
+            <div className="flex h-screen flex-col">
+              <Navbar />
+              <main className="flex-1 overflow-hidden">{children}</main>
+              {/* <Footer /> */}
+            </div>
           </MarketFeedProvider>
         </TurnkeyProvider>
       </body>

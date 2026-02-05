@@ -144,4 +144,3 @@ export interface AssetDropdownItem {
   hyperliquidMarkPx?: number;
   pacificaMarkPx?: number;
 }
-

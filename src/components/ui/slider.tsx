@@ -40,30 +40,31 @@ export function Slider({
     <div className={cn('relative w-full', className)}>
       <input
         id={sliderId}
-        type='range'
+        type="range"
         min={min}
         max={max}
         step={step}
         value={currentValue}
         onChange={handleChange}
-        className='w-full h-1 bg-card border border-border-white-10 rounded-full appearance-none cursor-pointer'
+        className="w-full h-1 bg-card border border-border-white-10 rounded-full appearance-none cursor-pointer"
         style={{
           background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%, rgba(255, 255, 255, 0.1) 100%)`,
         }}
         {...props}
       />
       {marks && (
-        <div className='relative mt-2' style={{ height: '16px' }}>
+        <div className="relative mt-2" style={{ height: '16px' }}>
           {marks.map((mark) => {
             // Calculate the percentage position of this mark
             const markPercentage = ((mark - min) / (max - min)) * 100;
             return (
-            <span
-              key={mark}
-                className='absolute text-xs text-text-muted-60 transform -translate-x-1/2'
-                style={{ left: `${markPercentage}%` }}>
-              {mark}x
-            </span>
+              <span
+                key={mark}
+                className="absolute text-xs text-text-muted-60 transform -translate-x-1/2"
+                style={{ left: `${markPercentage}%` }}
+              >
+                {mark}x
+              </span>
             );
           })}
         </div>
@@ -71,4 +72,3 @@ export function Slider({
     </div>
   );
 }
-

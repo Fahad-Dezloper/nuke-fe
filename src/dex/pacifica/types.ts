@@ -1,13 +1,13 @@
 export enum Side {
-  Bid = "Bid",
-  Ask = "Ask",
+  Bid = 'Bid',
+  Ask = 'Ask',
 }
 
 export enum Tif {
-  GTC = "GTC",
-  IOC = "IOC",
-  ALO = "ALO",
-  TOB = "TOB",
+  GTC = 'GTC',
+  IOC = 'IOC',
+  ALO = 'ALO',
+  TOB = 'TOB',
 }
 
 export interface CreateMarketOrderReq {

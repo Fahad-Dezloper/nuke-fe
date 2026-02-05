@@ -7,31 +7,29 @@
  * Recursively sorts all keys in a JSON object alphabetically
  * This ensures deterministic signature generation
  */
-export function sortJsonKeysRecursively(
-    value: unknown
-): unknown {
-    if (value === null || value === undefined) {
-        return value;
-    }
-
-    if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
-        return value;
-    }
-
-    if (Array.isArray(value)) {
-        return value.map((item) => sortJsonKeysRecursively(item));
-    }
-
-    if (typeof value === 'object') {
-        const sorted: Record<string, unknown> = {};
-        const keys = Object.keys(value).sort();
-        for (const key of keys) {
-            sorted[key] = sortJsonKeysRecursively((value as Record<string, unknown>)[key]);
-        }
-        return sorted;
-    }
-
+export function sortJsonKeysRecursively(value: unknown): unknown {
+  if (value === null || value === undefined) {
     return value;
+  }
+
+  if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sortJsonKeysRecursively(item));
+  }
+
+  if (typeof value === 'object') {
+    const sorted: Record<string, unknown> = {};
+    const keys = Object.keys(value).sort();
+    for (const key of keys) {
+      sorted[key] = sortJsonKeysRecursively((value as Record<string, unknown>)[key]);
+    }
+    return sorted;
+  }
+
+  return value;
 }
 
 /**
@@ -39,7 +37,7 @@ export function sortJsonKeysRecursively(
  * Uses standard separators (",", ":")
  */
 export function createCompactJson(data: unknown): string {
-    return JSON.stringify(data, null, 0).replace(/\s+/g, '');
+  return JSON.stringify(data, null, 0).replace(/\s+/g, '');
 }
 
 /**
@@ -50,37 +48,37 @@ export function createCompactJson(data: unknown): string {
  * 4. Creates compact JSON string
  */
 export function prepareSigningData(
-    operationType: string,
-    operationData: Record<string, unknown>,
-    timestamp: number,
-    expiryWindow?: number
+  operationType: string,
+  operationData: Record<string, unknown>,
+  timestamp: number,
+  expiryWindow?: number
 ): string {
-    // Create signature header
-    const signatureHeader: Record<string, unknown> = {
-        timestamp,
-        type: operationType,
-    };
+  // Create signature header
+  const signatureHeader: Record<string, unknown> = {
+    timestamp,
+    type: operationType,
+  };
 
-    if (expiryWindow !== undefined) {
-        signatureHeader.expiry_window = expiryWindow;
-    }
+  if (expiryWindow !== undefined) {
+    signatureHeader.expiry_window = expiryWindow;
+  }
 
-    // Combine header with operation data (wrapped in "data" key)
-    const dataToSign = {
-        ...signatureHeader,
-        data: operationData,
-    };
+  // Combine header with operation data (wrapped in "data" key)
+  const dataToSign = {
+    ...signatureHeader,
+    data: operationData,
+  };
 
-    // Recursively sort all keys
-    const sortedData = sortJsonKeysRecursively(dataToSign) as Record<string, unknown>;
+  // Recursively sort all keys
+  const sortedData = sortJsonKeysRecursively(dataToSign) as Record<string, unknown>;
 
-    // Create compact JSON
-    return createCompactJson(sortedData);
+  // Create compact JSON
+  return createCompactJson(sortedData);
 }
 
 /**
  * Converts a message string to UTF-8 bytes
  */
 export function messageToBytes(message: string): Uint8Array {
-    return new TextEncoder().encode(message);
+  return new TextEncoder().encode(message);
 }

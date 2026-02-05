@@ -1,18 +1,16 @@
 /**
  * Pacifica Protocol Adapter
- * 
+ *
  * Wraps the PacificaService to provide a unified interface
  * for the arbitrage orchestrator.
- * 
+ *
  * This adapter converts between unified types and Pacifica-specific types
  * without modifying the existing PacificaService.
  */
 
 import { PacificaService } from '@/lib/services/pacifica';
 import type { CreateMarketOrderRequest } from '@/lib/services/pacifica/types';
-import type {
-  ProtocolAdapter,
-} from './protocol-adapter.interface';
+import type { ProtocolAdapter } from './protocol-adapter.interface';
 import type {
   UnifiedPositionParams,
   UnifiedPositionResult,
@@ -22,7 +20,7 @@ import type {
 
 /**
  * Pacifica Protocol Adapter
- * 
+ *
  * Implements the ProtocolAdapter interface for Pacifica protocol.
  * Wraps PacificaService and converts between unified and protocol-specific types.
  */
@@ -37,9 +35,7 @@ export class PacificaAdapter implements ProtocolAdapter {
   /**
    * Opens a position on Pacifica
    */
-  async openPosition(
-    params: UnifiedPositionParams
-  ): Promise<UnifiedPositionResult> {
+  async openPosition(params: UnifiedPositionParams): Promise<UnifiedPositionResult> {
     try {
       // Convert direction to Pacifica side format
       // 'long' -> 'bid', 'short' -> 'ask'
@@ -129,8 +125,7 @@ export class PacificaAdapter implements ProtocolAdapter {
         };
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
         positionId: '',
@@ -149,7 +144,7 @@ export class PacificaAdapter implements ProtocolAdapter {
 
   /**
    * Closes an existing position on Pacifica
-   * 
+   *
    * Note: This requires position details to create a reduce-only order
    */
   async closePosition(
@@ -177,14 +172,11 @@ export class PacificaAdapter implements ProtocolAdapter {
 
   /**
    * Gets information about an existing position
-   * 
+   *
    * Note: This is a placeholder - Pacifica position querying
    * would need to be implemented based on their API
    */
-  async getPosition(
-    _positionId: string,
-    _walletAddress: string
-  ): Promise<UnifiedPosition> {
+  async getPosition(_positionId: string, _walletAddress: string): Promise<UnifiedPosition> {
     // Placeholder implementation
     // In production, this would query Pacifica API for position details
     throw new Error('getPosition not yet implemented for Pacifica');
@@ -237,15 +229,11 @@ export class PacificaAdapter implements ProtocolAdapter {
 
   /**
    * Calculates position size from margin and leverage
-   * 
+   *
    * Returns size in asset units (e.g., 0.001 BTC)
    * Formula: (margin * leverage) / price = amount in asset units
    */
-  calculatePositionSize(
-    margin: string,
-    leverage: number,
-    price?: string
-  ): string {
+  calculatePositionSize(margin: string, leverage: number, price?: string): string {
     if (!price || parseFloat(price) <= 0) {
       throw new Error('Price is required to calculate position size in asset units');
     }

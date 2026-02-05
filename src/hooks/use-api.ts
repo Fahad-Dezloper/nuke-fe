@@ -52,4 +52,3 @@ export function useApi<T = unknown>(
 
   return { data, loading, error, execute, reset };
 }
-

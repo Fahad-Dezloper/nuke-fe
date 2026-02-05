@@ -12,16 +12,9 @@ interface TradingDashboardProps {
   children?: React.ReactNode;
 }
 
-export function TradingDashboard({
-  className,
-  children,
-}: TradingDashboardProps) {
+export function TradingDashboard({ className, children }: TradingDashboardProps) {
   return (
-    <div
-      className={cn(
-        'flex flex-col lg:flex-row gap-0 h-full overflow-hidden',
-        className
-      )}>
+    <div className={cn('flex flex-col lg:flex-row gap-0 h-full overflow-hidden', className)}>
       {children}
     </div>
   );
@@ -37,11 +30,7 @@ interface ChartSectionProps {
 }
 
 export function ChartSection({ className, children }: ChartSectionProps) {
-  return (
-    <div className={cn('flex-1 flex flex-col bg-background', className)}>
-      {children}
-    </div>
-  );
+  return <div className={cn('flex-1 flex flex-col bg-background', className)}>{children}</div>;
 }
 
 /**
@@ -53,16 +42,14 @@ interface PositionsTableSectionProps {
   children?: React.ReactNode;
 }
 
-export function PositionsTableSection({
-  className,
-  children,
-}: PositionsTableSectionProps) {
+export function PositionsTableSection({ className, children }: PositionsTableSectionProps) {
   return (
     <div
       className={cn(
         'border rounded-xl border-border-white-5 bg-background h-full flex flex-col overflow-hidden',
         className
-      )}>
+      )}
+    >
       {children}
     </div>
   );
@@ -77,16 +64,14 @@ interface PositionControlsSectionProps {
   children?: React.ReactNode;
 }
 
-export function PositionControlsSection({
-  className,
-  children,
-}: PositionControlsSectionProps) {
+export function PositionControlsSection({ className, children }: PositionControlsSectionProps) {
   return (
     <div
       className={cn(
         'w-full lg:w-[400px] xl:w-[450px] flex flex-col border border-border-white-10/50 bg-background/80 backdrop-blur-md rounded-2xl shadow-2xl shadow-black/40',
         className
-      )}>
+      )}
+    >
       {children}
     </div>
   );

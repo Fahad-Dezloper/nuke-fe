@@ -77,15 +77,14 @@ function ProtocolTooltip({
       style={{
         left: `${tooltipPosition?.x ?? 0}px`,
         top: `${tooltipPosition?.y ?? 0}px`,
-      }}>
-      <div className='text-xs font-semibold text-text-primary mb-1.5'>
-        {title}
-      </div>
-      <div className='flex flex-col gap-1'>
+      }}
+    >
+      <div className="text-xs font-semibold text-text-primary mb-1.5">{title}</div>
+      <div className="flex flex-col gap-1">
         {protocolsWithData.map(({ protocolId, displayName, data }) => (
-          <div key={protocolId} className='flex items-center justify-between gap-3'>
-            <span className='text-[10px] text-text-muted-60'>{displayName}:</span>
-            <span className='text-[10px] font-medium text-text-primary tabular-nums'>
+          <div key={protocolId} className="flex items-center justify-between gap-3">
+            <span className="text-[10px] text-text-muted-60">{displayName}:</span>
+            <span className="text-[10px] font-medium text-text-primary tabular-nums">
               {getFieldValue(data, field)}
             </span>
           </div>
@@ -110,14 +109,12 @@ function ProtocolBadge({
   type?: 'long' | 'short';
 }) {
   const config = getProtocolConfig(protocolId);
-  
+
   if (!config) {
     // Fallback if protocol not found
     return (
-      <div className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-500/10 border border-gray-500/20 w-fit'>
-        <span className='text-[10px] font-medium text-text-primary whitespace-nowrap'>
-          {label}
-        </span>
+      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-500/10 border border-gray-500/20 w-fit">
+        <span className="text-[10px] font-medium text-text-primary whitespace-nowrap">{label}</span>
       </div>
     );
   }
@@ -149,10 +146,13 @@ function ProtocolBadge({
     };
   };
 
-  const styleClasses = getStyleClasses(type === 'long' ? 'long' : type === 'short' ? 'short' : undefined as never);
+  const styleClasses = getStyleClasses(
+    type === 'long' ? 'long' : type === 'short' ? 'short' : (undefined as never)
+  );
 
   // Text color based on position type: green for LONG, red for SHORT
-  const textColorClass = type === 'long' ? 'text-green-400' : type === 'short' ? 'text-red-400' : 'text-text-primary';
+  const textColorClass =
+    type === 'long' ? 'text-green-400' : type === 'short' ? 'text-red-400' : 'text-text-primary';
 
   return (
     <div
@@ -162,13 +162,14 @@ function ProtocolBadge({
         styleClasses.border,
         styleClasses.hoverBg,
         styleClasses.hoverBorder
-      )}>
+      )}
+    >
       <Image
         src={config.logo}
         alt={config.displayName}
         width={14}
         height={14}
-        className='shrink-0 rounded-sm'
+        className="shrink-0 rounded-sm"
       />
       <span className={cn('text-[10px] font-medium whitespace-nowrap', textColorClass)}>
         {config.displayName}
@@ -179,20 +180,16 @@ function ProtocolBadge({
 
 export function PositionRow({ position, onClose }: PositionRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
-  const [hoveredField, setHoveredField] = useState<
-    'size' | 'pricePnl' | 'fundingPnl' | null
-  >(null);
+  const [hoveredField, setHoveredField] = useState<'size' | 'pricePnl' | 'fundingPnl' | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{
     x: number;
     y: number;
   } | null>(null);
 
   const isTotalPnlPositive =
-    position.totalPnl.startsWith('+') ||
-    parseFloat(position.totalPnl.replace(/[^0-9.-]/g, '')) > 0;
+    position.totalPnl.startsWith('+') || parseFloat(position.totalPnl.replace(/[^0-9.-]/g, '')) > 0;
   const isPricePnlPositive =
-    position.pricePnl.startsWith('+') ||
-    parseFloat(position.pricePnl.replace(/[^0-9.-]/g, '')) > 0;
+    position.pricePnl.startsWith('+') || parseFloat(position.pricePnl.replace(/[^0-9.-]/g, '')) > 0;
   const isFundingPnlPositive =
     position.fundingPnl.current.startsWith('+') ||
     parseFloat(position.fundingPnl.current.replace(/[^0-9.-]/g, '')) > 0;
@@ -224,110 +221,116 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
   return (
     <div
       ref={rowRef}
-      className='relative border-b border-border-white-10/30 last:border-0 border-l-2 border-l-transparent hover:border-l-accent/50 hover:bg-card/20 hover:backdrop-blur-sm transition-all duration-200 group'>
-      <div className='px-4 md:px-6 py-2.5'>
-        <div className='grid grid-cols-[minmax(100px,1fr)_minmax(180px,1.5fr)_minmax(70px,0.8fr)_minmax(70px,0.8fr)_minmax(90px,1fr)_minmax(110px,1.2fr)_minmax(90px,1fr)_40px] gap-3 lg:gap-4 items-center max-w-full'>
+      className="relative border-b border-border-white-10/30 last:border-0 border-l-2 border-l-transparent hover:border-l-accent/50 hover:bg-card/20 hover:backdrop-blur-sm transition-all duration-200 group"
+    >
+      <div className="px-4 md:px-6 py-2.5">
+        <div className="grid grid-cols-[minmax(100px,1fr)_minmax(180px,1.5fr)_minmax(70px,0.8fr)_minmax(70px,0.8fr)_minmax(90px,1fr)_minmax(110px,1.2fr)_minmax(90px,1fr)_40px] gap-3 lg:gap-4 items-center max-w-full">
           {/* ASSET */}
-          <div className='flex items-center gap-2'>
+          <div className="flex items-center gap-2">
             <Image
               src={`https://app.hyperliquid.xyz/coins/${position.asset.toUpperCase()}.svg`}
               alt={position.asset}
               width={20}
               height={20}
             />
-            <div className='flex flex-col gap-0'>
-              <span className='text-xs font-semibold text-text-primary leading-tight'>
+            <div className="flex flex-col gap-0">
+              <span className="text-xs font-semibold text-text-primary leading-tight">
                 {position.asset}
               </span>
-              <span className='text-[10px] text-text-muted-60 leading-tight'>
+              <span className="text-[10px] text-text-muted-60 leading-tight">
                 {position.leverage}
               </span>
             </div>
           </div>
 
           {/* LONG / SHORT */}
-          <div className='flex flex-col gap-2 w-full'>
+          <div className="flex flex-col gap-2 w-full">
             {/* LONG */}
             <ProtocolBadge
               protocolId={position.long.platform.toLowerCase()}
               label={position.long.platform}
-              type='long'
+              type="long"
             />
             {/* SHORT */}
             <ProtocolBadge
               protocolId={position.short.platform.toLowerCase()}
               label={position.short.platform}
-              type='short'
+              type="short"
             />
           </div>
 
           {/* SIZE */}
           <div
-            className='min-w-0 cursor-help'
+            className="min-w-0 cursor-help"
             onMouseEnter={(e) => handleMouseEnter('size', e)}
-            onMouseLeave={handleMouseLeave}>
-            <span className='text-xs font-medium text-text-primary tabular-nums truncate block'>
+            onMouseLeave={handleMouseLeave}
+          >
+            <span className="text-xs font-medium text-text-primary tabular-nums truncate block">
               {position.size}
             </span>
           </div>
 
           {/* APR */}
-          <div className='min-w-0'>
-            <span className='text-xs font-medium text-green-400 tabular-nums truncate block'>
+          <div className="min-w-0">
+            <span className="text-xs font-medium text-green-400 tabular-nums truncate block">
               {position.apr}
             </span>
           </div>
 
           {/* PRICE PNL */}
           <div
-            className='min-w-0 cursor-help'
+            className="min-w-0 cursor-help"
             onMouseEnter={(e) => handleMouseEnter('pricePnl', e)}
-            onMouseLeave={handleMouseLeave}>
+            onMouseLeave={handleMouseLeave}
+          >
             <span
               className={cn(
                 'text-xs font-medium tabular-nums truncate block',
                 isPricePnlPositive ? 'text-green-400' : 'text-red-400'
-              )}>
+              )}
+            >
               {position.pricePnl}
             </span>
           </div>
 
           {/* FUNDING PNL */}
           <div
-            className='flex flex-col gap-0 min-w-0 cursor-help'
+            className="flex flex-col gap-0 min-w-0 cursor-help"
             onMouseEnter={(e) => handleMouseEnter('fundingPnl', e)}
-            onMouseLeave={handleMouseLeave}>
+            onMouseLeave={handleMouseLeave}
+          >
             <span
               className={cn(
                 'text-xs font-medium tabular-nums truncate block',
                 isFundingPnlPositive ? 'text-green-400' : 'text-red-400'
-              )}>
+              )}
+            >
               {position.fundingPnl.current}
             </span>
-            <span className='text-[10px] text-text-muted-60 tabular-nums leading-tight truncate block'>
+            <span className="text-[10px] text-text-muted-60 tabular-nums leading-tight truncate block">
               {position.fundingPnl.estimated}
             </span>
           </div>
 
           {/* TOTAL PNL */}
-          <div className='min-w-0'>
+          <div className="min-w-0">
             <span
               className={cn(
                 'text-xs font-semibold tabular-nums truncate block',
                 isTotalPnlPositive ? 'text-green-400' : 'text-red-400'
-              )}>
+              )}
+            >
               {position.totalPnl}
             </span>
           </div>
 
           {/* CLOSE BUTTON */}
-          <div className='flex items-center justify-end'>
+          <div className="flex items-center justify-end">
             <button
-              onClick={() =>
-                onClose?.(`${position.asset}-${position.leverage}`)
-              }
-              className='p-1 rounded-md text-text-muted-60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200'>
-              <X className='h-3.5 w-3.5' />
+              onClick={() => onClose?.(`${position.asset}-${position.leverage}`)}
+              className="p-1 rounded-md text-text-muted-60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200"
+            >
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -340,27 +343,27 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
             <ProtocolTooltip
               isVisible={true}
               position={tooltipPosition || undefined}
-              title='Position Size'
+              title="Position Size"
               data={position.protocolData}
-              field='size'
+              field="size"
             />
           )}
           {hoveredField === 'pricePnl' && (
             <ProtocolTooltip
               isVisible={true}
               position={tooltipPosition || undefined}
-              title='Price PNL'
+              title="Price PNL"
               data={position.protocolData}
-              field='pnl'
+              field="pnl"
             />
           )}
           {hoveredField === 'fundingPnl' && (
             <ProtocolTooltip
               isVisible={true}
               position={tooltipPosition || undefined}
-              title='Funding PNL'
+              title="Funding PNL"
               data={position.protocolData}
-              field='funding'
+              field="funding"
             />
           )}
         </>

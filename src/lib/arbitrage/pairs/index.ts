@@ -1,6 +1,6 @@
 /**
  * Arbitrage Pairs Module
- * 
+ *
  * Exports pair registry and configuration
  * Note: ArbitragePair type is NOT exported here to avoid duplicate exports.
  * Import it from '@/lib/arbitrage' instead.

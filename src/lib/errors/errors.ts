@@ -77,7 +77,6 @@ export enum ErrorCode {
   INTERNAL_CONFIG_ERROR = 'INTERNAL_9003',
 }
 
-
 export interface ErrorMetadata {
   code: ErrorCode;
   category: ErrorCategory;
@@ -87,7 +86,6 @@ export interface ErrorMetadata {
   retryable?: boolean; // Whether the error is retryable
   context?: Record<string, unknown>; // Additional context
 }
-
 
 export class AppError extends Error {
   public readonly code: ErrorCode;
@@ -136,7 +134,6 @@ export class AppError extends Error {
     };
   }
 }
-
 
 const ERROR_DEFINITIONS: Record<ErrorCode, Omit<ErrorMetadata, 'context'>> = {
   [ErrorCode.AUTH_NOT_LOGGED_IN]: {
@@ -591,7 +588,10 @@ export function isAppError(error: unknown): error is AppError {
  * Convert unknown error to AppError
  * Useful for error handling where error type is unknown
  */
-export function toAppError(error: unknown, defaultCode: ErrorCode = ErrorCode.INTERNAL_UNKNOWN_ERROR): AppError {
+export function toAppError(
+  error: unknown,
+  defaultCode: ErrorCode = ErrorCode.INTERNAL_UNKNOWN_ERROR
+): AppError {
   if (isAppError(error)) {
     return error;
   }

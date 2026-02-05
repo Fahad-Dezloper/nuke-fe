@@ -36,7 +36,11 @@ export function useUSDCBalanceBase() {
    * Only recreates when login state or wallet count changes
    */
   const refresh = useCallback(async () => {
-    if (turnkeyState.isLoggedIn && turnkeyState.userWallets && turnkeyState.userWallets.length > 0) {
+    if (
+      turnkeyState.isLoggedIn &&
+      turnkeyState.userWallets &&
+      turnkeyState.userWallets.length > 0
+    ) {
       await fetchBalanceFromTurnkey(turnkeyState.userWallets);
     }
   }, [turnkeyState.isLoggedIn, turnkeyState.userWallets?.length, fetchBalanceFromTurnkey]);
@@ -44,9 +48,12 @@ export function useUSDCBalanceBase() {
   /**
    * Refresh balance using specific wallet address
    */
-  const refreshWithAddress = useCallback(async (address: string) => {
-    await fetchBalance(address);
-  }, [fetchBalance]);
+  const refreshWithAddress = useCallback(
+    async (address: string) => {
+      await fetchBalance(address);
+    },
+    [fetchBalance]
+  );
 
   return {
     balance,

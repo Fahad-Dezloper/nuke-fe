@@ -112,29 +112,27 @@ function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
   const hasBothData = data.hyperliquid !== null && data.pacifica !== null;
 
   return (
-    <div className='rounded-lg border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md'>
-      <div className='mb-2 text-text-muted-60'>{data.fullTimestamp}</div>
-      <div className='space-y-1'>
+    <div className="rounded-lg border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md">
+      <div className="mb-2 text-text-muted-60">{data.fullTimestamp}</div>
+      <div className="space-y-1">
         {protocolsWithData.map((protocol) => (
-          <div key={protocol.protocolId} className='flex items-center gap-2'>
+          <div key={protocol.protocolId} className="flex items-center gap-2">
             <div
-              className='h-2 w-2 rounded-full'
+              className="h-2 w-2 rounded-full"
               style={{
                 backgroundColor: protocol.color,
               }}
             />
-            <span className='text-text-muted-60'>{protocol.label}:</span>
-            <span className='font-medium' style={{ color: protocol.color }}>
+            <span className="text-text-muted-60">{protocol.label}:</span>
+            <span className="font-medium" style={{ color: protocol.color }}>
               {formatPercent(protocol.value)}
             </span>
           </div>
         ))}
         {hasBothData && data.netRate > 0 && (
-          <div className='flex items-center gap-2 pt-1 border-t border-border-white-10'>
-            <span className='text-text-muted-60'>Net:</span>
-            <span className='font-medium text-yellow-400'>
-              {formatPercent(data.netRate)}
-            </span>
+          <div className="flex items-center gap-2 pt-1 border-t border-border-white-10">
+            <span className="text-text-muted-60">Net:</span>
+            <span className="font-medium text-yellow-400">{formatPercent(data.netRate)}</span>
           </div>
         )}
       </div>
@@ -157,31 +155,35 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
   // Get protocol display names from config
   const longProtocolConfig = getProtocolConfig(longProtocol);
   const shortProtocolConfig = getProtocolConfig(shortProtocol);
-  const longProtocolName = longProtocolConfig?.displayName.toUpperCase() || longProtocol.toUpperCase();
-  const shortProtocolName = shortProtocolConfig?.displayName.toUpperCase() || shortProtocol.toUpperCase();
+  const longProtocolName =
+    longProtocolConfig?.displayName.toUpperCase() || longProtocol.toUpperCase();
+  const shortProtocolName =
+    shortProtocolConfig?.displayName.toUpperCase() || shortProtocol.toUpperCase();
 
   // Calculate domain based on data (only include non-null values)
   // Dynamically get all protocol values
   const domain = useMemo(() => {
     if (data.length === 0) return [-60, 120];
-    
+
     const allValues: number[] = [];
     data.forEach((d) => {
       // Add all protocol values dynamically
       getAllProtocolIds().forEach((protocolId) => {
         if (protocolId === 'hyperliquid') {
           if (d.hyperliquid !== null && d.hyperliquid !== undefined) allValues.push(d.hyperliquid);
-          if (d.projectedHyperliquid !== null && d.projectedHyperliquid !== undefined) allValues.push(d.projectedHyperliquid);
+          if (d.projectedHyperliquid !== null && d.projectedHyperliquid !== undefined)
+            allValues.push(d.projectedHyperliquid);
         } else if (protocolId === 'pacifica') {
           if (d.pacifica !== null && d.pacifica !== undefined) allValues.push(d.pacifica);
-          if (d.projectedPacifica !== null && d.projectedPacifica !== undefined) allValues.push(d.projectedPacifica);
+          if (d.projectedPacifica !== null && d.projectedPacifica !== undefined)
+            allValues.push(d.projectedPacifica);
         }
         // Future protocols can be added here
       });
     });
-    
+
     if (allValues.length === 0) return [-60, 120];
-    
+
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
     const padding = (max - min) * 0.1 || 10;
@@ -190,26 +192,18 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
 
   if (data.length === 0) {
     return (
-      <div className='h-[260px] w-full flex items-center justify-center text-text-muted-60'>
+      <div className="h-[260px] w-full flex items-center justify-center text-text-muted-60">
         No data available
       </div>
     );
   }
 
   return (
-    <ChartContainer
-      config={chartConfig}
-      className='h-[260px] w-full'>
-      <LineChart
-        data={data}
-        margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-        <CartesianGrid
-          strokeDasharray='3 3'
-          stroke='rgba(255, 255, 255, 0.1)'
-          vertical={false}
-        />
+    <ChartContainer config={chartConfig} className="h-[260px] w-full">
+      <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" vertical={false} />
         <XAxis
-          dataKey='time'
+          dataKey="time"
           tick={{ fill: 'rgba(255, 255, 255, 0.6)', fontSize: 11 }}
           tickLine={false}
           axisLine={false}
@@ -217,17 +211,17 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
           minTickGap={20}
           tickFormatter={(value, index) => {
             if (!value) return '';
-            
+
             // For 1 Hour view, show hourly labels
             // Data comes in 30-min intervals, but we only show hourly labels
             if (duration === '1 Hour') {
               if (value.includes(':')) {
                 const [hours, minutes] = value.split(':').map(Number);
-                
+
                 // Always show first and last labels
                 const isFirst = index === 0;
                 const isLast = index === data.length - 1;
-                
+
                 // Show label if:
                 // 1. It's exactly on the hour (minutes === 0)
                 // 2. It's the first tick
@@ -235,7 +229,7 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
                 // 4. It's close to an hour mark (within 10 minutes)
                 const isOnHour = minutes === 0;
                 const isNearHour = minutes <= 10 || minutes >= 50;
-                
+
                 if (isOnHour || isFirst || isLast || isNearHour) {
                   // Round to nearest hour for display
                   const displayHour = minutes >= 30 ? (hours + 1) % 24 : hours;
@@ -258,7 +252,7 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
               // Show every day for 1 week view
               return value; // Already formatted as MM/DD
             }
-            
+
             return value;
           }}
         />
@@ -276,15 +270,25 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
           if (!protocolConfig) return [];
 
           // Map protocol ID to data key (for now, only hyperliquid and pacifica are supported)
-          const dataKey = protocolId === 'hyperliquid' ? 'hyperliquid' : protocolId === 'pacifica' ? 'pacifica' : null;
-          const projectedDataKey = protocolId === 'hyperliquid' ? 'projectedHyperliquid' : protocolId === 'pacifica' ? 'projectedPacifica' : null;
+          const dataKey =
+            protocolId === 'hyperliquid'
+              ? 'hyperliquid'
+              : protocolId === 'pacifica'
+                ? 'pacifica'
+                : null;
+          const projectedDataKey =
+            protocolId === 'hyperliquid'
+              ? 'projectedHyperliquid'
+              : protocolId === 'pacifica'
+                ? 'projectedPacifica'
+                : null;
 
           if (!dataKey || !projectedDataKey) return [];
 
           return [
             <Line
               key={protocolId}
-              type='monotone'
+              type="monotone"
               dataKey={dataKey}
               stroke={`var(${protocolConfig.colorVar})`}
               strokeWidth={2}
@@ -294,11 +298,11 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
             />,
             <Line
               key={`${protocolId}-projected`}
-              type='monotone'
+              type="monotone"
               dataKey={projectedDataKey}
               stroke={`var(${protocolConfig.colorVar})`}
               strokeWidth={2}
-              strokeDasharray='5 5'
+              strokeDasharray="5 5"
               dot={false}
               connectNulls={false}
             />,
@@ -308,37 +312,33 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
           content={() => {
             const longConfig = getProtocolConfig(longProtocol);
             const shortConfig = getProtocolConfig(shortProtocol);
-            
+
             return (
-              <div className='flex items-center justify-start gap-6 pt-3 px-4'>
+              <div className="flex items-center justify-start gap-6 pt-3 px-4">
                 {longConfig && (
-                  <div className='flex items-center gap-2'>
+                  <div className="flex items-center gap-2">
                     <div
-                      className='h-2 w-6'
+                      className="h-2 w-6"
                       style={{ backgroundColor: `var(${longConfig.colorVar})` }}
                     />
-                    <span className='text-xs text-text-muted-60'>
-                      {longProtocolName}
-                    </span>
+                    <span className="text-xs text-text-muted-60">{longProtocolName}</span>
                   </div>
                 )}
                 {shortConfig && (
-                  <div className='flex items-center gap-2'>
+                  <div className="flex items-center gap-2">
                     <div
-                      className='h-2 w-6'
+                      className="h-2 w-6"
                       style={{ backgroundColor: `var(${shortConfig.colorVar})` }}
                     />
-                    <span className='text-xs text-text-muted-60'>
-                      {shortProtocolName}
-                    </span>
+                    <span className="text-xs text-text-muted-60">{shortProtocolName}</span>
                   </div>
                 )}
-                <div className='flex items-center gap-2'>
+                <div className="flex items-center gap-2">
                   <div
-                    className='h-0.5 w-6 border-t-2 border-dashed'
+                    className="h-0.5 w-6 border-t-2 border-dashed"
                     style={{ borderColor: '#ffffff' }}
                   />
-                  <span className='text-xs text-text-muted-60'>PROJECTED</span>
+                  <span className="text-xs text-text-muted-60">PROJECTED</span>
                 </div>
               </div>
             );

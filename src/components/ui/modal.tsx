@@ -84,9 +84,7 @@ export function Modal({
   const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div
-          className='fixed inset-0 flex items-center justify-center p-4'
-          style={{ zIndex }}>
+        <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex }}>
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -94,10 +92,7 @@ export function Modal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={closeOnBackdropClick ? onClose : undefined}
-            className={cn(
-              'absolute inset-0 bg-black/70',
-              backdropClassName
-            )}
+            className={cn('absolute inset-0 bg-black/70', backdropClassName)}
           />
 
           {/* Modal */}
@@ -120,9 +115,10 @@ export function Modal({
               'overflow-hidden',
               maxWidthClasses[maxWidth],
               className
-            )}>
+            )}
+          >
             {/* Glassmorphism overlay */}
-            <div className='absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none' />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
 
             {/* Close button */}
             {showCloseButton && (
@@ -137,8 +133,9 @@ export function Modal({
                   'text-text-muted-60 hover:text-text-primary',
                   'backdrop-blur-sm transition-colors duration-200',
                   'hover:border-border-white-20 hover:bg-card/70'
-                )}>
-                <X className='w-4 h-4' />
+                )}
+              >
+                <X className="w-4 h-4" />
               </motion.button>
             )}
 
@@ -146,16 +143,14 @@ export function Modal({
             <div className={cn('relative z-10', contentClassName)}>
               {/* Title and Description */}
               {(title || description) && (
-                <div className='p-8 md:p-10 pb-6'>
+                <div className="p-8 md:p-10 pb-6">
                   {title && (
-                    <h2 className='text-xl font-semibold text-text-primary mb-2 tracking-tight'>
+                    <h2 className="text-xl font-semibold text-text-primary mb-2 tracking-tight">
                       {title}
                     </h2>
                   )}
                   {description && (
-                    <p className='text-xs text-text-muted-60 leading-relaxed'>
-                      {description}
-                    </p>
+                    <p className="text-xs text-text-muted-60 leading-relaxed">{description}</p>
                   )}
                 </div>
               )}

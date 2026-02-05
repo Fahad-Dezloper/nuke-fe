@@ -8,17 +8,11 @@ const initialTradingState: TradingOperationState = {
   signingInProgress: false,
 };
 
-export const pacificaTradingStateAtom = atom<TradingOperationState>(
-  initialTradingState
-);
+export const pacificaTradingStateAtom = atom<TradingOperationState>(initialTradingState);
 
-export const isPacificaTradingLoadingAtom = atom(
-  (get) => get(pacificaTradingStateAtom).isLoading
-);
+export const isPacificaTradingLoadingAtom = atom((get) => get(pacificaTradingStateAtom).isLoading);
 
-export const pacificaTradingErrorAtom = atom(
-  (get) => get(pacificaTradingStateAtom).error
-);
+export const pacificaTradingErrorAtom = atom((get) => get(pacificaTradingStateAtom).error);
 
 export const lastPacificaTradingActionAtom = atom(
   (get) => get(pacificaTradingStateAtom).lastAction

@@ -12,93 +12,93 @@ import { TOKEN_ADDRESSES, CHAIN_IDS } from './types';
  * Chain configuration
  */
 interface ChainConfig {
-    chain: Chain;
-    rpcUrl: string;
+  chain: Chain;
+  rpcUrl: string;
 }
 
 /**
  * Get RPC URL for a chain from environment or use default
  */
 function getRpcUrl(chainId: number): string {
-    switch (chainId) {
-        case CHAIN_IDS.BASE:
-            return (
-                process.env.NEXT_PUBLIC_BASE_RPC_URL ||
-                process.env.NEXT_PUBLIC_BASE_JSON_RPC_URL ||
-                'https://base.drpc.org'
-            );
-        case CHAIN_IDS.ARBITRUM:
-            return (
-                process.env.NEXT_PUBLIC_ARBITRUM_RPC_URL ||
-                process.env.NEXT_PUBLIC_ARBITRUM_JSON_RPC_URL ||
-                'https://arb1.arbitrum.io/rpc'
-            );
-        default:
-            throw new Error(`Unsupported chain ID: ${chainId}`);
-    }
+  switch (chainId) {
+    case CHAIN_IDS.BASE:
+      return (
+        process.env.NEXT_PUBLIC_BASE_RPC_URL ||
+        process.env.NEXT_PUBLIC_BASE_JSON_RPC_URL ||
+        'https://base.drpc.org'
+      );
+    case CHAIN_IDS.ARBITRUM:
+      return (
+        process.env.NEXT_PUBLIC_ARBITRUM_RPC_URL ||
+        process.env.NEXT_PUBLIC_ARBITRUM_JSON_RPC_URL ||
+        'https://arb1.arbitrum.io/rpc'
+      );
+    default:
+      throw new Error(`Unsupported chain ID: ${chainId}`);
+  }
 }
 
 /**
  * Get chain configuration
  */
 function getChainConfig(chainId: number): ChainConfig {
-    let chain: Chain;
-    switch (chainId) {
-        case CHAIN_IDS.BASE:
-            chain = base;
-            break;
-        case CHAIN_IDS.ARBITRUM:
-            chain = arbitrum;
-            break;
-        default:
-            throw new Error(`Unsupported chain ID: ${chainId}`);
-    }
+  let chain: Chain;
+  switch (chainId) {
+    case CHAIN_IDS.BASE:
+      chain = base;
+      break;
+    case CHAIN_IDS.ARBITRUM:
+      chain = arbitrum;
+      break;
+    default:
+      throw new Error(`Unsupported chain ID: ${chainId}`);
+  }
 
-    const rpcUrl = getRpcUrl(chainId);
+  const rpcUrl = getRpcUrl(chainId);
 
-    return {
-        chain,
-        rpcUrl,
-    };
+  return {
+    chain,
+    rpcUrl,
+  };
 }
 
 /**
  * Create public client for a specific chain
  */
 function createPublicClientForChain(chainId: number) {
-    const { chain, rpcUrl } = getChainConfig(chainId);
+  const { chain, rpcUrl } = getChainConfig(chainId);
 
-    return createPublicClient({
-        chain: {
-            ...chain,
-            rpcUrls: {
-                default: {
-                    http: [rpcUrl],
-                },
-            },
+  return createPublicClient({
+    chain: {
+      ...chain,
+      rpcUrls: {
+        default: {
+          http: [rpcUrl],
         },
-        transport: http(rpcUrl),
-    });
+      },
+    },
+    transport: http(rpcUrl),
+  });
 }
 
 /**
  * ERC20 ABI for balanceOf function
  */
 const ERC20_ABI = [
-    {
-        constant: true,
-        inputs: [{ name: '_owner', type: 'address' }],
-        name: 'balanceOf',
-        outputs: [{ name: 'balance', type: 'uint256' }],
-        type: 'function',
-    },
-    {
-        constant: true,
-        inputs: [],
-        name: 'decimals',
-        outputs: [{ name: '', type: 'uint8' }],
-        type: 'function',
-    },
+  {
+    constant: true,
+    inputs: [{ name: '_owner', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ name: 'balance', type: 'uint256' }],
+    type: 'function',
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: 'decimals',
+    outputs: [{ name: '', type: 'uint8' }],
+    type: 'function',
+  },
 ] as const;
 
 /**
@@ -109,30 +109,28 @@ const ERC20_ABI = [
  * @returns Balance in smallest unit
  */
 export async function getTokenBalance(
-    address: Address,
-    tokenAddress: Address,
-    chainId: number
+  address: Address,
+  tokenAddress: Address,
+  chainId: number
 ): Promise<bigint> {
-    try {
-        const publicClient = createPublicClientForChain(chainId);
+  try {
+    const publicClient = createPublicClientForChain(chainId);
 
-        const balance = await publicClient.readContract({
-            address: tokenAddress,
-            abi: ERC20_ABI,
-            functionName: 'balanceOf',
-            args: [address],
-        });
+    const balance = await publicClient.readContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [address],
+    });
 
-        return balance as bigint;
-    } catch (error) {
-        const chainName = chainId === CHAIN_IDS.BASE ? 'Base' : 'Arbitrum';
-        console.error(`Error getting token balance on ${chainName}:`, error);
-        throw new Error(
-            error instanceof Error
-                ? error.message
-                : `Failed to get token balance on ${chainName}`
-        );
-    }
+    return balance as bigint;
+  } catch (error) {
+    const chainName = chainId === CHAIN_IDS.BASE ? 'Base' : 'Arbitrum';
+    console.error(`Error getting token balance on ${chainName}:`, error);
+    throw new Error(
+      error instanceof Error ? error.message : `Failed to get token balance on ${chainName}`
+    );
+  }
 }
 
 /**
@@ -141,26 +139,23 @@ export async function getTokenBalance(
  * @param chainId - Chain ID (8453 for Base, 42161 for Arbitrum)
  * @returns Number of decimals
  */
-export async function getTokenDecimals(
-    tokenAddress: Address,
-    chainId: number
-): Promise<number> {
-    try {
-        const publicClient = createPublicClientForChain(chainId);
+export async function getTokenDecimals(tokenAddress: Address, chainId: number): Promise<number> {
+  try {
+    const publicClient = createPublicClientForChain(chainId);
 
-        const decimals = await publicClient.readContract({
-            address: tokenAddress,
-            abi: ERC20_ABI,
-            functionName: 'decimals',
-        });
+    const decimals = await publicClient.readContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: 'decimals',
+    });
 
-        return Number(decimals);
-    } catch (error) {
-        const chainName = chainId === CHAIN_IDS.BASE ? 'Base' : 'Arbitrum';
-        console.error(`Error getting token decimals on ${chainName}:`, error);
-        // Default to 6 for USDC if error
-        return 6;
-    }
+    return Number(decimals);
+  } catch (error) {
+    const chainName = chainId === CHAIN_IDS.BASE ? 'Base' : 'Arbitrum';
+    console.error(`Error getting token decimals on ${chainName}:`, error);
+    // Default to 6 for USDC if error
+    return 6;
+  }
 }
 
 /**
@@ -169,25 +164,20 @@ export async function getTokenDecimals(
  * @param decimals - Number of decimals (default: 6 for USDC)
  * @returns Formatted balance string
  */
-export function formatTokenBalance(
-    balance: bigint,
-    decimals: number = 6
-): string {
-    const divisor = BigInt(10 ** decimals);
-    const wholePart = balance / divisor;
-    const fractionalPart = balance % divisor;
+export function formatTokenBalance(balance: bigint, decimals: number = 6): string {
+  const divisor = BigInt(10 ** decimals);
+  const wholePart = balance / divisor;
+  const fractionalPart = balance % divisor;
 
-    // Use typeof to avoid ES2020 BigInt literal syntax for 0n
-    if (fractionalPart === BigInt(0)) {
-        return wholePart.toString();
-    }
+  // Use typeof to avoid ES2020 BigInt literal syntax for 0n
+  if (fractionalPart === BigInt(0)) {
+    return wholePart.toString();
+  }
 
-    const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
-    // Remove trailing zeros
-    const trimmedFractional = fractionalStr.replace(/0+$/, '');
-    return trimmedFractional
-        ? `${wholePart}.${trimmedFractional}`
-        : wholePart.toString();
+  const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
+  // Remove trailing zeros
+  const trimmedFractional = fractionalStr.replace(/0+$/, '');
+  return trimmedFractional ? `${wholePart}.${trimmedFractional}` : wholePart.toString();
 }
 
 // Convenience functions for Base USDC
@@ -196,14 +186,8 @@ export function formatTokenBalance(
  * @param address - Wallet address to check balance for
  * @returns Balance in smallest unit (6 decimals for USDC)
  */
-export async function getUSDCBalanceOnBase(
-    address: Address
-): Promise<bigint> {
-    return getTokenBalance(
-        address,
-        TOKEN_ADDRESSES.BASE_USDC as Address,
-        CHAIN_IDS.BASE
-    );
+export async function getUSDCBalanceOnBase(address: Address): Promise<bigint> {
+  return getTokenBalance(address, TOKEN_ADDRESSES.BASE_USDC as Address, CHAIN_IDS.BASE);
 }
 
 /**
@@ -211,10 +195,7 @@ export async function getUSDCBalanceOnBase(
  * @returns Number of decimals (6 for USDC)
  */
 export async function getUSDCDecimalsOnBase(): Promise<number> {
-    return getTokenDecimals(
-        TOKEN_ADDRESSES.BASE_USDC as Address,
-        CHAIN_IDS.BASE
-    );
+  return getTokenDecimals(TOKEN_ADDRESSES.BASE_USDC as Address, CHAIN_IDS.BASE);
 }
 
 /**
@@ -223,11 +204,8 @@ export async function getUSDCDecimalsOnBase(): Promise<number> {
  * @param decimals - Number of decimals (default: 6 for USDC)
  * @returns Formatted balance string
  */
-export function formatUSDCBalance(
-    balance: bigint,
-    decimals: number = 6
-): string {
-    return formatTokenBalance(balance, decimals);
+export function formatUSDCBalance(balance: bigint, decimals: number = 6): string {
+  return formatTokenBalance(balance, decimals);
 }
 
 // Convenience functions for Arbitrum USDC
@@ -236,14 +214,8 @@ export function formatUSDCBalance(
  * @param address - Wallet address to check balance for
  * @returns Balance in smallest unit (6 decimals for USDC)
  */
-export async function getUSDCBalanceOnArbitrum(
-    address: Address
-): Promise<bigint> {
-    return getTokenBalance(
-        address,
-        TOKEN_ADDRESSES.ARBITRUM_USDC as Address,
-        CHAIN_IDS.ARBITRUM
-    );
+export async function getUSDCBalanceOnArbitrum(address: Address): Promise<bigint> {
+  return getTokenBalance(address, TOKEN_ADDRESSES.ARBITRUM_USDC as Address, CHAIN_IDS.ARBITRUM);
 }
 
 /**
@@ -251,10 +223,7 @@ export async function getUSDCBalanceOnArbitrum(
  * @returns Number of decimals (6 for USDC)
  */
 export async function getUSDCDecimalsOnArbitrum(): Promise<number> {
-    return getTokenDecimals(
-        TOKEN_ADDRESSES.ARBITRUM_USDC as Address,
-        CHAIN_IDS.ARBITRUM
-    );
+  return getTokenDecimals(TOKEN_ADDRESSES.ARBITRUM_USDC as Address, CHAIN_IDS.ARBITRUM);
 }
 
 /**
@@ -263,9 +232,6 @@ export async function getUSDCDecimalsOnArbitrum(): Promise<number> {
  * @param decimals - Number of decimals (default: 6 for USDC)
  * @returns Formatted balance string
  */
-export function formatUSDCBalanceArbitrum(
-    balance: bigint,
-    decimals: number = 6
-): string {
-    return formatTokenBalance(balance, decimals);
+export function formatUSDCBalanceArbitrum(balance: bigint, decimals: number = 6): string {
+  return formatTokenBalance(balance, decimals);
 }

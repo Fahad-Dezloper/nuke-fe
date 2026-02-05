@@ -19,15 +19,15 @@ interface BridgeStatusModalProps {
 }
 
 const statusMessages: Record<BridgeStatus, string> = {
-  'idle': '',
+  idle: '',
   'checking-balance': 'Checking USDC balance on Base',
   'getting-quote': 'Getting bridge quote',
   'signing-permit': 'Signing permit',
   'executing-permit': 'Bridging from Base to Arbitrum',
   'waiting-finality': 'Waiting for bridge finality',
-  'depositing': 'Depositing to protocol',
-  'success': 'Bridge completed successfully',
-  'error': 'Bridge failed',
+  depositing: 'Depositing to protocol',
+  success: 'Bridge completed successfully',
+  error: 'Bridge failed',
 };
 
 const statusSteps = [
@@ -115,9 +115,7 @@ export function BridgeStatusModal({
         <h2 className="text-lg font-semibold text-text-primary mb-1 tracking-tight">
           FUNDING {protocolName.toUpperCase()} LEG
         </h2>
-        <p className="text-xs text-text-muted-60">
-          {statusMessages[status] || 'Processing...'}
-        </p>
+        <p className="text-xs text-text-muted-60">{statusMessages[status] || 'Processing...'}</p>
       </motion.div>
 
       {/* Status Card */}
@@ -145,13 +143,13 @@ export function BridgeStatusModal({
                 const isActive = index === activeStepIndex;
                 const isCompleted = status === 'success' && index < statusSteps.length - 1;
                 const isError = status === 'error' && index === activeStepIndex;
-                
+
                 return (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, x: -10 }}
-                    animate={{ 
-                      opacity: 1, 
+                    animate={{
+                      opacity: 1,
                       x: 0,
                     }}
                     transition={{ delay: 0.2 + index * 0.1, duration: 0.3 }}
@@ -163,25 +161,33 @@ export function BridgeStatusModal({
                         isError
                           ? 'bg-red-400'
                           : isActive
-                          ? 'bg-accent'
-                          : isCompleted
-                          ? 'bg-accent/60'
-                          : 'bg-text-muted-30'
+                            ? 'bg-accent'
+                            : isCompleted
+                              ? 'bg-accent/60'
+                              : 'bg-text-muted-30'
                       )}
-                      animate={isActive && !isError ? {
-                        scale: [1, 1.3, 1],
-                        opacity: [0.6, 1, 0.6],
-                      } : {}}
+                      animate={
+                        isActive && !isError
+                          ? {
+                              scale: [1, 1.3, 1],
+                              opacity: [0.6, 1, 0.6],
+                            }
+                          : {}
+                      }
                       transition={{
                         duration: 1.5,
                         repeat: isActive && !isError ? Infinity : 0,
                         ease: 'easeInOut',
                       }}
                     />
-                    <span 
+                    <span
                       className={cn(
                         'text-xs flex items-center',
-                        isActive ? 'text-text-primary' : isCompleted ? 'text-text-primary/80' : 'text-text-muted-60'
+                        isActive
+                          ? 'text-text-primary'
+                          : isCompleted
+                            ? 'text-text-primary/80'
+                            : 'text-text-muted-60'
                       )}
                     >
                       {step}

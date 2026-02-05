@@ -12,4 +12,3 @@ export {
   generatePnLData,
   generateCumulativePnLData,
 } from './chart-data-generators';
-

@@ -267,10 +267,7 @@ export class TurnkeyClient {
 
             walletsWithAccounts.push(walletWithAccounts);
           } catch (error) {
-            console.error(
-              `Failed to load accounts for wallet ${wallet.walletName}:`,
-              error
-            );
+            console.error(`Failed to load accounts for wallet ${wallet.walletName}:`, error);
             walletsWithAccounts.push(wallet);
           }
         }
@@ -393,8 +390,7 @@ export class TurnkeyClient {
 
       return {
         success: true,
-        signature:
-          signResult.activity.result.signTransactionResult?.signedTransaction,
+        signature: signResult.activity.result.signTransactionResult?.signedTransaction,
       };
     } catch (error: unknown) {
       const appError = toAppError(error, ErrorCode.WALLET_SIGNING_FAILED);
@@ -438,8 +434,7 @@ export class TurnkeyClient {
 
       return {
         success: true,
-        signature:
-          signResult.activity.result.signTransactionResult?.signedTransaction,
+        signature: signResult.activity.result.signTransactionResult?.signedTransaction,
       };
     } catch (error: unknown) {
       const appError = toAppError(error, ErrorCode.WALLET_SIGNING_FAILED);
@@ -549,6 +544,4 @@ export class TurnkeyClient {
   }
 }
 
-export const turnkeyClient = new TurnkeyClient(
-  process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID
-);
+export const turnkeyClient = new TurnkeyClient(process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID);

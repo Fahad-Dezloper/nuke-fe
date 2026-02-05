@@ -35,23 +35,27 @@ src/
 ## Key Features
 
 ### 1. Modular Architecture
+
 - **Separated concerns**: Client logic, state management, helpers, and types are in separate files
 - **Reusable components**: All Turnkey functionality is exported through a single barrel file
 - **Type-safe**: Full TypeScript support with shared types
 
 ### 2. Three Login Methods
+
 - **EVM Wallet**: MetaMask or any EVM wallet
 - **Solana Wallet**: Phantom or any Solana wallet
 - **Google OAuth**: Traditional email/password login
 - All methods automatically create EVM + Solana wallets
 
 ### 3. Session Management
+
 - **IndexedDB storage**: Keys and sessions stored in browser's IndexedDB
 - **10-day expiration**: Sessions persist across page refreshes
 - **Automatic refresh**: Session refresh handled automatically
 - **Session-based signing**: No wallet reconnection needed for transactions
 
 ### 4. UI Integration
+
 - **ConnectWalletModal**: Updated to support all three login methods
 - **WalletStatus**: New component to display connected wallet info
 - **Navbar**: Shows wallet status when connected, connect button when not

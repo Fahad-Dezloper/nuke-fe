@@ -1,6 +1,6 @@
 /**
  * Arbitrage Pair Registry
- * 
+ *
  * Manages and stores arbitrage pair configurations.
  * Provides methods to query pairs by asset, ID, or protocol.
  */
@@ -9,7 +9,7 @@ import type { ArbitragePair } from '../types';
 
 /**
  * Arbitrage Pair Registry
- * 
+ *
  * Stores and manages all available arbitrage pairs.
  * Pairs are grouped by asset for easy querying.
  */
@@ -19,7 +19,7 @@ export class ArbitragePairRegistry {
 
   /**
    * Registers a new arbitrage pair
-   * 
+   *
    * @param pair - The arbitrage pair to register
    */
   registerPair(pair: ArbitragePair): void {
@@ -44,7 +44,7 @@ export class ArbitragePairRegistry {
 
   /**
    * Registers multiple arbitrage pairs at once
-   * 
+   *
    * @param pairs - Array of arbitrage pairs to register
    */
   registerPairs(pairs: ArbitragePair[]): void {
@@ -55,7 +55,7 @@ export class ArbitragePairRegistry {
 
   /**
    * Gets all pairs for a specific asset
-   * 
+   *
    * @param asset - Asset symbol (e.g., "BTC", "ETH")
    * @returns Array of arbitrage pairs for the asset
    */
@@ -67,7 +67,7 @@ export class ArbitragePairRegistry {
 
   /**
    * Gets a specific pair by ID
-   * 
+   *
    * @param pairId - The pair ID
    * @returns The arbitrage pair or null if not found
    */
@@ -78,7 +78,7 @@ export class ArbitragePairRegistry {
 
   /**
    * Gets all available assets that have pairs
-   * 
+   *
    * @returns Array of asset symbols
    */
   getAvailableAssets(): string[] {
@@ -87,7 +87,7 @@ export class ArbitragePairRegistry {
 
   /**
    * Gets all registered pairs (including inactive)
-   * 
+   *
    * @returns Array of all arbitrage pairs
    */
   getAllPairs(): ArbitragePair[] {
@@ -96,7 +96,7 @@ export class ArbitragePairRegistry {
 
   /**
    * Gets all active pairs
-   * 
+   *
    * @returns Array of active arbitrage pairs
    */
   getActivePairs(): ArbitragePair[] {
@@ -105,22 +105,20 @@ export class ArbitragePairRegistry {
 
   /**
    * Gets pairs that use a specific protocol (either long or short)
-   * 
+   *
    * @param protocolName - Protocol name (e.g., "hyperliquid", "pacifica")
    * @returns Array of pairs that use the protocol
    */
   getPairsByProtocol(protocolName: string): ArbitragePair[] {
     return this.getAllPairs().filter(
       (pair) =>
-        pair.isActive &&
-        (pair.longProtocol === protocolName ||
-          pair.shortProtocol === protocolName)
+        pair.isActive && (pair.longProtocol === protocolName || pair.shortProtocol === protocolName)
     );
   }
 
   /**
    * Enables or disables a pair
-   * 
+   *
    * @param pairId - The pair ID
    * @param isActive - Whether the pair should be active
    */
@@ -135,7 +133,7 @@ export class ArbitragePairRegistry {
 
   /**
    * Removes a pair from the registry
-   * 
+   *
    * @param pairId - The pair ID to remove
    */
   removePair(pairId: string): void {
@@ -169,7 +167,7 @@ export class ArbitragePairRegistry {
 
   /**
    * Gets the count of pairs
-   * 
+   *
    * @returns Object with total and active pair counts
    */
   getPairCount(): { total: number; active: number } {

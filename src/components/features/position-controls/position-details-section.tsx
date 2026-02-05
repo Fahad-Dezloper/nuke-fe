@@ -14,10 +14,7 @@ import { BridgeStatusModal } from '@/components/ui/bridge-status-modal';
 import { useBridge } from '@/lib/bridge';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getSolanaAddress } from '@/lib/turnkey/wallet-utils';
-import {
-  marginAtom,
-  leverageAtom,
-} from './store';
+import { marginAtom, leverageAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { formatPrice } from '@/lib/utils';
 
@@ -25,15 +22,15 @@ interface PositionDetailsSectionProps {
   className?: string;
 }
 
-export function PositionDetailsSection({
-  className,
-}: PositionDetailsSectionProps) {
+export function PositionDetailsSection({ className }: PositionDetailsSectionProps) {
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
   const { state: turnkeyState } = useTurnkey();
   const [isBridging, setIsBridging] = useState(false);
-  const [selectedProtocol, setSelectedProtocol] = useState<'hyperliquid' | 'pacifica'>('hyperliquid');
+  const [selectedProtocol, setSelectedProtocol] = useState<'hyperliquid' | 'pacifica'>(
+    'hyperliquid'
+  );
   const [bridgeError, setBridgeError] = useState<string | null>(null);
 
   const {
@@ -109,25 +106,22 @@ export function PositionDetailsSection({
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      <label className='text-xs text-text-muted-60 uppercase tracking-wide'>
-        POSITION DETAILS
-      </label>
-      <div className='grid grid-cols-2 gap-3'>
+      <label className="text-xs text-text-muted-60 uppercase tracking-wide">POSITION DETAILS</label>
+      <div className="grid grid-cols-2 gap-3">
         {positionDetails.map((card) => {
           const buttonGradientClass =
             card.gradientColor === 'long'
               ? 'bg-gradient-to-br from-[var(--chart-hyperliquid)]/10 via-[var(--chart-hyperliquid)]/5 to-[var(--chart-hyperliquid)]/3'
               : 'bg-gradient-to-br from-[var(--chart-pink)]/10 via-[var(--chart-pink)]/5 to-[var(--chart-pink)]/3';
-          
+
           // Determine protocol from platform name
-          const protocol = card.platform.toLowerCase() === 'hyperliquid' 
-            ? 'hyperliquid' 
-            : 'pacifica';
-          
+          const protocol =
+            card.platform.toLowerCase() === 'hyperliquid' ? 'hyperliquid' : 'pacifica';
+
           // Calculate the margin amount for this leg (half of total margin)
           const marginValue = Number(margin) || 0;
           const legMargin = marginValue / 2;
-          
+
           const handleFundClick = async () => {
             if (legMargin <= 0) {
               return;
@@ -138,13 +132,11 @@ export function PositionDetailsSection({
             setIsBridging(true);
 
             // Convert margin to smallest unit (USDC has 6 decimals)
-            const amountInSmallestUnit = BigInt(
-              Math.floor(legMargin * 1_000_000)
-            ).toString();
+            const amountInSmallestUnit = BigInt(Math.floor(legMargin * 1_000_000)).toString();
 
             try {
               const feePayerAddress = process.env.NEXT_PUBLIC_HYPERLIQUID_FEEPAYER_ADDRESS;
-              
+
               // Get Solana address for Pacifica bridge
               let solanaRecipient: string | undefined;
               if (protocol === 'pacifica') {
@@ -152,20 +144,22 @@ export function PositionDetailsSection({
                 if (wallets && wallets.length > 0) {
                   solanaRecipient = getSolanaAddress(wallets);
                   if (!solanaRecipient) {
-                    throw new Error('No Solana wallet address found. Please ensure you have a Solana wallet connected.');
+                    throw new Error(
+                      'No Solana wallet address found. Please ensure you have a Solana wallet connected.'
+                    );
                   }
                 }
               }
-              
+
               await bridge(amountInSmallestUnit, protocol, feePayerAddress, solanaRecipient);
             } catch (err) {
               // Error is handled by useBridge onError callback
               console.error('Bridge error:', err);
             }
           };
-          
+
           return (
-            <div key={card.label} className='flex flex-col gap-2'>
+            <div key={card.label} className="flex flex-col gap-2">
               <PositionDetailsCard {...card} />
               <button
                 onClick={handleFundClick}
@@ -187,7 +181,7 @@ export function PositionDetailsSection({
           );
         })}
       </div>
-      
+
       {/* Bridge Status Modal */}
       <BridgeStatusModal
         isOpen={isBridging}

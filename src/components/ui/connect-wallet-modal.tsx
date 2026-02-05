@@ -26,11 +26,8 @@ export function ConnectWalletModal({
   onGoogleSignIn,
   onEOAConnect,
 }: ConnectWalletModalProps) {
-  const { loginWithGoogle, loginWithEVMWallet, loginWithSolanaWallet, state } =
-    useTurnkey();
-  const [loading, setLoading] = useState<'google' | 'evm' | 'solana' | null>(
-    null
-  );
+  const { loginWithGoogle, loginWithEVMWallet, loginWithSolanaWallet, state } = useTurnkey();
+  const [loading, setLoading] = useState<'google' | 'evm' | 'solana' | null>(null);
   const [error, setError] = useState('');
 
   const handleGoogleSignIn = async () => {
@@ -76,31 +73,25 @@ export function ConnectWalletModal({
         setError('Failed to connect Solana wallet');
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to connect Solana wallet'
-      );
+      setError(err instanceof Error ? err.message : 'Failed to connect Solana wallet');
     } finally {
       setLoading(null);
     }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      maxWidth='md'
-      contentClassName='p-8 md:p-10'>
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="md" contentClassName="p-8 md:p-10">
       {/* Logo and Title */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className='flex flex-col items-center mb-8'>
-     
-        <h2 className='text-xl font-semibold text-text-primary mb-2 tracking-tight'>
+        className="flex flex-col items-center mb-8"
+      >
+        <h2 className="text-xl font-semibold text-text-primary mb-2 tracking-tight">
           CONNECT WALLET
         </h2>
-        <p className='text-xs text-text-muted-60 text-center max-w-xs leading-relaxed'>
+        <p className="text-xs text-text-muted-60 text-center max-w-xs leading-relaxed">
           Choose your preferred method to connect and start trading
         </p>
       </motion.div>
@@ -110,13 +101,14 @@ export function ConnectWalletModal({
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className='mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-300 text-sm'>
+          className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-300 text-sm"
+        >
           {error}
         </motion.div>
       )}
 
       {/* Buttons */}
-      <div className='space-y-3'>
+      <div className="space-y-3">
         {/* Google Sign In Button */}
         <motion.button
           onClick={handleGoogleSignIn}
@@ -136,43 +128,37 @@ export function ConnectWalletModal({
             'transition-all duration-300',
             'shadow-md shadow-black/30 hover:shadow-lg hover:shadow-black/40',
             'group',
-            (loading !== null || state.isLoading) &&
-              'opacity-50 cursor-not-allowed'
-          )}>
+            (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
+          )}
+        >
           {/* Glassmorphism overlay */}
-          <div className='absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl' />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
 
           {/* Hover glow effect */}
           <motion.div
-            className='absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300'
+            className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             initial={false}
           />
 
-          <div className='relative z-10 flex items-center justify-center'>
+          <div className="relative z-10 flex items-center justify-center">
             {loading === 'google' ? (
               <>
-                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2' />
-                <span className='text-sm font-medium text-text-primary'>
-                  Signing in...
-                </span>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                <span className="text-sm font-medium text-text-primary">Signing in...</span>
               </>
             ) : (
-              <span className='text-sm font-medium text-text-primary'>
-                Sign in with Google
-              </span>
+              <span className="text-sm font-medium text-text-primary">Sign in with Google</span>
             )}
           </div>
         </motion.button>
 
         {/* Divider */}
-        <div className='relative my-4'>
-          <div className='absolute inset-0 flex items-center'>
-            <div className='w-full border-t border-border-white-10'></div>
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border-white-10"></div>
           </div>
-          <div className='relative flex justify-center text-sm'>
-            <span className='px-2 bg-card text-text-muted-40'>
-              Or connect with
-            </span>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-card text-text-muted-40">Or connect with</span>
           </div>
         </div>
 
@@ -195,32 +181,28 @@ export function ConnectWalletModal({
             'transition-all duration-300',
             'shadow-md shadow-black/30 hover:shadow-lg hover:shadow-black/40',
             'group',
-            (loading !== null || state.isLoading) &&
-              'opacity-50 cursor-not-allowed'
-          )}>
+            (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
+          )}
+        >
           {/* Glassmorphism overlay */}
-          <div className='absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl' />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
 
           {/* Hover glow effect */}
           <motion.div
-            className='absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300'
+            className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             initial={false}
           />
 
-          <div className='relative z-10 flex items-center justify-center gap-2.5'>
+          <div className="relative z-10 flex items-center justify-center gap-2.5">
             {loading === 'evm' ? (
               <>
-                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2' />
-                <span className='text-sm font-medium text-text-primary'>
-                  Connecting...
-                </span>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                <span className="text-sm font-medium text-text-primary">Connecting...</span>
               </>
             ) : (
               <>
-                <Wallet className='w-5 h-5 text-text-primary' />
-                <span className='text-sm font-medium text-text-primary'>
-                  Connect EVM Wallet
-                </span>
+                <Wallet className="w-5 h-5 text-text-primary" />
+                <span className="text-sm font-medium text-text-primary">Connect EVM Wallet</span>
               </>
             )}
           </div>
@@ -245,33 +227,29 @@ export function ConnectWalletModal({
             'transition-all duration-300',
             'shadow-md shadow-black/30 hover:shadow-lg hover:shadow-black/40',
             'group',
-            (loading !== null || state.isLoading) &&
-              'opacity-50 cursor-not-allowed'
-          )}>
+            (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
+          )}
+        >
           {/* Glassmorphism overlay */}
-          <div className='absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl' />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
 
           {/* Hover glow effect */}
           <motion.div
-            className='absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300'
+            className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             initial={false}
           />
 
-          <div className='relative z-10 flex items-center justify-center gap-2.5'>
+          <div className="relative z-10 flex items-center justify-center gap-2.5">
             {loading === 'solana' ? (
               <>
-                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2' />
-                <span className='text-sm font-medium text-text-primary'>
-                  Connecting...
-                </span>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                <span className="text-sm font-medium text-text-primary">Connecting...</span>
               </>
             ) : (
               <>
                 {/* <span className='text-lg mr-1'>👻</span> */}
 
-                <span className='text-sm font-medium text-text-primary'>
-                  Connect Phantom
-                </span>
+                <span className="text-sm font-medium text-text-primary">Connect Phantom</span>
               </>
             )}
           </div>
@@ -283,7 +261,8 @@ export function ConnectWalletModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className='text-xs text-text-muted-50 text-center mt-7 leading-relaxed'>
+        className="text-xs text-text-muted-50 text-center mt-7 leading-relaxed"
+      >
         By connecting, you agree to our Terms of Service
       </motion.p>
     </Modal>
