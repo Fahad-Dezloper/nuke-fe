@@ -1,6 +1,7 @@
 'use client';
 
-import { useSetAtom } from 'jotai';
+import { useEffect } from 'react';
+import { useSetAtom, useAtomValue } from 'jotai';
 import { MarketOverview } from '@/components/features/market-overview';
 import {
   TradingDashboard,
@@ -9,16 +10,27 @@ import {
   PositionControlsSectionContent,
 } from '@/components/features';
 import { selectedAssetAtom as positionSelectedAssetAtom } from '@/components/features/position-controls/store';
+import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import type { AssetDropdownItem } from '@/types/positions';
 
 export default function Home() {
   const setPositionSelectedAsset = useSetAtom(positionSelectedAssetAtom);
+  const globalSelectedAsset = useAtomValue(selectedAssetAtom);
 
   // Normalize asset name (e.g., "BTC-PERP" -> "BTC")
   const normalizeAssetName = (asset: string): string => {
     // Remove common suffixes
     return asset.replace(/-PERP$/, '').toUpperCase();
   };
+
+  // Sync position controls store when global selected asset changes
+  // This handles both URL-based initialization and manual selection
+  useEffect(() => {
+    if (globalSelectedAsset) {
+      const normalizedAsset = normalizeAssetName(globalSelectedAsset.asset);
+      setPositionSelectedAsset(normalizedAsset);
+    }
+  }, [globalSelectedAsset, setPositionSelectedAsset]);
 
   const handleAssetChange = (asset: AssetDropdownItem) => {
     // Sync with position controls store (for filtering pairs)

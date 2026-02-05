@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { formatPercentWithSign, formatPrice } from '@/lib/utils';
 import type { AssetDropdownItem } from '@/types/positions';
 import { marketFeedDataAtom, selectedAssetAtom, selectedAssetSymbolAtom } from '@/lib/stores/market-feed.store';
+import { useAssetQueryParam } from '@/lib/hooks/use-asset-query-param';
 import { BestPairTooltip } from './best-pair-tooltip';
 import Image from 'next/image';
 
@@ -34,6 +35,9 @@ export function AssetDropdown({
   const globalSelectedAsset = useAtomValue(selectedAssetAtom);
   const setSelectedAsset = useSetAtom(selectedAssetAtom);
   const selectedSymbol = useAtomValue(selectedAssetSymbolAtom);
+  
+  // URL query param sync
+  const { updateUrlWithAsset } = useAssetQueryParam();
   
   // Use prop if provided, otherwise use global state
   const selectedAsset = propSelectedAsset || globalSelectedAsset;
@@ -92,6 +96,8 @@ export function AssetDropdown({
   const handleSelect = (asset: AssetDropdownItem) => {
     // Update global state
     setSelectedAsset(asset);
+    // Update URL query param
+    updateUrlWithAsset(asset.asset);
     // Call prop callback if provided
     onSelect?.(asset);
     setIsOpen(false);
@@ -99,15 +105,8 @@ export function AssetDropdown({
     setHoveredAsset(null);
   };
 
-  // Auto-select first asset if none selected and assets are available
-  useEffect(() => {
-    if (!selectedSymbol && assets.length > 0) {
-      setSelectedAsset(assets[0]);
-    }
-  }, [selectedSymbol, assets, setSelectedAsset]);
-  
-  // Note: The selectedAssetAtom is a derived atom that automatically
-  // syncs with the latest market feed data, so no need to manually update it here
+  // Note: Auto-selection is now handled by useAssetQueryParam hook
+  // which initializes from URL or falls back to default asset (BTC)
 
   const handleBestPairMouseEnter = (
     event: React.MouseEvent<HTMLDivElement>,
