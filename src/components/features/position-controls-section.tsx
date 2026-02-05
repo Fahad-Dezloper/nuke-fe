@@ -111,7 +111,6 @@ export function PositionControlsSectionContent({
         {/* Header */}
         <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md rounded-t-xl shadow-lg shadow-black/20">
           <h2 className="text-sm font-medium text-text-primary">POSITION PANEL</h2>
-          <ChevronRight className="h-4 w-4 text-text-muted-60" />
         </div>
 
         {/* Asset Price Header */}

@@ -28,7 +28,7 @@ export async function signPermitWithTurnkey(
           type: string;
         }[];
       };
-      message: Record<string, unknown>;
+      value: Record<string, unknown>;
     };
   },
   walletAddress: string,
@@ -96,7 +96,7 @@ export async function signPermitWithTurnkey(
       signature = await signer.signTypedData(
         domain,
         permitData.sign?.types,
-        permitData?.sign?.message
+        permitData?.sign?.value
       );
     } catch (error) {
       throw createError(ErrorCode.TURNKEY_SIGNATURE_FAILED, { walletAddress }, toAppError(error));

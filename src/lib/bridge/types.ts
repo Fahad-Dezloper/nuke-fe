@@ -105,26 +105,28 @@ export interface CurrencyAmount {
  * Permit Data (EIP-712)
  */
 export interface PermitData {
-  domain: {
-    name: string;
-    version: string;
-    chainId: number;
-    verifyingContract: `0x${string}`;
-  };
-  types: {
-    [key: string]: {
+  chain: {
+    domain: {
       name: string;
-      type: string;
-    }[];
-  };
-  message: {
-    owner: string;
-    spender: string;
-    value: string;
-    nonce: number;
-    deadline: number;
-    [key: string]: any;
-  };
+      version: string;
+      chainId: number;
+      verifyingContract: `0x${string}`;
+    };
+    types: {
+      [key: string]: {
+        name: string;
+        type: string;
+      }[];
+    };
+    value: {
+      owner: string;
+      spender: string;
+      value: string;
+      nonce: number;
+      deadline: number;
+      [key: string]: any;
+    };
+  }
 }
 
 /**
@@ -220,13 +222,13 @@ export interface BridgeError {
  * Deposit Request
  */
 export interface DepositRequest {
-  amount: number; // Amount in smallest unit (6 decimals for USDC)
+  amount: string; // Amount in smallest unit (6 decimals for USDC) as string
   userAddress: string; // User's EVM address (0x...)
   permit: {
     v: number; // Recovery id (0 or 1, typically 27 or 28)
     r: Uint8Array; // 32-byte array (signature r component)
     s: Uint8Array; // 32-byte array (signature s component)
-    deadline: string; // Deadline as string (U256 format)
+    deadline: number; // Deadline as string (U256 format)
   };
 }
 

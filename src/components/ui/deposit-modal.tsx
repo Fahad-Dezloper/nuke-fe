@@ -155,7 +155,7 @@ export function DepositModal({
                 {isLoadingBalance ? (
                   <span className="text-xl font-semibold text-text-muted-60">...</span>
                 ) : (
-                  <span className="text-xl font-semibold text-text-primary">{balance}</span>
+                  <span className="text-xl font-semibold text-text-primary">{Number(balance).toFixed(3)}</span>
                 )}
                 <span className="text-sm text-text-muted-60 font-medium">USDC</span>
               </div>

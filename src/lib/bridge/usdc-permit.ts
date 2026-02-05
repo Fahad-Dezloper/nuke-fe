@@ -50,7 +50,7 @@ export interface PermitSignatureComponents {
   v: number;
   r: Uint8Array;
   s: Uint8Array;
-  deadline: string;
+  deadline: number;
 }
 
 /**
@@ -135,7 +135,7 @@ export async function getUsdcNonce(userAddress: string): Promise<number> {
 export async function createUsdcPermit(
   amount: string,
   userAddress: string,
-  feePayerAddress: string,
+  spenderAddress: string,
   deadlineMinutes: number = 30
 ): Promise<PermitResult> {
   try {
@@ -143,8 +143,8 @@ export async function createUsdcPermit(
       throw new Error('User address is required');
     }
 
-    if (!feePayerAddress) {
-      throw new Error('Fee payer address is required');
+    if (!spenderAddress) {
+      throw new Error('Spender address is required');
     }
 
     // Convert amount to smallest unit (USDC has 6 decimals)
@@ -182,7 +182,7 @@ export async function createUsdcPermit(
       primaryType: 'Permit',
       message: {
         owner: userAddress,
-        spender: feePayerAddress,
+        spender: spenderAddress,
         value: amountInSmallestUnit,
         nonce: nonce,
         deadline: deadline,
@@ -217,6 +217,8 @@ export async function signUsdcPermit(
   organizationId: string
 ): Promise<PermitSignatureResult> {
   try {
+
+    debugger
     if (!walletAddress) {
       throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
     }
@@ -266,11 +268,15 @@ export async function signUsdcPermit(
     }
 
     // Sign the EIP-712 typed data
+    // Remove EIP712Domain from types as ethers handles it internally via the domain param
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { EIP712Domain: _, ...typesWithoutDomain } = permitData.types;
+
     let signature: string;
     try {
       signature = await signer.signTypedData(
         permitData.domain,
-        permitData.types,
+        typesWithoutDomain,
         permitData.message
       );
     } catch (error) {
@@ -313,7 +319,7 @@ export async function signUsdcPermit(
         v: v,
         r: rBytes,
         s: sBytes,
-        deadline: permitData.message.deadline.toString(),
+        deadline: permitData.message.deadline,
       },
     };
   } catch (error) {

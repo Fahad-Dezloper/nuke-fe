@@ -28,6 +28,7 @@ import type {
   RelayStatus,
 } from './types';
 import { CHAIN_IDS, TOKEN_ADDRESSES, MIN_DEPOSIT_AMOUNT } from './types';
+import { HYPERLIQUID_ROUTER_CONTRACT } from '@/constants';
 
 interface UseBridgeOptions {
   onSuccess?: (result: unknown) => void;
@@ -263,8 +264,11 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
         // Step 3: Sign based on destination chain
         setStatus('signing-permit');
         let signature: string;
-        let executeKind: string;
-        let executeApi: string;
+
+        // Extract execute parameters from post.body in quote response
+        const postBody = signatureStep.items[0]?.data?.post?.body;
+        const executeKind = postBody?.kind || (isSolanaBridge ? 'eip3009' : 'PERMIT');
+        const executeApi = postBody?.api || (isSolanaBridge ? 'swap' : 'relay');
 
         if (isSolanaBridge) {
           // Solana uses EIP-3009 TransferWithAuthorization
@@ -280,11 +284,6 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
             walletAddress,
             turnkeyState.turnkeySubOrgId
           );
-
-          // Extract execute parameters from post.body if available, otherwise use defaults
-          const postBody = signatureStep.items[0]?.data?.post?.body;
-          executeKind = postBody?.kind || 'eip3009';
-          executeApi = postBody?.api || 'swap';
         } else {
           // Arbitrum uses EIP-2612 Permit
           const permitData = signatureStep.items[0]?.data as PermitData;
@@ -298,9 +297,6 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
             walletAddress,
             turnkeyState.turnkeySubOrgId
           );
-
-          executeKind = 'PERMIT';
-          executeApi = 'relay';
         }
 
         // Step 4: Execute Permit/Authorization
@@ -322,9 +318,9 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
         // Step 6: If protocol is specified and it's Hyperliquid (Arbitrum), proceed with deposit
         // Note: Pacifica (Solana) doesn't require deposit step as it's handled differently
         const depositProtocol = protocol || options?.protocol;
-        const depositFeePayer = feePayerAddress || options?.feePayerAddress;
+        const spenderAddress = protocol === 'hyperliquid' ? HYPERLIQUID_ROUTER_CONTRACT : "";
 
-        if (depositProtocol === 'hyperliquid' && depositFeePayer) {
+        if (depositProtocol === 'hyperliquid') {
           try {
             // Fetch USDC balance on Arbitrum
             setStatus('depositing');
@@ -344,7 +340,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
             const permitResult = await createUsdcPermit(
               balanceInUSDC,
               walletAddress,
-              depositFeePayer
+              spenderAddress
             );
 
             if (!permitResult.success || !permitResult.typedData) {
@@ -364,7 +360,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
 
             // Submit deposit
             const txHash = await depositService.deposit({
-              amount: Number(arbitrumBalance.toString()),
+              amount: arbitrumBalance.toString(),
               userAddress: walletAddress,
               permit: signatureResult.signature,
             });
