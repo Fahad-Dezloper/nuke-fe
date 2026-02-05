@@ -26,16 +26,16 @@ export const TOKEN_ADDRESSES = {
  */
 export interface QuoteRequest {
     user: string; // User's EVM address (0x...)
-    originChainId: number; // 8453 for Base
+    // originChainId: number; // 8453 for Base
     destinationChainId: number; // 42161 for Arbitrum
-    originCurrency: string; // Token address on Base
-    destinationCurrency: string; // Token address on Arbitrum
+    // originCurrency: string; // Token address on Base
+    // destinationCurrency: string; // Token address on Arbitrum
     amount: string; // Amount to bridge (in wei/smallest unit)
     tradeType: 'EXACT_INPUT' | 'EXACT_OUTPUT' | 'EXPECTED_OUTPUT';
     usePermit?: boolean; // true to use permit-based approval
     recipient?: string; // Recipient address (defaults to user if not specified)
-    permitExpiry?: number; // Permit expiry in seconds (default: 600 = 10 min)
-    slippageTolerance?: string; // Slippage in basis points (e.g., "50" = 0.5%)
+    // permitExpiry?: number; // Permit expiry in seconds (default: 600 = 10 min)
+    // slippageTolerance?: string; // Slippage in basis points (e.g., "50" = 0.5%)
 }
 
 /**

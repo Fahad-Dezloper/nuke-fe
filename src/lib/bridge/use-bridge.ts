@@ -246,9 +246,6 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
                 const destinationChainId = isSolanaBridge
                     ? CHAIN_IDS.SOLANA
                     : CHAIN_IDS.ARBITRUM;
-                const destinationCurrency = isSolanaBridge
-                    ? TOKEN_ADDRESSES.SOLANA_USDC
-                    : TOKEN_ADDRESSES.ARBITRUM_USDC;
                 const recipient = isSolanaBridge
                     ? solanaRecipientAddress!
                     : walletAddress;
@@ -257,10 +254,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
                 setStatus('getting-quote');
                 const quoteRequest: QuoteRequest = {
                     user: walletAddress,
-                    originChainId: CHAIN_IDS.BASE,
                     destinationChainId: destinationChainId,
-                    originCurrency: TOKEN_ADDRESSES.BASE_USDC,
-                    destinationCurrency: destinationCurrency,
                     amount: amount,
                     tradeType: 'EXACT_INPUT',
                     usePermit: true,
