@@ -241,3 +241,23 @@ export type DepositResponse = string; // Transaction hash
  * Minimum deposit amount (10 USDC = 10,000,000 in smallest unit)
  */
 export const MIN_DEPOSIT_AMOUNT = 10_000_000;
+
+/**
+ * Pacifica Deposit Request
+ */
+export interface PacificaDepositRequest {
+  user_address: string; // Solana pubkey (base58)
+  amount: string; // Amount in smallest unit (6 decimals for USDC) as string
+}
+
+/**
+ * Pacifica Deposit Response
+ * Returns a Base64 encoded partially signed Solana transaction
+ * (fee payer has signed, user needs to sign)
+ */
+export type PacificaDepositResponse = string; // Base64 encoded transaction
+
+/**
+ * Gas reimbursement amount for Pacifica deposit (0.2 USDC)
+ */
+export const PACIFICA_GAS_REIMBURSEMENT = 200_000;

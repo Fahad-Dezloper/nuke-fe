@@ -20,6 +20,7 @@ export async function signTransferWithAuthorizationWithTurnkey(
   organizationId: string
 ): Promise<string> {
   try {
+
     if (!walletAddress) {
       throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
     }
@@ -77,12 +78,12 @@ export async function signTransferWithAuthorizationWithTurnkey(
     // Build types with EIP712Domain if not present
     const types = {
       TransferWithAuthorization: signData.types.TransferWithAuthorization,
-      EIP712Domain: signData.types.EIP712Domain || [
-        { name: 'name', type: 'string' },
-        { name: 'version', type: 'string' },
-        { name: 'chainId', type: 'uint256' },
-        { name: 'verifyingContract', type: 'address' },
-      ],
+      // EIP712Domain: signData.types.EIP712Domain || [
+      //   { name: 'name', type: 'string' },
+      //   { name: 'version', type: 'string' },
+      //   { name: 'chainId', type: 'uint256' },
+      //   { name: 'verifyingContract', type: 'address' },
+      // ],
     };
 
     // Sign the EIP-712 typed data
