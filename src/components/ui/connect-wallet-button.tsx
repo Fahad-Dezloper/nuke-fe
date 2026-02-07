@@ -19,6 +19,7 @@ interface ConnectWalletButtonProps {
   fullWidth?: boolean;
   children?: React.ReactNode;
   text?: string;
+  disabled?: boolean;
 }
 
 const sizeClasses = {
@@ -36,10 +37,12 @@ export function ConnectWalletButton({
   fullWidth = false,
   children,
   text,
+  disabled = false,
 }: ConnectWalletButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleClick = () => {
+    if (disabled) return;
     if (onClick) {
       onClick();
     } else {
@@ -75,6 +78,7 @@ export function ConnectWalletButton({
           'shadow-lg shadow-black/30 hover:shadow-black/40',
           sizeClasses[size],
           fullWidth && 'w-full',
+          disabled && 'opacity-50 cursor-not-allowed',
           className
         )}
       >

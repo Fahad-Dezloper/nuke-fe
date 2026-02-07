@@ -2,6 +2,8 @@ import { PerpOrders } from '@/dex/hyperliquid/perp';
 import { HYPERLIQUID_API } from '@/dex/hyperliquid/constants';
 import { Signature } from 'ethers';
 import { ErrorCode, createError, toAppError, getUserMessage } from '@/lib/errors';
+import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
+import { createMainnetExchangeTypedData } from '@/dex/hyperliquid/utils/signing';
 import type {
   CreatePositionRequest,
   ClosePositionRequest,
@@ -451,10 +453,13 @@ export class HyperLiquidService {
   }
 
   /**
-   * Update leverage for a specific asset
-   * Note: This requires creating a leverage update action and signing it
-   * For now, this is a placeholder that would need to be implemented
-   * based on HyperLiquid's leverage update API structure
+   * Update leverage for a specific asset on HyperLiquid.
+   *
+   * This is an L1 action submitted to /exchange with:
+   *   { type: "updateLeverage", asset: <assetIndex>, isCross: true, leverage: <value> }
+   *
+   * The action is signed via Turnkey EIP-712 and submitted like any other exchange action.
+   *
    * @param request - Leverage update request
    * @param walletAddress - Turnkey wallet address
    * @param organizationId - Turnkey organization ID
@@ -488,15 +493,62 @@ export class HyperLiquidService {
         });
       }
 
-      // TODO: Implement leverage update action creation
-      // This would require creating a new action type for leverage updates
-      // and using the appropriate HyperLiquid API endpoint
-      // For now, returning a not implemented response
+      // Resolve asset ticker to HyperLiquid asset index
+      const assetIndex = await perpTickerToIndex(request.assetTicker.toUpperCase());
+      if (assetIndex < 0) {
+        throw createError(ErrorCode.VALID_INVALID_ASSET, {
+          assetTicker: request.assetTicker,
+          reason: `Asset ${request.assetTicker} not found on HyperLiquid`,
+        });
+      }
+
+      // Build the L1 action
+      const action: Record<string, unknown> = {
+        type: 'updateLeverage',
+        asset: assetIndex,
+        isCross: true, // cross-margin mode
+        leverage: request.leverage,
+      };
+
+      const nonce = Date.now();
+
+      // Create typed data for mainnet signing
+      const typedData = createMainnetExchangeTypedData(
+        action,
+        nonce,
+        request.vaultAddress as `0x${string}` | undefined
+      );
+
+      // Sign with Turnkey
+      const signature = await this.signL1ActionWithTurnkey(
+        action,
+        nonce,
+        typedData,
+        walletAddress,
+        organizationId
+      );
+
+      // Submit to HyperLiquid /exchange
+      const response = await this.submitToHyperLiquid(
+        `${this.baseUrl}/exchange`,
+        action,
+        nonce,
+        signature
+      );
+
+      if (response.status !== 'ok') {
+        const errorMsg = response.response || 'Failed to update leverage (unknown error)';
+        throw createError(ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED, {
+          hyperLiquidResponse: errorMsg,
+          assetTicker: request.assetTicker,
+          leverage: request.leverage,
+        });
+      }
 
       return {
-        success: false,
-        error: 'Leverage update not yet implemented',
-        message: 'Leverage update functionality is under development',
+        success: true,
+        data: response,
+        message: `Leverage updated to ${request.leverage}x for ${request.assetTicker}`,
       };
     } catch (error) {
       const appError = toAppError(error, ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED);

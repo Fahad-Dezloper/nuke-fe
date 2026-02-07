@@ -18,6 +18,13 @@ export const API_ENDPOINTS = {
     quote: '/bridge/quote',
     executePermits: '/bridge/execute/permits',
   },
+  hedgeIntent: {
+    create: '/hedge-intents',
+    nextAction: (intentId: string) => `/hedge-intents/${intentId}/next-action`,
+    actionResult: (intentId: string) => `/hedge-intents/${intentId}/action-result`,
+    detail: (intentId: string) => `/hedge-intents/${intentId}`,
+    userIntents: (userId: string) => `/hedge-intents/user/${userId}`,
+  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;

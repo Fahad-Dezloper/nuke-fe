@@ -2,11 +2,16 @@
 
 /**
  * Position Controls Section Component
- * Right side panel with position controls
+ * Right side panel with position controls.
+ *
+ * Now wired to the Hedge Intent system:
+ * - "OPEN HEDGED POSITION" creates a backend-orchestrated intent
+ * - Progress stepper shows bridge → deposit → open flow
+ * - Auto-resumes on page reload
  */
 
 import { useAtomValue, useAtom } from 'jotai';
-import { ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { PositionControlsSection } from './trading-dashboard';
 import { cn } from '@/lib/utils';
 import { ConnectWalletButton } from '@/components/ui/connect-wallet-button';
@@ -15,21 +20,16 @@ import { LeverageSection } from './position-controls/leverage-section';
 import { PositionDetailsSection } from './position-controls/position-details-section';
 import { TradeDetailsSection } from './position-controls/trade-details-section';
 import { AssetPriceHeader } from './position-controls/asset-price-header';
-import { ArbitragePairSelector } from './position-controls/arbitrage-pair-selector';
-import { mockAssetPrice } from '@/lib/mocks';
+import { HedgeExecutionProgress } from './position-controls/hedge-execution-progress';
 import {
   isLoggedInAtom,
-  loginWithEVMWalletAtom,
-  loginWithSolanaWalletAtom,
 } from '@/lib/turnkey/store';
 import {
   marginAtom,
   leverageAtom,
-  selectedArbitragePairAtom,
   selectedAssetAtom,
 } from './position-controls/store';
-import { useArbitrageExecution } from '@/hooks/use-arbitrage-execution';
-import { useState } from 'react';
+import { useHedgeIntent } from '@/lib/hedge-intent';
 
 interface PositionControlsSectionContentProps {
   className?: string;
@@ -45,22 +45,25 @@ export function PositionControlsSectionContent({
   const isLoggedIn = useAtomValue(isLoggedInAtom);
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
-  const [selectedPair] = useAtom(selectedArbitragePairAtom);
   const [selectedAsset] = useAtom(selectedAssetAtom);
-  const [showSuccess, setShowSuccess] = useState(false);
 
-  const { executeArbitrage, isExecuting, error, result } = useArbitrageExecution();
+  // ── Hedge Intent Hook ──────────────────────────────────────
+  const {
+    openHedge,
+    isExecuting,
+    phase,
+    statusMessage,
+    currentAction,
+    detail,
+    error,
+  } = useHedgeIntent();
 
-  const loginWithEVM = useAtomValue(loginWithEVMWalletAtom);
-
+  // ── Handlers ───────────────────────────────────────────────
   const handleConnectWallet = async () => {
     if (onConnectWallet) {
       onConnectWallet();
       return;
     }
-
-    // Default: Try EVM wallet first
-    // await loginWithEVM();
   };
 
   const handleOpenPosition = async () => {
@@ -70,8 +73,8 @@ export function PositionControlsSectionContent({
     }
 
     // Validate inputs
-    if (!selectedPair) {
-      alert('Please select an arbitrage pair');
+    if (!selectedAsset) {
+      alert('Please select an asset');
       return;
     }
 
@@ -85,20 +88,47 @@ export function PositionControlsSectionContent({
       return;
     }
 
-    // Execute arbitrage
-    const executionResult = await executeArbitrage({
-      pairId: selectedPair.id,
-      margin,
+    // Open hedged position via intent system
+    await openHedge({
+      asset: selectedAsset,
+      marginUsd: parseFloat(margin),
       leverage,
     });
-
-    if (executionResult.success) {
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 5000);
-    }
   };
 
-  const canExecute = isLoggedIn && selectedPair && margin && parseFloat(margin) > 0 && !isExecuting;
+  // ── Derived state ──────────────────────────────────────────
+  const canExecute =
+    isLoggedIn &&
+    selectedAsset &&
+    margin &&
+    parseFloat(margin) > 0 &&
+    !isExecuting;
+
+  const isComplete = phase === 'complete';
+  const isFailed = phase === 'failed';
+  const showProgress = isExecuting || isComplete || isFailed;
+
+  // Button text based on phase
+  const getButtonText = (): string => {
+    if (!isExecuting) {
+      if (isComplete) return 'HEDGE LIVE ✓';
+      return 'OPEN HEDGED POSITION';
+    }
+    switch (phase) {
+      case 'creating':
+        return 'CREATING INTENT...';
+      case 'bridging':
+        return 'BRIDGING FUNDS...';
+      case 'depositing':
+        return 'DEPOSITING...';
+      case 'opening':
+        return 'OPENING POSITIONS...';
+      case 'closing':
+        return 'SAFETY MODE...';
+      default:
+        return 'EXECUTING...';
+    }
+  };
 
   return (
     <PositionControlsSection
@@ -118,9 +148,6 @@ export function PositionControlsSectionContent({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6">
-          {/* Arbitrage Pair Selector */}
-          {/* <ArbitragePairSelector /> */}
-
           {/* Position Size Section */}
           <PositionSizeSection />
 
@@ -133,8 +160,19 @@ export function PositionControlsSectionContent({
           {/* Trade Details Section */}
           <TradeDetailsSection />
 
-          {/* Error Message */}
-          {error && (
+          {/* ── Hedge Execution Progress ──────────────────────── */}
+          {showProgress && (
+            <HedgeExecutionProgress
+              detail={detail}
+              phase={phase}
+              statusMessage={statusMessage}
+              currentAction={currentAction}
+              error={error}
+            />
+          )}
+
+          {/* Error (only shown when not in progress — progress has its own error) */}
+          {error && !showProgress && (
             <div className="flex items-start gap-2 p-3 rounded-xl bg-red-900/20 border border-red-500/30">
               <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
@@ -145,13 +183,13 @@ export function PositionControlsSectionContent({
           )}
 
           {/* Success Message */}
-          {showSuccess && result?.success && (
+          {isComplete && (
             <div className="flex items-start gap-2 p-3 rounded-xl bg-green-900/20 border border-green-500/30">
               <CheckCircle2 className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-xs font-medium text-green-400">Success</p>
+                <p className="text-xs font-medium text-green-400">Hedge Active</p>
                 <p className="text-xs text-green-300 mt-0.5">
-                  {result.message || 'Arbitrage position opened successfully'}
+                  Your delta-neutral hedge is live on both protocols.
                 </p>
               </div>
             </div>
@@ -162,17 +200,11 @@ export function PositionControlsSectionContent({
         <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-xl">
           {isLoggedIn ? (
             <>
-              {/* <div className='flex items-center gap-2'>
-                <div className='h-2 w-2 rounded-full bg-green-500' />
-                <span className='text-xs text-text-muted-60'>
-                  Wallet connected
-                </span>
-              </div> */}
               <ConnectWalletButton
                 onClick={handleOpenPosition}
                 size="md"
                 fullWidth
-                text={isExecuting ? 'EXECUTING...' : 'OPEN POSITION'}
+                text={getButtonText()}
                 disabled={!canExecute || isExecuting}
               />
             </>

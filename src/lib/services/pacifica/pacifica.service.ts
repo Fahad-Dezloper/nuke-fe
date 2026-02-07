@@ -225,6 +225,98 @@ export class PacificaService {
   }
 
   /**
+   * Updates leverage for a specific symbol on Pacifica.
+   *
+   * Follows the same signing pattern as other Pacifica operations:
+   *   operation_type = "update_leverage"
+   *   operation_data = { symbol, leverage }
+   *   POST /account/update_leverage
+   *
+   * @param symbol - Asset symbol (e.g. "BTC")
+   * @param leverage - New leverage value
+   * @param walletAddress - Turnkey Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   * @returns Success/failure response
+   */
+  async updateLeverage(
+    symbol: string,
+    leverage: number,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
+
+      if (!symbol) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['symbol'],
+        });
+      }
+
+      if (leverage < 1 || leverage > 20) {
+        throw createError(ErrorCode.VALID_INVALID_LEVERAGE, {
+          leverage,
+          min: 1,
+          max: 20,
+        });
+      }
+
+      // Prepare operation data for signing
+      const operationData: Record<string, unknown> = {
+        symbol: symbol.toUpperCase(),
+        leverage,
+      };
+
+      // Sign the request
+      const { timestamp, signature } = await this.signOrderRequest(
+        'update_leverage',
+        operationData,
+        walletAddress,
+        organizationId
+      );
+
+      // Build the final request
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        ...operationData,
+      };
+
+      // Submit to Pacifica API
+      const apiResponse = await this.submitToPacifica('/account/leverage', finalRequest);
+
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED, {
+          error: apiResponse.error,
+          code: apiResponse.code,
+          symbol,
+        });
+      }
+
+      return {
+        success: true,
+        data: apiResponse,
+        message: `Leverage updated to ${leverage}x for ${symbol}`,
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED);
+      console.error('Error updating Pacifica leverage:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to update leverage',
+      };
+    }
+  }
+
+  /**
    * Creates a limit order on Pacifica
    * @param request - Limit order request parameters
    * @param walletAddress - Turnkey Solana wallet address
