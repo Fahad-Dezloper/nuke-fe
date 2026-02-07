@@ -105,7 +105,7 @@ export interface CurrencyAmount {
  * Permit Data (EIP-712)
  */
 export interface PermitData {
-  chain: {
+  sign: {
     domain: {
       name: string;
       version: string;
@@ -118,15 +118,8 @@ export interface PermitData {
         type: string;
       }[];
     };
-    value: {
-      owner: string;
-      spender: string;
-      value: string;
-      nonce: number;
-      deadline: number;
-      [key: string]: any;
-    };
-  }
+    value: Record<string, unknown>;
+  };
 }
 
 /**

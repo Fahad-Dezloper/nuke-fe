@@ -232,96 +232,96 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
           }
         }
 
-        // // Check balance
-        // const balance = await getUSDCBalanceOnBase(walletAddress as `0x${string}`);
-        // const amountBigInt = BigInt(amount);
+        // Check balance
+        const balance = await getUSDCBalanceOnBase(walletAddress as `0x${string}`);
+        const amountBigInt = BigInt(amount);
 
-        // if (balance < amountBigInt) {
-        //   throw new Error('Insufficient USDC balance on Base');
-        // }
+        if (balance < amountBigInt) {
+          throw new Error('Insufficient USDC balance on Base');
+        }
 
-        // // Determine destination chain based on protocol
-        // // Hyperliquid uses Arbitrum, Pacifica uses Solana
-        // const destinationChainId = isSolanaBridge ? CHAIN_IDS.SOLANA : CHAIN_IDS.ARBITRUM;
-        // const recipient = isSolanaBridge ? solanaRecipientAddress! : walletAddress;
+        // Determine destination chain based on protocol
+        // Hyperliquid uses Arbitrum, Pacifica uses Solana
+        const destinationChainId = isSolanaBridge ? CHAIN_IDS.SOLANA : CHAIN_IDS.ARBITRUM;
+        const recipient = isSolanaBridge ? solanaRecipientAddress! : walletAddress;
 
-        // // Step 1: Get Quote
-        // setStatus('getting-quote');
-        // const quoteRequest: QuoteRequest = {
-        //   user: walletAddress,
-        //   destinationChainId: destinationChainId,
-        //   amount: amount,
-        //   tradeType: 'EXACT_INPUT',
-        //   usePermit: true,
-        //   recipient: recipient,
-        // };
+        // Step 1: Get Quote
+        setStatus('getting-quote');
+        const quoteRequest: QuoteRequest = {
+          user: walletAddress,
+          destinationChainId: destinationChainId,
+          amount: amount,
+          tradeType: 'EXACT_INPUT',
+          usePermit: true,
+          recipient: recipient,
+        };
 
-        // const quoteResponse = await bridgeService.getQuote(quoteRequest);
+        const quoteResponse = await bridgeService.getQuote(quoteRequest);
 
-        // // Step 2: Find signature step
-        // const signatureStep = quoteResponse.steps.find((step) => step.kind === 'signature');
+        // Step 2: Find signature step
+        const signatureStep = quoteResponse.steps.find((step) => step.kind === 'signature');
 
-        // if (!signatureStep) {
-        //   throw new Error('No signature step found in quote response');
-        // }
+        if (!signatureStep) {
+          throw new Error('No signature step found in quote response');
+        }
 
-        // const requestId = signatureStep.requestId;
+        const requestId = signatureStep.requestId;
 
-        // // Step 3: Sign based on destination chain
-        // setStatus('signing-permit');
-        // let signature: string;
+        // Step 3: Sign based on destination chain
+        setStatus('signing-permit');
+        let signature: string;
 
-        // // Extract execute parameters from post.body in quote response
-        // const postBody = signatureStep.items[0]?.data?.post?.body;
-        // const executeKind = postBody?.kind || (isSolanaBridge ? 'eip3009' : 'PERMIT');
-        // const executeApi = postBody?.api || (isSolanaBridge ? 'swap' : 'relay');
+        // Extract execute parameters from post.body in quote response
+        const postBody = signatureStep.items[0]?.data?.post?.body;
+        const executeKind = postBody?.kind || (isSolanaBridge ? 'eip3009' : 'PERMIT');
+        const executeApi = postBody?.api || (isSolanaBridge ? 'swap' : 'relay');
 
-        // if (isSolanaBridge) {
+        if (isSolanaBridge) {
 
-        //   debugger;
-        //   // Solana uses EIP-3009 TransferWithAuthorization
-        //   // Signature data is nested in data.sign
-        //   const signData = signatureStep.items[0]?.data?.sign as TransferWithAuthorizationData;
+          debugger;
+          // Solana uses EIP-3009 TransferWithAuthorization
+          // Signature data is nested in data.sign
+          const signData = signatureStep.items[0]?.data?.sign as TransferWithAuthorizationData;
 
-        //   if (!signData) {
-        //     throw new Error('TransferWithAuthorization data not found in signature step');
-        //   }
+          if (!signData) {
+            throw new Error('TransferWithAuthorization data not found in signature step');
+          }
 
-        //   signature = await signTransferWithAuthorizationWithTurnkey(
-        //     signData,
-        //     walletAddress,
-        //     turnkeyState.turnkeySubOrgId
-        //   );
-        // } else {
-        //   // Arbitrum uses EIP-2612 Permit
-        //   const permitData = signatureStep.items[0]?.data as PermitData;
+          signature = await signTransferWithAuthorizationWithTurnkey(
+            signData,
+            walletAddress,
+            turnkeyState.turnkeySubOrgId
+          );
+        } else {
+          // Arbitrum uses EIP-2612 Permit
+          const permitData = signatureStep.items[0]?.data as PermitData;
 
-        //   if (!permitData) {
-        //     throw new Error('Permit data not found in signature step');
-        //   }
+          if (!permitData) {
+            throw new Error('Permit data not found in signature step');
+          }
 
-        //   signature = await signPermitWithTurnkey(
-        //     permitData,
-        //     walletAddress,
-        //     turnkeyState.turnkeySubOrgId
-        //   );
-        // }
+          signature = await signPermitWithTurnkey(
+            permitData,
+            walletAddress,
+            turnkeyState.turnkeySubOrgId
+          );
+        }
 
-        // // Step 4: Execute Permit/Authorization
-        // setStatus('executing-permit');
-        // await bridgeService.executePermit({
-        //   signature,
-        //   kind: executeKind,
-        //   requestId,
-        //   api: executeApi,
-        // });
+        // Step 4: Execute Permit/Authorization
+        setStatus('executing-permit');
+        await bridgeService.executePermit({
+          signature,
+          kind: executeKind,
+          requestId,
+          api: executeApi,
+        });
 
-        // // Store requestId for status polling
-        // requestIdRef.current = requestId;
+        // Store requestId for status polling
+        requestIdRef.current = requestId;
 
-        // // Step 5: Start polling for bridge status
-        // setStatus('waiting-finality');
-        // await pollBridgeStatus(requestId);
+        // Step 5: Start polling for bridge status
+        setStatus('waiting-finality');
+        await pollBridgeStatus(requestId);
 
         // Step 6: Handle protocol-specific deposit
         const depositProtocol = protocol || options?.protocol;
@@ -426,7 +426,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
             if (options?.onSuccess) {
               options.onSuccess({
                 txHash: txSignature,
-                bridgeRequestId: "requestId",
+                bridgeRequestId: requestId,
                 protocol: 'pacifica',
               });
             }
@@ -446,7 +446,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
           // No deposit needed, bridge completed successfully
           setStatus('success');
           if (options?.onSuccess) {
-            options.onSuccess({ bridgeRequestId: "requestId" });
+            options.onSuccess({ bridgeRequestId: requestId });
           }
         }
       } catch (err) {
