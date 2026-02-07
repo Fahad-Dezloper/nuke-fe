@@ -218,7 +218,6 @@ export async function signUsdcPermit(
 ): Promise<PermitSignatureResult> {
   try {
 
-    debugger
     if (!walletAddress) {
       throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
     }

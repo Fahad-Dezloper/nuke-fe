@@ -11,3 +11,6 @@ export * from './solana-signing';
 export * from './balance';
 export * from './usdc-permit';
 export * from './use-bridge';
+
+// Deposit handler system (for protocol-specific fund-leg flows)
+export * from './deposit-handlers';

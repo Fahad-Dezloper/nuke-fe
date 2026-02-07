@@ -1,47 +1,43 @@
 /**
  * Bridge Hook
  * React hook for managing bridge operations
+ *
+ * Uses the DepositHandler pattern for protocol-specific logic.
+ * Adding a new protocol requires only creating a new DepositHandler
+ * and registering it — no changes to this file.
  */
 
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { bridgeService } from './bridge.service';
-import { depositService } from './deposit.service';
-import { pacificaDepositService } from './pacifica-deposit.service';
 import { signPermitWithTurnkey } from './signing';
-import { signTransferWithAuthorizationWithTurnkey } from './solana-signing';
 import {
   getUSDCBalanceOnBase,
   formatUSDCBalance,
-  getUSDCBalanceOnArbitrum,
-  formatUSDCBalanceArbitrum,
 } from './balance';
-import {
-  getUSDCBalanceOnSolana,
-  formatUSDCBalanceSolana,
-  signAndSubmitPacificaDeposit,
-} from './solana-utils';
-import { createUsdcPermit, signUsdcPermit } from './usdc-permit';
+import { createDefaultDepositHandlerRegistry } from './deposit-handlers';
+import type { BridgeSignResult } from './deposit-handlers';
 import type {
   BridgeStatus,
   BridgeError,
+  BridgeStep,
   QuoteRequest,
   PermitData,
-  TransferWithAuthorizationData,
   RelayStatus,
 } from './types';
-import { CHAIN_IDS, MIN_DEPOSIT_AMOUNT, PACIFICA_GAS_REIMBURSEMENT } from './types';
-import { HYPERLIQUID_ROUTER_CONTRACT } from '@/constants';
+import { CHAIN_IDS } from './types';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UseBridgeOptions {
   onSuccess?: (result: unknown) => void;
   onError?: (error: BridgeError) => void;
-  protocol?: 'hyperliquid' | 'pacifica'; // Protocol to deposit to after bridge
-  feePayerAddress?: string; // Fee payer address for deposit (required if protocol is provided)
-  solanaRecipient?: string; // Solana recipient address (required for Solana bridge)
+  protocol?: string; // Protocol to deposit to after bridge
+  feePayerAddress?: string; // Fee payer address for deposit (if applicable)
+  solanaRecipient?: string; // Solana recipient address (for Solana-based protocols)
 }
 
 interface UseBridgeReturn {
@@ -49,7 +45,7 @@ interface UseBridgeReturn {
   error: BridgeError | null;
   bridge: (
     amount: string,
-    protocol?: 'hyperliquid' | 'pacifica',
+    protocol?: string,
     feePayerAddress?: string,
     solanaRecipient?: string
   ) => Promise<void>;
@@ -57,26 +53,21 @@ interface UseBridgeReturn {
   isLoading: boolean;
 }
 
-/**
- * Hook for bridge operations
- */
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 /**
  * Map Relay status to our bridge status
  */
 function mapRelayStatusToBridgeStatus(relayStatus: RelayStatus): BridgeStatus {
   switch (relayStatus) {
     case 'waiting':
-      return 'waiting-finality';
     case 'pending':
-      return 'waiting-finality';
     case 'submitted':
+    case 'delayed':
       return 'waiting-finality';
     case 'success':
       return 'success';
-    case 'delayed':
-      return 'waiting-finality';
     case 'refunded':
-      return 'error';
     case 'failure':
       return 'error';
     default:
@@ -84,11 +75,55 @@ function mapRelayStatusToBridgeStatus(relayStatus: RelayStatus): BridgeStatus {
   }
 }
 
+/**
+ * Default bridge signing for when no deposit handler is registered.
+ * Uses EIP-2612 Permit (standard Arbitrum bridge).
+ */
+async function signBridgeDefault(
+  signatureStep: BridgeStep,
+  walletAddress: string,
+  organizationId: string
+): Promise<BridgeSignResult> {
+  const postBody = signatureStep.items[0]?.data?.post?.body;
+  const executeKind = postBody?.kind || 'PERMIT';
+  const executeApi = postBody?.api || 'relay';
+
+  const permitData = signatureStep.items[0]?.data as PermitData;
+  if (!permitData) {
+    throw new Error('Permit data not found in signature step');
+  }
+
+  const signature = await signPermitWithTurnkey(
+    permitData,
+    walletAddress,
+    organizationId
+  );
+
+  return { signature, executeKind, executeApi };
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Hook for bridge operations
+ *
+ * Orchestrates the fund-leg flow:
+ * 1. Validate wallet state
+ * 2. Check USDC balance on Base
+ * 3. Get bridge quote
+ * 4. Sign bridge transaction (protocol-specific via DepositHandler)
+ * 5. Execute bridge permit
+ * 6. Poll for bridge completion
+ * 7. Execute protocol-specific deposit (via DepositHandler)
+ */
 export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
   const { state: turnkeyState } = useTurnkey();
   const [status, setStatus] = useState<BridgeStatus>('idle');
   const [error, setError] = useState<BridgeError | null>(null);
   const requestIdRef = useRef<string | null>(null);
+
+  // Create registry once (stable across renders)
+  const depositHandlerRegistry = useMemo(() => createDefaultDepositHandlerRegistry(), []);
 
   const isLoading = status !== 'idle' && status !== 'success' && status !== 'error';
 
@@ -187,11 +222,14 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
 
   /**
    * Execute bridge operation
+   *
+   * This is the main orchestrator function. Protocol-specific logic
+   * is delegated to the appropriate DepositHandler.
    */
   const bridge = useCallback(
     async (
       amount: string,
-      protocol?: 'hyperliquid' | 'pacifica',
+      protocol?: string,
       feePayerAddress?: string,
       solanaRecipient?: string
     ) => {
@@ -199,7 +237,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
         setError(null);
         setStatus('checking-balance');
 
-        // Validate Turnkey state
+        // ── Step 1: Validate Turnkey state ──────────────────────────────
         if (!turnkeyState.isLoggedIn) {
           throw new Error('Please connect your wallet first');
         }
@@ -213,26 +251,39 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
           throw new Error('No wallets found');
         }
 
-        // Get the first EVM wallet address
+        // ── Step 2: Get wallet addresses ────────────────────────────────
         const walletAddress = getEVMAddress(wallets);
         if (!walletAddress) {
           throw new Error('No EVM wallet address found');
         }
 
-        // // Get Solana address if bridging to Solana
-        const isSolanaBridge = protocol === 'pacifica';
-        let solanaRecipientAddress: string | undefined;
-        if (isSolanaBridge) {
-          solanaRecipientAddress =
-            solanaRecipient || options?.solanaRecipient || getSolanaAddress(wallets);
-          if (!solanaRecipientAddress) {
-            throw new Error(
-              'No Solana wallet address found. Please ensure you have a Solana wallet connected.'
-            );
-          }
+        // Resolve Solana address (used by Solana-based protocols)
+        const solanaRecipientAddress =
+          solanaRecipient || options?.solanaRecipient || getSolanaAddress(wallets);
+
+        // ── Step 3: Resolve deposit handler ─────────────────────────────
+        const depositProtocol = protocol || options?.protocol;
+        const handler = depositProtocol
+          ? depositHandlerRegistry.get(depositProtocol)
+          : null;
+
+        // ── Step 4: Resolve bridge destination & recipient ──────────────
+        let destinationChainId: number;
+        let recipient: string;
+
+        if (handler) {
+          destinationChainId = handler.destinationChainId;
+          recipient = handler.resolveRecipient({
+            walletAddress,
+            solanaRecipientAddress,
+          });
+        } else {
+          // Default: bridge to Arbitrum, recipient is EVM address
+          destinationChainId = CHAIN_IDS.ARBITRUM;
+          recipient = walletAddress;
         }
 
-        // Check balance
+        // ── Step 5: Check balance on Base ───────────────────────────────
         const balance = await getUSDCBalanceOnBase(walletAddress as `0x${string}`);
         const amountBigInt = BigInt(amount);
 
@@ -240,26 +291,23 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
           throw new Error('Insufficient USDC balance on Base');
         }
 
-        // Determine destination chain based on protocol
-        // Hyperliquid uses Arbitrum, Pacifica uses Solana
-        const destinationChainId = isSolanaBridge ? CHAIN_IDS.SOLANA : CHAIN_IDS.ARBITRUM;
-        const recipient = isSolanaBridge ? solanaRecipientAddress! : walletAddress;
-
-        // Step 1: Get Quote
+        // ── Step 6: Get bridge quote ────────────────────────────────────
         setStatus('getting-quote');
         const quoteRequest: QuoteRequest = {
           user: walletAddress,
-          destinationChainId: destinationChainId,
-          amount: amount,
+          destinationChainId,
+          amount,
           tradeType: 'EXACT_INPUT',
           usePermit: true,
-          recipient: recipient,
+          recipient,
         };
 
         const quoteResponse = await bridgeService.getQuote(quoteRequest);
 
-        // Step 2: Find signature step
-        const signatureStep = quoteResponse.steps.find((step) => step.kind === 'signature');
+        // ── Step 7: Find signature step ─────────────────────────────────
+        const signatureStep = quoteResponse.steps.find(
+          (step) => step.kind === 'signature'
+        );
 
         if (!signatureStep) {
           throw new Error('No signature step found in quote response');
@@ -267,173 +315,63 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
 
         const requestId = signatureStep.requestId;
 
-        // Step 3: Sign based on destination chain
+        // ── Step 8: Sign bridge transaction ─────────────────────────────
         setStatus('signing-permit');
-        let signature: string;
+        let signResult: BridgeSignResult;
 
-        // Extract execute parameters from post.body in quote response
-        const postBody = signatureStep.items[0]?.data?.post?.body;
-        const executeKind = postBody?.kind || (isSolanaBridge ? 'eip3009' : 'PERMIT');
-        const executeApi = postBody?.api || (isSolanaBridge ? 'swap' : 'relay');
-
-        if (isSolanaBridge) {
-
-          debugger;
-          // Solana uses EIP-3009 TransferWithAuthorization
-          // Signature data is nested in data.sign
-          const signData = signatureStep.items[0]?.data?.sign as TransferWithAuthorizationData;
-
-          if (!signData) {
-            throw new Error('TransferWithAuthorization data not found in signature step');
-          }
-
-          signature = await signTransferWithAuthorizationWithTurnkey(
-            signData,
+        if (handler) {
+          // Protocol-specific signing via handler
+          signResult = await handler.signBridgeTransaction(
+            signatureStep,
             walletAddress,
             turnkeyState.turnkeySubOrgId
           );
         } else {
-          // Arbitrum uses EIP-2612 Permit
-          const permitData = signatureStep.items[0]?.data as PermitData;
-
-          if (!permitData) {
-            throw new Error('Permit data not found in signature step');
-          }
-
-          signature = await signPermitWithTurnkey(
-            permitData,
+          // Default: EIP-2612 Permit signing
+          signResult = await signBridgeDefault(
+            signatureStep,
             walletAddress,
             turnkeyState.turnkeySubOrgId
           );
         }
 
-        // Step 4: Execute Permit/Authorization
+        // ── Step 9: Execute permit ──────────────────────────────────────
         setStatus('executing-permit');
         await bridgeService.executePermit({
-          signature,
-          kind: executeKind,
+          signature: signResult.signature,
+          kind: signResult.executeKind,
           requestId,
-          api: executeApi,
+          api: signResult.executeApi,
         });
 
         // Store requestId for status polling
         requestIdRef.current = requestId;
 
-        // Step 5: Start polling for bridge status
+        // ── Step 10: Poll bridge status ─────────────────────────────────
         setStatus('waiting-finality');
         await pollBridgeStatus(requestId);
 
-        // Step 6: Handle protocol-specific deposit
-        const depositProtocol = protocol || options?.protocol;
-
-        if (depositProtocol === 'hyperliquid') {
-          // Hyperliquid deposit flow (Base → Arbitrum → Hyperliquid)
+        // ── Step 11: Execute protocol-specific deposit ──────────────────
+        if (handler) {
           try {
             setStatus('depositing');
-            const arbitrumBalance = await getUSDCBalanceOnArbitrum(walletAddress as `0x${string}`);
-
-            // Check minimum deposit amount
-            if (arbitrumBalance < BigInt(MIN_DEPOSIT_AMOUNT)) {
-              throw new Error(
-                `Insufficient balance for deposit. Minimum is ${MIN_DEPOSIT_AMOUNT / 1_000_000} USDC, but balance is ${formatUSDCBalanceArbitrum(arbitrumBalance)} USDC`
-              );
-            }
-
-            // Convert balance to USDC amount string for permit
-            const balanceInUSDC = formatUSDCBalanceArbitrum(arbitrumBalance);
-            const spenderAddress = HYPERLIQUID_ROUTER_CONTRACT;
-
-            // Create permit data
-            const permitResult = await createUsdcPermit(
-              balanceInUSDC,
+            const depositResult = await handler.executeDeposit({
               walletAddress,
-              spenderAddress
-            );
-
-            if (!permitResult.success || !permitResult.typedData) {
-              throw new Error(permitResult.error || 'Failed to create USDC permit');
-            }
-
-            // Sign permit
-            const signatureResult = await signUsdcPermit(
-              permitResult.typedData,
-              walletAddress,
-              turnkeyState.turnkeySubOrgId
-            );
-
-            if (!signatureResult.success || !signatureResult.signature) {
-              throw new Error(signatureResult.error || 'Failed to sign USDC permit');
-            }
-
-            // Submit deposit to Hyperliquid
-            const txHash = await depositService.deposit({
-              amount: arbitrumBalance.toString(),
-              userAddress: walletAddress,
-              permit: signatureResult.signature,
+              organizationId: turnkeyState.turnkeySubOrgId,
+              bridgeRequestId: requestId,
+              solanaRecipientAddress,
             });
 
-            // Deposit successful
             setStatus('success');
             if (options?.onSuccess) {
-              options.onSuccess({ txHash, bridgeRequestId: requestId, protocol: 'hyperliquid' });
+              options.onSuccess(depositResult);
             }
           } catch (depositError) {
             const bridgeError: BridgeError = {
               message:
-                depositError instanceof Error ? depositError.message : 'Hyperliquid deposit failed',
-              details: depositError,
-            };
-            setError(bridgeError);
-            setStatus('error');
-            if (options?.onError) {
-              options.onError(bridgeError);
-            }
-          }
-        } else if (depositProtocol === 'pacifica') {
-          // Pacifica deposit flow (Base → Solana → Pacifica)
-          try {
-            setStatus('depositing');
-
-            // Get user's Solana wallet address
-            const userSolanaAddress = solanaRecipientAddress!;
-
-            // Fetch USDC balance on Solana
-            const solanaBalance = await getUSDCBalanceOnSolana(userSolanaAddress);
-
-            // Check minimum deposit amount (must cover gas reimbursement + minimum deposit)
-            const minRequired = BigInt(MIN_DEPOSIT_AMOUNT) + BigInt(PACIFICA_GAS_REIMBURSEMENT);
-            if (solanaBalance < minRequired) {
-              throw new Error(
-                `Insufficient balance for Pacifica deposit. Need at least ${formatUSDCBalanceSolana(minRequired)} USDC (including 0.2 USDC gas reimbursement), but balance is ${formatUSDCBalanceSolana(solanaBalance)} USDC`
-              );
-            }
-
-            // Get partially signed transaction from backend
-            const partiallySignedTx = await pacificaDepositService.getPartiallySignedTransaction({
-              user_address: userSolanaAddress,
-              amount: solanaBalance.toString(),
-            });
-
-            // Sign with user's wallet and submit to Solana
-            const txSignature = await signAndSubmitPacificaDeposit(
-              partiallySignedTx,
-              userSolanaAddress,
-              turnkeyState.turnkeySubOrgId
-            );
-
-            // Deposit successful
-            setStatus('success');
-            if (options?.onSuccess) {
-              options.onSuccess({
-                txHash: txSignature,
-                bridgeRequestId: requestId,
-                protocol: 'pacifica',
-              });
-            }
-          } catch (depositError) {
-            const bridgeError: BridgeError = {
-              message:
-                depositError instanceof Error ? depositError.message : 'Pacifica deposit failed',
+                depositError instanceof Error
+                  ? depositError.message
+                  : `${depositProtocol} deposit failed`,
               details: depositError,
             };
             setError(bridgeError);
@@ -443,7 +381,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
             }
           }
         } else {
-          // No deposit needed, bridge completed successfully
+          // No deposit handler — bridge-only completed successfully
           setStatus('success');
           if (options?.onSuccess) {
             options.onSuccess({ bridgeRequestId: requestId });
@@ -463,7 +401,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
         }
       }
     },
-    [turnkeyState, options, pollBridgeStatus]
+    [turnkeyState, options, pollBridgeStatus, depositHandlerRegistry]
   );
 
   return {
