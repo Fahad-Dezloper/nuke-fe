@@ -12,7 +12,8 @@ export const API_ENDPOINTS = {
   },
   market: {
     feed: '/aggregated/live/market-feed',
-    chart: (assetName: string) => `/aggregated/chart/${assetName}?timeframe=30m`,
+    chart: (assetName: string, timeframe: '30m' | '1h' | '24h' = '30m') =>
+      `/aggregated/chart/${assetName}?timeframe=${timeframe}`,
   },
   bridge: {
     quote: '/bridge/quote',

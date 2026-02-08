@@ -13,7 +13,8 @@ import { AnimatedNumber } from '@/components/ui/animated-number';
 import { MetricItem } from '@/components/ui/metric-item';
 import { AssetDropdown } from '@/components/ui/asset-dropdown';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
-import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
+import { selectedAssetAtom, marketFeedDataAtom } from '@/lib/stores/market-feed.store';
+import { MarketOverviewSkeleton } from '@/components/ui/skeletons';
 import type { AssetDropdownItem } from '@/types/positions';
 
 interface MarketOverviewProps {
@@ -22,8 +23,12 @@ interface MarketOverviewProps {
 }
 
 export function MarketOverview({ className, onAssetChange }: MarketOverviewProps) {
-  // Get selected asset from global store
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const marketFeedData = useAtomValue(marketFeedDataAtom);
+
+  if (marketFeedData.length === 0) {
+    return <MarketOverviewSkeleton className={className} />;
+  }
 
   // Get price from selected asset (use hyperliquid mark price as primary)
   const currentPrice = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;

@@ -30,6 +30,8 @@ import {
   selectedAssetAtom,
 } from './position-controls/store';
 import { useHedgeIntent } from '@/lib/hedge-intent';
+import { marketFeedDataAtom } from '@/lib/stores/market-feed.store';
+import { PositionControlsSkeleton } from '@/components/ui/skeletons';
 
 interface PositionControlsSectionContentProps {
   className?: string;
@@ -43,6 +45,7 @@ export function PositionControlsSectionContent({
   onOpenPosition,
 }: PositionControlsSectionContentProps) {
   const isLoggedIn = useAtomValue(isLoggedInAtom);
+  const marketFeedData = useAtomValue(marketFeedDataAtom);
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const [selectedAsset] = useAtom(selectedAssetAtom);
@@ -129,6 +132,10 @@ export function PositionControlsSectionContent({
         return 'EXECUTING...';
     }
   };
+
+  if (marketFeedData.length === 0) {
+    return <PositionControlsSkeleton className={className} />;
+  }
 
   return (
     <PositionControlsSection

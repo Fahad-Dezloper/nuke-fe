@@ -10,11 +10,11 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, TooltipProps } from 'rech
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   type ChartConfig,
 } from '@/components/ui/chart';
 import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
+import type { ChartTimeframe } from '@/lib/api/services/chart.service';
 import { getProtocolConfig, getAllProtocolIds } from '@/lib/protocols/config';
 
 /**
@@ -46,6 +46,8 @@ const chartConfig = buildChartConfig();
 
 interface FundingRateChartProps {
   data: ChartDataPoint[];
+  timeframe?: ChartTimeframe;
+  /** @deprecated Use timeframe instead */
   duration?: string;
 }
 
@@ -140,7 +142,7 @@ function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
   );
 }
 
-export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChartProps) {
+export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartProps) {
   // Determine which protocol is LONG and which is SHORT based on the first data point
   const longProtocol = useMemo(() => {
     if (data.length === 0) return 'hyperliquid';
@@ -203,57 +205,17 @@ export function FundingRateChart({ data, duration = '1 Week' }: FundingRateChart
       <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" vertical={false} />
         <XAxis
-          dataKey="time"
+          dataKey="dataIndex"
+          type="number"
+          domain={['dataMin', 'dataMax']}
+          hide={timeframe !== '24h'}
           tick={{ fill: 'rgba(255, 255, 255, 0.6)', fontSize: 11 }}
           tickLine={false}
           axisLine={false}
-          interval={0}
-          minTickGap={20}
-          tickFormatter={(value, index) => {
-            if (!value) return '';
-
-            // For 1 Hour view, show hourly labels
-            // Data comes in 30-min intervals, but we only show hourly labels
-            if (duration === '1 Hour') {
-              if (value.includes(':')) {
-                const [hours, minutes] = value.split(':').map(Number);
-
-                // Always show first and last labels
-                const isFirst = index === 0;
-                const isLast = index === data.length - 1;
-
-                // Show label if:
-                // 1. It's exactly on the hour (minutes === 0)
-                // 2. It's the first tick
-                // 3. It's the last tick
-                // 4. It's close to an hour mark (within 10 minutes)
-                const isOnHour = minutes === 0;
-                const isNearHour = minutes <= 10 || minutes >= 50;
-
-                if (isOnHour || isFirst || isLast || isNearHour) {
-                  // Round to nearest hour for display
-                  const displayHour = minutes >= 30 ? (hours + 1) % 24 : hours;
-                  return `${String(displayHour).padStart(2, '0')}:00`;
-                }
-                return '';
-              }
-              return value;
-            } else if (duration === '1 Day') {
-              // Show every 4 hours for 1 day view
-              if (value.includes(' ')) {
-                const timePart = value.split(' ')[1];
-                if (timePart && timePart.includes(':')) {
-                  const hour = parseInt(timePart.split(':')[0]);
-                  return hour % 4 === 0 ? value : '';
-                }
-              }
-              return value;
-            } else if (duration === '1 Week') {
-              // Show every day for 1 week view
-              return value; // Already formatted as MM/DD
-            }
-
-            return value;
+          tickFormatter={(value) => {
+            // For 24h, show the date label from the data point
+            const point = data[value];
+            return point?.time ?? '';
           }}
         />
         <YAxis

@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { PositionsTable } from './positions/positions-table';
 import { usePositions } from '@/hooks';
+import { PositionsTableSkeleton } from '@/components/ui/skeletons';
 
 interface PositionsTableSectionContentProps {
   className?: string;
@@ -33,9 +34,13 @@ export function PositionsTableSectionContent({
   });
 
   const handleClosePosition = (asset: string) => {
-    // TODO: Implement actual close position API call
     console.log('Close position:', asset);
   };
+
+  const isInitialLoad = loading && positions.length === 0;
+  if (isInitialLoad) {
+    return <PositionsTableSkeleton className={className} rows={2} />;
+  }
 
   return (
     <PositionsTableSection className={className}>
@@ -78,17 +83,12 @@ export function PositionsTableSectionContent({
         <div className="flex-1 min-h-0 overflow-hidden">
           {activeTab === 'positions' ? (
             <>
-              {loading && (
-                <div className="flex items-center justify-center py-12">
-                  <p className="text-text-muted-60 text-sm">Loading positions...</p>
-                </div>
-              )}
               {error && (
                 <div className="flex items-center justify-center py-12">
                   <p className="text-red-400 text-sm">Error loading positions: {error.message}</p>
                 </div>
               )}
-              {!loading && !error && (
+              {!error && (
                 <PositionsTable positions={positions} onClosePosition={handleClosePosition} />
               )}
             </>

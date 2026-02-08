@@ -230,7 +230,7 @@ export function AssetDropdown({
         <div
           className={cn(
             'absolute top-full left-0 mt-2 z-[10002]',
-            'w-auto min-w-[900px] max-w-[1200px] max-h-[500px] overflow-hidden',
+            'w-auto min-w-[1200px] max-w-[1500px] min-h-[500px] max-h-[600px] overflow-hidden',
             'bg-background/95 backdrop-blur-xl border border-border-white-20/50',
             'rounded-2xl shadow-2xl shadow-black/60',
             'ring-1 ring-white/10',
@@ -299,10 +299,12 @@ export function AssetDropdown({
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
                 PRICE
               </span>
-              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
+              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold flex items-center gap-2">
+                <Image src="/tokens/hype.png" alt="Hyperliquid" width={20} height={20} className="rounded shrink-0" />
                 HYPERLIQUID
               </span>
-              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
+              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold flex items-center gap-2">
+              <Image src="/tokens/pacifica.jpg" alt="Pacifica" width={20} height={20} className="rounded shrink-0" />
                 PACIFICA
               </span>
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
@@ -335,10 +337,10 @@ export function AssetDropdown({
                         type="button"
                         onClick={() => handleSelect(asset)}
                         className={cn(
-                          'w-full grid grid-cols-[minmax(140px,auto)_minmax(140px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(90px,auto)_minmax(90px,auto)] gap-4 px-5 py-3.5',
+                          'w-full grid grid-cols-[minmax(140px,auto)_minmax(140px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(90px,auto)_minmax(90px,auto)] items-center gap-4 px-5 py-3.5',
                           'text-left transition-all duration-200',
                           'border-l-[3px] border-l-transparent',
-                          'hover:border-l-accent/60 hover:bg-card/30 hover:backdrop-blur-sm',
+                          'hover:border-l-accent/60 hover:bg-gray-500/10 hover:backdrop-blur-sm cursor-pointer',
                           isSelected && 'bg-card/20 border-l-accent/40',
                           'group'
                         )}
@@ -380,7 +382,7 @@ export function AssetDropdown({
 
                         {/* Price */}
                         <div className="flex items-center">
-                          <span className="text-sm font-semibold text-text-primary tabular-nums">
+                          <span className="text-sm  text-text-primary tabular-nums">
                             {formatPrice(
                               asset.markPx || asset.hyperliquidMarkPx || 0,
                               'USD',
@@ -400,7 +402,7 @@ export function AssetDropdown({
                           )}
                           <span
                             className={cn(
-                              'text-sm font-semibold tabular-nums',
+                              'text-sm  tabular-nums',
                               hyperliquidPositive ? 'text-green-400' : 'text-red-400'
                             )}
                           >
@@ -417,7 +419,7 @@ export function AssetDropdown({
                           )}
                           <span
                             className={cn(
-                              'text-sm font-semibold tabular-nums',
+                              'text-sm  tabular-nums',
                               pacificaPositive ? 'text-green-400' : 'text-red-400'
                             )}
                           >
@@ -426,12 +428,12 @@ export function AssetDropdown({
                         </div>
 
                         {/* NET APR */}
-                        <span className="text-sm font-semibold tabular-nums text-green-400">
+                        <span className="text-sm  tabular-nums text-green-400">
                           {formatPercentWithSign(asset.netAPR)}
                         </span>
 
                         {/* 30D APR */}
-                        <span className="text-sm font-semibold tabular-nums text-green-400">
+                        <span className="text-sm  tabular-nums text-green-400">
                           {formatPercentWithSign(asset.apr30D)}
                         </span>
                       </button>
