@@ -49,7 +49,7 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
     onAssetChange?.(asset);
   };
 
-  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
+  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 2, 4);
 
   return (
     <motion.div
