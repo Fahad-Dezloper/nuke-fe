@@ -542,6 +542,92 @@ export class TurnkeyClient {
   public async getSession() {
     return await this.turnkey.getSession();
   }
+
+  /**
+   * Creates an iframe client for wallet export.
+   * The iframe handles secure display of private key material.
+   *
+   * @param iframeContainer - DOM element to mount the Turnkey export iframe into
+   * @param iframeUrl - URL of the Turnkey export iframe (defaults to env or https://export.turnkey.com)
+   * @returns Promise resolving to the iframe client instance
+   */
+  public async createExportIframeClient(
+    iframeContainer: HTMLElement,
+    iframeUrl?: string
+  ) {
+    const url =
+      iframeUrl ||
+      process.env.NEXT_PUBLIC_EXPORT_IFRAME_URL ||
+      'https://export.turnkey.com';
+
+    return await this.turnkey.iframeClient({
+      iframeContainer,
+      iframeUrl: url,
+    });
+  }
+
+  /**
+   * Exports a wallet account's private key via Turnkey's secure iframe flow.
+   * The private key is rendered inside the iframe and never exposed to the application.
+   *
+   * @param address - The wallet address to export
+   * @param iframeContainer - DOM element to mount the export iframe into
+   * @param iframeUrl - Optional custom export iframe URL
+   * @returns Promise resolving to success status
+   *
+   * @throws {Error} If not logged in, session is invalid, or export fails
+   */
+  public async exportWalletAccount(
+    address: string,
+    iframeContainer: HTMLElement,
+    iframeUrl?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this.state.isLoggedIn || !this.state.turnkeySubOrgId) {
+        throw new Error('Not logged in');
+      }
+
+      // Create iframe client
+      const iframeClient = await this.createExportIframeClient(
+        iframeContainer,
+        iframeUrl
+      );
+
+      // Get session
+      const session = await this.turnkey.getSession();
+      if (!session?.organizationId) {
+        throw new Error('No valid session');
+      }
+
+      // Get indexedDb client
+      const indexedDbClient = await this.turnkey.indexedDbClient();
+      await indexedDbClient.init();
+
+      // Export the wallet account
+      const exportResponse = await indexedDbClient.exportWalletAccount({
+        address,
+        targetPublicKey: `${iframeClient?.iframePublicKey}`,
+      });
+
+      if (exportResponse?.exportBundle) {
+        // Inject the export bundle into the iframe for secure display
+        await iframeClient?.injectKeyExportBundle(
+          exportResponse.exportBundle,
+          session.organizationId,
+          'HEXADECIMAL' as any
+        );
+        return { success: true };
+      }
+
+      return { success: false, error: 'No export bundle received' };
+    } catch (error) {
+      console.error('Export wallet error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Export failed',
+      };
+    }
+  }
 }
 
 export const turnkeyClient = new TurnkeyClient(process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID);

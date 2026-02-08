@@ -7,12 +7,7 @@
 
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, TooltipProps } from 'recharts';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartLegend,
-  type ChartConfig,
-} from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartLegend, type ChartConfig } from '@/components/ui/chart';
 import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
 import type { ChartTimeframe } from '@/lib/api/services/chart.service';
 import { getProtocolConfig, getAllProtocolIds } from '@/lib/protocols/config';
@@ -253,7 +248,7 @@ export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartPr
               type="monotone"
               dataKey={dataKey}
               stroke={`var(${protocolConfig.colorVar})`}
-              strokeWidth={2}
+              strokeWidth={1.5}
               dot={false}
               activeDot={{ r: 4 }}
               connectNulls={false}
@@ -263,7 +258,7 @@ export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartPr
               type="monotone"
               dataKey={projectedDataKey}
               stroke={`var(${protocolConfig.colorVar})`}
-              strokeWidth={2}
+              strokeWidth={1.5}
               strokeDasharray="5 5"
               dot={false}
               connectNulls={false}

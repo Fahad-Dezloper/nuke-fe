@@ -69,7 +69,7 @@ export function Navbar({
               <motion.span
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="text-lg font-bold text-primary tracking-tight flex items-center gap-1"
+                className="font-bold text-primary tracking-tight flex items-center gap-1"
               >
                 <Image src="/logo.png" alt="logo" width={40} height={40} />
                 Nuke
