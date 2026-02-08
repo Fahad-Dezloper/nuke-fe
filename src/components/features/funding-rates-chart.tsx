@@ -5,17 +5,15 @@
  * Main chart container with tabs and controls
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
   ChartTabs,
   PnLChart,
-  CumulativePnLChart,
   FundingRateChart,
-  generatePnLData,
-  generateCumulativePnLData,
   type ChartTab,
 } from './charts';
+import type { PnLDuration } from './charts/pnl-chart';
 import { useFundingRateChart } from '@/hooks/use-funding-rate-chart';
 import { ChartSkeleton } from '@/components/ui/skeletons';
 import type { ChartTimeframe } from '@/lib/api/services/chart.service';
@@ -27,6 +25,12 @@ const TIMEFRAME_OPTIONS: { value: ChartTimeframe; label: string }[] = [
   { value: '24h', label: '1 Day' },
 ];
 
+const PNL_DURATION_OPTIONS: { value: PnLDuration; label: string }[] = [
+  { value: '1D', label: '1 Day' },
+  { value: '1W', label: '1 Week' },
+  { value: '1M', label: '1 Month' },
+];
+
 interface FundingRatesChartProps {
   className?: string;
 }
@@ -34,16 +38,20 @@ interface FundingRatesChartProps {
 export function FundingRatesChart({ className }: FundingRatesChartProps) {
   const [activeTab, setActiveTab] = useState<ChartTab>('funding');
   const [timeframe, setTimeframe] = useState<ChartTimeframe>('30m');
+  const [pnlDuration, setPnlDuration] = useState<PnLDuration>('1D');
 
-  // Use real API data for funding rate chart
+  // Funding rate chart data (uses user-selected timeframe)
   const {
     data: fundingData,
     loading: fundingLoading,
     error: fundingError,
   } = useFundingRateChart({ timeframe });
 
-  const pnlData = useMemo(() => generatePnLData('1 Hour', '1 Hour'), []);
-  const cumulativeData = useMemo(() => generateCumulativePnLData('1 Hour', '1 Hour'), []);
+  // PnL chart data — always uses 1h timeframe for hourly candles
+  const {
+    data: pnlFundingData,
+    loading: pnlLoading,
+  } = useFundingRateChart({ timeframe: '1h' });
 
   const isInitialLoad = fundingLoading && (!fundingData || fundingData.length === 0);
   if (isInitialLoad) {
@@ -59,20 +67,34 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
         className
       )}
     >
-      {/* Tabs + Timeframe Dropdown */}
+      {/* Tabs + Controls */}
       <div className="flex items-center justify-between border-b border-border-white-10 px-3 md:px-4 lg:px-5">
         <ChartTabs activeTab={activeTab} onTabChange={setActiveTab} className="border-b-0" />
 
-        {/* Timeframe Dropdown — only show for funding tab */}
+        {/* Timeframe Dropdown — for funding tab */}
         {activeTab === 'funding' && (
           <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
+        )}
+
+        {/* PnL Duration Dropdown — for PnL tab */}
+        {activeTab === 'pnl' && (
+          <DurationDropdown value={pnlDuration} onChange={setPnlDuration} />
         )}
       </div>
 
       {/* Chart Content */}
       <div className="px-3 md:px-4 lg:px-5 pb-4">
-        {activeTab === 'pnl' && <PnLChart data={pnlData} />}
-        {activeTab === 'cumulative' && <CumulativePnLChart data={cumulativeData} />}
+        {activeTab === 'pnl' && (
+          <>
+            {pnlLoading && (!pnlFundingData || pnlFundingData.length === 0) ? (
+              <div className="h-[260px] flex items-center justify-center text-text-muted-60 text-xs">
+                Loading PnL data...
+              </div>
+            ) : (
+              <PnLChart fundingData={pnlFundingData} duration={pnlDuration} />
+            )}
+          </>
+        )}
         {activeTab === 'funding' && (
           <>
             {fundingLoading && (
@@ -95,9 +117,8 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
   );
 }
 
-/**
- * Timeframe Dropdown Component
- */
+// --- Dropdown Components ---
+
 function TimeframeDropdown({
   value,
   onChange,
@@ -109,10 +130,65 @@ function TimeframeDropdown({
   const selectedLabel = TIMEFRAME_OPTIONS.find((o) => o.value === value)?.label ?? value;
 
   return (
+    <GenericDropdown
+      open={open}
+      onOpenChange={setOpen}
+      label={selectedLabel}
+      options={TIMEFRAME_OPTIONS}
+      value={value}
+      onChange={(v) => {
+        onChange(v as ChartTimeframe);
+        setOpen(false);
+      }}
+    />
+  );
+}
+
+function DurationDropdown({
+  value,
+  onChange,
+}: {
+  value: PnLDuration;
+  onChange: (d: PnLDuration) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = PNL_DURATION_OPTIONS.find((o) => o.value === value)?.label ?? value;
+
+  return (
+    <GenericDropdown
+      open={open}
+      onOpenChange={setOpen}
+      label={selectedLabel}
+      options={PNL_DURATION_OPTIONS}
+      value={value}
+      onChange={(v) => {
+        onChange(v as PnLDuration);
+        setOpen(false);
+      }}
+    />
+  );
+}
+
+function GenericDropdown<T extends string>({
+  open,
+  onOpenChange,
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  label: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => onOpenChange(!open)}
         className={cn(
           'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
           'bg-card/40 border border-border-white-10/50',
@@ -120,7 +196,7 @@ function TimeframeDropdown({
           'transition-all duration-200 select-none'
         )}
       >
-        {selectedLabel}
+        {label}
         <ChevronDown
           className={cn('h-3 w-3 transition-transform duration-200', open && 'rotate-180')}
         />
@@ -128,9 +204,7 @@ function TimeframeDropdown({
 
       {open && (
         <>
-          {/* Invisible backdrop to close dropdown */}
-          <div className="fixed inset-0 z-[100]" onClick={() => setOpen(false)} />
-
+          <div className="fixed inset-0 z-[100]" onClick={() => onOpenChange(false)} />
           <div
             className={cn(
               'absolute right-0 top-full mt-1 z-[101]',
@@ -139,14 +213,11 @@ function TimeframeDropdown({
               'shadow-xl shadow-black/40'
             )}
           >
-            {TIMEFRAME_OPTIONS.map((option) => (
+            {options.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                }}
+                onClick={() => onChange(option.value)}
                 className={cn(
                   'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors',
                   option.value === value

@@ -77,9 +77,9 @@ export function generateFundingRateData(
   return data;
 }
 
-export function generatePnLData(duration: string = '1 Week', resolution: string = '1 Hour') {
+export function generatePnLData(duration: string = '1 Week', resolution: string = '4 Hours') {
   const data = [];
-  const random = seededRandom(0.5);
+  const random = seededRandom(42);
 
   // Calculate number of data points based on duration and resolution
   const durationMap: Record<string, number> = {
@@ -92,11 +92,12 @@ export function generatePnLData(duration: string = '1 Week', resolution: string 
   const resolutionMap: Record<string, number> = {
     '1 Hour': 1,
     '4 Hours': 4,
+    '8 Hours': 8,
     '1 Day': 24,
   };
 
   const days = durationMap[duration] || 7;
-  const hoursPerPoint = resolutionMap[resolution] || 1;
+  const hoursPerPoint = resolutionMap[resolution] || 4;
   const totalHours = days * 24;
   const numPoints = Math.floor(totalHours / hoursPerPoint);
 
@@ -120,30 +121,35 @@ export function generatePnLData(duration: string = '1 Week', resolution: string 
       timeLabel = `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
 
-    // Generate values that can be positive (profit) or negative (loss)
-    let value: number;
+    // Generate realistic PnL values:
+    // ~75% positive (profit), ~25% negative (loss)
+    // Range: -$5 to +$6, biased towards $1-$3 profits
     const progress = i / numPoints;
+    const isProjected = progress > 0.9;
 
-    if (progress < 0.1) {
-      // Early period: more losses
-      value = -(random() * 2); // Negative values (losses)
-    } else if (progress > 0.95) {
-      // Projected period: high profits
-      value = random() * 5 + 1; // Positive values (profits)
+    let value: number;
+    const r = random();
+    if (r < 0.25) {
+      // Loss: -$0.50 to -$5.00
+      value = -(random() * 4.5 + 0.5);
     } else {
-      // Mid period: mix with bias towards profit
-      value = (random() - 0.2) * 4; // Can be positive or negative
+      // Profit: +$0.50 to +$5.50
+      value = random() * 5 + 0.5;
     }
 
     const isProfit = value >= 0;
-    const isProjected = progress > 0.95;
+
+    // Full timestamp for tooltip
+    const year = date.getFullYear();
+    const fullTimestamp = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}, ${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
 
     data.push({
       time: timeLabel,
-      value: Number(value.toFixed(2)), // Keep original sign
-      profit: isProfit ? value : 0,
-      loss: !isProfit ? Math.abs(value) : 0,
-      projected: isProjected ? Number((random() * 5 + 1).toFixed(2)) : null,
+      fullTimestamp,
+      value: Number(value.toFixed(2)),
+      profit: isProfit ? Number(value.toFixed(2)) : 0,
+      loss: !isProfit ? Number(Math.abs(value).toFixed(2)) : 0,
+      projected: isProjected ? Number(value.toFixed(2)) : null,
     });
   }
 
