@@ -52,12 +52,9 @@ export function WalletStatus() {
       ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
       : walletAddress;
 
-  // Format balance for display
-  const displayBalance = isBalanceLoading
-    ? '...'
-    : formattedBalance
-      ? `$${formattedBalance}`
-      : '$0.00';
+  // Balance has never been fetched yet (null initial state)
+  const hasLoaded = formattedBalance !== '0.00' || (!isBalanceLoading && formattedBalance === '0.00');
+  const showSkeleton = isBalanceLoading && !hasLoaded;
 
   return (
     <>
@@ -84,7 +81,13 @@ export function WalletStatus() {
             height={16}
             className="rounded-full"
           />
-          <span className="text-xs font-semibold text-white">{displayBalance}</span>
+          {showSkeleton ? (
+            <div className="w-12 h-3.5 rounded bg-white/10 animate-pulse" />
+          ) : (
+            <span className="text-xs font-semibold text-white tabular-nums">
+              ${formattedBalance}
+            </span>
+          )}
 
           {/* Divider */}
           <div className="w-px h-4 bg-border-white-10/50" />

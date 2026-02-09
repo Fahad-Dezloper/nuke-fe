@@ -184,12 +184,20 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
  */
 export const positionsService = {
   /**
-   * Get open positions for a user
+   * Get open positions for a user (transformed for UI)
    */
   async getOpenPositions(evmAddress: string, solanaAddress: string): Promise<ArbitragePosition[]> {
     const endpoint = API_ENDPOINTS.arbitrage.openPositions(evmAddress, solanaAddress);
     const response = await apiClient.get<PositionApiResponse[]>(endpoint);
 
     return response.map(transformPositionData);
+  },
+
+  /**
+   * Get raw open positions from API (needed for close operations)
+   */
+  async getOpenPositionsRaw(evmAddress: string, solanaAddress: string): Promise<PositionApiResponse[]> {
+    const endpoint = API_ENDPOINTS.arbitrage.openPositions(evmAddress, solanaAddress);
+    return apiClient.get<PositionApiResponse[]>(endpoint);
   },
 };

@@ -8,7 +8,7 @@ export const API_ENDPOINTS = {
   auth: {},
   arbitrage: {
     openPositions: (evmAddress: string, solanaAddress: string) =>
-      `/open-positions/${evmAddress}/${solanaAddress}`,
+      `/aggregated/open-positions/${evmAddress}/${solanaAddress}`,
   },
   market: {
     feed: '/aggregated/live/market-feed',

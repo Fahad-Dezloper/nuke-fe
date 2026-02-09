@@ -3,6 +3,7 @@ import { ErrorCode, createError, toAppError, getUserMessage } from '@/lib/errors
 import type {
   CreateMarketOrderRequest,
   CreateLimitOrderRequest,
+  CancelOrderRequest,
   CreateOrderResponse,
   PacificaApiResponse,
 } from './types';
@@ -411,6 +412,106 @@ export class PacificaService {
         success: false,
         error: getUserMessage(appError),
         message: 'Failed to create limit order',
+      };
+    }
+  }
+  /**
+   * Cancels an order on Pacifica
+   *
+   * Either `order_id` (exchange-assigned) or `client_order_id` must be provided.
+   *
+   * @param request - Cancel order request parameters
+   * @param walletAddress - Turnkey Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   * @returns Success/failure response
+   */
+  async cancelOrder(
+    request: CancelOrderRequest,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
+
+      // Validate required fields — need at least one of order_id or client_order_id
+      if (!request.symbol) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['symbol'],
+        });
+      }
+
+      if (request.order_id === undefined && !request.client_order_id) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['order_id or client_order_id'],
+        });
+      }
+
+      // Prepare operation data for signing
+      const operationData: Record<string, unknown> = {
+        symbol: request.symbol,
+      };
+
+      if (request.order_id !== undefined) {
+        operationData.order_id = request.order_id;
+      }
+      if (request.client_order_id) {
+        operationData.client_order_id = request.client_order_id;
+      }
+
+      // Sign the order request
+      const { timestamp, signature } = await this.signOrderRequest(
+        'cancel_order',
+        operationData,
+        walletAddress,
+        organizationId,
+        request.expiry_window
+      );
+
+      // Build the final request
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        ...operationData,
+      };
+
+      // Add optional header fields
+      if (request.expiry_window !== undefined) {
+        finalRequest.expiry_window = request.expiry_window;
+      }
+      if (request.agent_wallet) {
+        finalRequest.agent_wallet = request.agent_wallet;
+      }
+
+      // Submit to Pacifica API
+      const apiResponse = await this.submitToPacifica('/orders/cancel', finalRequest);
+
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_POSITION_CREATE_FAILED, {
+          error: apiResponse.error,
+          code: apiResponse.code,
+          symbol: request.symbol,
+        });
+      }
+
+      return {
+        success: true,
+        data: apiResponse,
+        message: `Order cancelled successfully for ${request.symbol}`,
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
+      console.error('Error cancelling Pacifica order:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to cancel order',
       };
     }
   }

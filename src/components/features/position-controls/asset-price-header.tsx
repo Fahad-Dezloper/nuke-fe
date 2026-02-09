@@ -24,7 +24,7 @@ export function AssetPriceHeader({ className }: AssetPriceHeaderProps) {
   const assetLogo = `https://app.hyperliquid.xyz/coins/${selectedAsset?.asset.toUpperCase()}.svg`;
   const currentPrice = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
 
-  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 2, 4);
+  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
 
   // const isPositive = priceChange >= 0;
 

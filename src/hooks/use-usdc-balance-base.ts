@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import {
   usdcBalanceBaseAtom,
@@ -16,7 +16,7 @@ import {
   fetchUSDCBalanceBaseAtom,
   fetchUSDCBalanceBaseFromTurnkeyAtom,
 } from '@/lib/stores/usdc-balance.store';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 /**
  * Hook for managing USDC balance on Base
@@ -33,7 +33,6 @@ export function useUSDCBalanceBase() {
 
   /**
    * Refresh balance using Turnkey wallet
-   * Only recreates when login state or wallet count changes
    */
   const refresh = useCallback(async () => {
     if (
@@ -43,7 +42,22 @@ export function useUSDCBalanceBase() {
     ) {
       await fetchBalanceFromTurnkey(turnkeyState.userWallets);
     }
-  }, [turnkeyState.isLoggedIn, turnkeyState.userWallets?.length, fetchBalanceFromTurnkey]);
+  }, [turnkeyState.userWallets, turnkeyState.isLoggedIn, fetchBalanceFromTurnkey]);
+
+  /**
+   * Auto-fetch balance on login / wallet change.
+   * The store already deduplicates within MIN_FETCH_INTERVAL_MS,
+   * so it's safe for multiple components to mount this hook.
+   */
+  useEffect(() => {
+    if (
+      turnkeyState.isLoggedIn &&
+      turnkeyState.userWallets &&
+      turnkeyState.userWallets.length > 0
+    ) {
+      fetchBalanceFromTurnkey(turnkeyState.userWallets);
+    }
+  }, [turnkeyState.isLoggedIn, turnkeyState.userWallets, fetchBalanceFromTurnkey]);
 
   /**
    * Refresh balance using specific wallet address

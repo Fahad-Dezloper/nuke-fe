@@ -153,9 +153,9 @@ export function DepositModal({
               </div>
               <div className="flex items-baseline gap-1.5">
                 {isLoadingBalance ? (
-                  <span className="text-xl font-semibold text-text-muted-60">...</span>
+                  <div className="w-20 h-6 rounded bg-white/10 animate-pulse" />
                 ) : (
-                  <span className="text-xl font-semibold text-text-primary">{Number(balance).toFixed(3)}</span>
+                  <span className="text-xl font-semibold text-text-primary tabular-nums">{Number(balance).toFixed(3)}</span>
                 )}
                 <span className="text-sm text-text-muted-60 font-medium">USDC</span>
               </div>
