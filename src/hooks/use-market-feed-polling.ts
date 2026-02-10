@@ -1,10 +1,21 @@
 /**
  * Market Feed Polling Hook
- * Polls the market feed API every 3 seconds and updates global store
+ *
+ * Uses React Query with refetchInterval for automatic polling.
+ * Syncs data into Jotai atoms for global consumption.
+ *
+ * React Query handles:
+ * - Request deduplication (multiple components can mount this safely)
+ * - Automatic cancellation on unmount
+ * - Stale data management
+ * - Error retry
  */
 
-import { useEffect, useRef } from 'react';
+'use client';
+
+import { useEffect } from 'react';
 import { useSetAtom } from 'jotai';
+import { useQuery } from '@tanstack/react-query';
 import {
   marketFeedDataAtom,
   marketFeedLoadingAtom,
@@ -12,63 +23,46 @@ import {
   marketFeedLastUpdatedAtom,
 } from '@/lib/stores/market-feed.store';
 import { marketFeedService } from '@/lib/api/services/market-feed.service';
+import { queryKeys } from '@/lib/query-keys';
 
 const POLLING_INTERVAL = 3000; // 3 seconds
 
 /**
- * Hook to start polling market feed data
- * Polls every 3 seconds and updates the global Jotai store
+ * Hook to start polling market feed data.
+ * Polls every 3 seconds and syncs with the global Jotai store.
  */
 export function useMarketFeedPolling() {
   const setMarketFeedData = useSetAtom(marketFeedDataAtom);
   const setLoading = useSetAtom(marketFeedLoadingAtom);
   const setError = useSetAtom(marketFeedErrorAtom);
   const setLastUpdated = useSetAtom(marketFeedLastUpdatedAtom);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isPollingRef = useRef(false);
 
-  const fetchMarketFeed = async () => {
-    // Prevent concurrent requests
-    if (isPollingRef.current) {
-      return;
-    }
+  const query = useQuery({
+    queryKey: queryKeys.marketFeed.live,
+    queryFn: () => marketFeedService.getMarketFeed(),
+    refetchInterval: POLLING_INTERVAL,
+    // Keep staleTime short — we're polling for real-time data
+    staleTime: POLLING_INTERVAL - 500,
+  });
 
-    try {
-      isPollingRef.current = true;
-      setLoading(true);
-      setError(null);
-
-      const data = await marketFeedService.getMarketFeed();
-      setMarketFeedData(data);
+  // Sync React Query state → Jotai atoms (for components that read from atoms)
+  useEffect(() => {
+    if (query.data) {
+      setMarketFeedData(query.data);
       setLastUpdated(Date.now());
-    } catch (error) {
-      console.error('Error polling market feed:', error);
-      setError(error instanceof Error ? error : new Error('Unknown error'));
-    } finally {
-      setLoading(false);
-      isPollingRef.current = false;
     }
-  };
+  }, [query.data, setMarketFeedData, setLastUpdated]);
 
   useEffect(() => {
-    // Initial fetch
-    fetchMarketFeed();
+    // Only set loading on initial load, not on background refetches
+    setLoading(query.isLoading);
+  }, [query.isLoading, setLoading]);
 
-    // Set up polling interval
-    intervalRef.current = setInterval(() => {
-      fetchMarketFeed();
-    }, POLLING_INTERVAL);
-
-    // Cleanup on unmount
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, []); // Empty deps - only run once on mount
+  useEffect(() => {
+    setError(query.error ?? null);
+  }, [query.error, setError]);
 
   return {
-    refetch: fetchMarketFeed,
+    refetch: query.refetch,
   };
 }

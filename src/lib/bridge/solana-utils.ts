@@ -5,8 +5,13 @@
 
 import { TOKEN_ADDRESSES } from './types';
 
-// Solana RPC endpoint (mainnet-beta)
-const SOLANA_RPC_URL = 'https://mainnet.helius-rpc.com/?api-key=b7a81467-1e98-48aa-b4d4-2e830ca334b9';
+// Solana RPC endpoint (mainnet-beta) — loaded from env to avoid leaking API keys
+const SOLANA_RPC_URL =
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+  (() => {
+    console.error('[solana-utils] NEXT_PUBLIC_SOLANA_RPC_URL is not set');
+    return 'https://api.mainnet-beta.solana.com'; // public fallback (rate-limited)
+  })();
 
 /**
  * Get USDC balance on Solana for a given wallet address

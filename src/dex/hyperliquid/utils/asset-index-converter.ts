@@ -135,7 +135,7 @@ export async function atSymbolToTicker(atSymbol: string) {
 
 export async function assetToTicker(asset: string | number): Promise<string> {
   if (typeof asset === 'string' && asset.startsWith('@')) {
-    const ticker = atSymbolToTicker(asset);
+    const ticker = await atSymbolToTicker(asset);
     if (ticker) return ticker;
   }
 

@@ -1,4 +1,4 @@
-export const SESSION_EXPIRATION_SECONDS = 3600 * 24 * 10; // 10 days
+export const SESSION_EXPIRATION_SECONDS = 3600 * 24; // 24 hours (was 10 days — too long for a financial app)
 
 export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 

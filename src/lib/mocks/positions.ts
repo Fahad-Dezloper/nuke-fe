@@ -56,14 +56,14 @@ export const mockPositionDetailsCards: PositionDetailsCard[] = [
   {
     label: 'LONG',
     platform: 'HYPERLIQUID',
-    gradientColor: 'hyperliquid',
+    gradientColor: 'long',
     margin: '$0.00',
     size: '-',
   },
   {
     label: 'SHORT',
     platform: 'PACIFICA',
-    gradientColor: 'pacifica',
+    gradientColor: 'short',
     margin: '$0.00',
     size: '-',
   },

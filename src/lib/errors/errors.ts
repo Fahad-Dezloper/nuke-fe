@@ -546,7 +546,7 @@ export function createError(
   return new AppError(
     {
       ...definition,
-      context: context ? { ...definition.context, ...context } : undefined,
+      context: context ?? undefined,
     },
     originalError
   );
@@ -571,7 +571,7 @@ export function createErrorWithMessage(
     {
       ...definition,
       message: customMessage,
-      context: context ? { ...definition.context, ...context } : undefined,
+      context: context ?? undefined,
     },
     originalError
   );

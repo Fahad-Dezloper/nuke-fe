@@ -10,15 +10,15 @@ import type { AssetDropdownItem } from '@/types/positions';
  * Based on the funding rate arbitrage table data
  * Updated to use Pacifica instead of Lighter
  */
-export const mockAssets: AssetDropdownItem[] = [
+export const mockAssets: Partial<AssetDropdownItem>[] = [
   {
     asset: 'BTC',
     assetLogo: '/tokens/eth.png', // Using ETH as placeholder, update with actual BTC logo
     maxLeverage: 25,
     hyperliquidFundingRate: 10.92,
     pacificaFundingRate: 11.39,
-    netAPY: 0.47,
-    apy30D: 0.47,
+    netAPR: 0.47,
+    apr30D: 0.47,
   },
   {
     asset: 'ETH',
@@ -26,8 +26,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 20,
     hyperliquidFundingRate: 9.2,
     pacificaFundingRate: 9.8,
-    netAPY: 0.6,
-    apy30D: 4.5,
+    netAPR: 0.6,
+    apr30D: 4.5,
   },
   {
     asset: 'SOL',
@@ -35,8 +35,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 20,
     hyperliquidFundingRate: 8.5,
     pacificaFundingRate: 9.2,
-    netAPY: 0.7,
-    apy30D: 5.1,
+    netAPR: 0.7,
+    apr30D: 5.1,
   },
   {
     asset: 'GOAT',
@@ -44,8 +44,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 5,
     hyperliquidFundingRate: -203.7,
     pacificaFundingRate: 11.4,
-    netAPY: 215.1,
-    apy30D: 10.4,
+    netAPR: 215.1,
+    apr30D: 10.4,
   },
   {
     asset: 'IP',
@@ -53,8 +53,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 5,
     hyperliquidFundingRate: -448.2,
     pacificaFundingRate: -269.8,
-    netAPY: 178.4,
-    apy30D: 29.7,
+    netAPR: 178.4,
+    apr30D: 29.7,
   },
   {
     asset: 'LIT',
@@ -62,8 +62,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 5,
     hyperliquidFundingRate: 109.2,
     pacificaFundingRate: 11.4,
-    netAPY: 97.8,
-    apy30D: 42.9,
+    netAPR: 97.8,
+    apr30D: 42.9,
   },
   {
     asset: 'STRK',
@@ -71,8 +71,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 10,
     hyperliquidFundingRate: 15.3,
     pacificaFundingRate: 12.8,
-    netAPY: 2.5,
-    apy30D: 8.2,
+    netAPR: 2.5,
+    apr30D: 8.2,
   },
   {
     asset: 'TRX',
@@ -80,8 +80,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 20,
     hyperliquidFundingRate: 8.5,
     pacificaFundingRate: 9.2,
-    netAPY: 0.7,
-    apy30D: 5.1,
+    netAPR: 0.7,
+    apr30D: 5.1,
   },
   {
     asset: 'ENA',
@@ -89,8 +89,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 10,
     hyperliquidFundingRate: 12.4,
     pacificaFundingRate: 11.9,
-    netAPY: 0.5,
-    apy30D: 6.3,
+    netAPR: 0.5,
+    apr30D: 6.3,
   },
   {
     asset: 'TIA',
@@ -98,8 +98,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 10,
     hyperliquidFundingRate: 14.2,
     pacificaFundingRate: 13.5,
-    netAPY: 0.7,
-    apy30D: 7.8,
+    netAPR: 0.7,
+    apr30D: 7.8,
   },
   {
     asset: 'ZEC',
@@ -107,8 +107,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 10,
     hyperliquidFundingRate: 9.8,
     pacificaFundingRate: 10.1,
-    netAPY: 0.3,
-    apy30D: 4.2,
+    netAPR: 0.3,
+    apr30D: 4.2,
   },
   {
     asset: 'TRUMP',
@@ -116,8 +116,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 5,
     hyperliquidFundingRate: 18.5,
     pacificaFundingRate: 17.2,
-    netAPY: 1.3,
-    apy30D: 12.4,
+    netAPR: 1.3,
+    apr30D: 12.4,
   },
   {
     asset: 'GRASS',
@@ -125,8 +125,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 5,
     hyperliquidFundingRate: 11.2,
     pacificaFundingRate: 10.8,
-    netAPY: 0.4,
-    apy30D: 5.6,
+    netAPR: 0.4,
+    apr30D: 5.6,
   },
   {
     asset: 'BNB',
@@ -134,8 +134,8 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 25,
     hyperliquidFundingRate: 7.5,
     pacificaFundingRate: 8.1,
-    netAPY: 0.6,
-    apy30D: 3.9,
+    netAPR: 0.6,
+    apr30D: 3.9,
   },
   {
     asset: 'HYPE-PERP',
@@ -143,7 +143,7 @@ export const mockAssets: AssetDropdownItem[] = [
     maxLeverage: 5,
     hyperliquidFundingRate: 10.95,
     pacificaFundingRate: 11.39,
-    netAPY: 0.44,
-    apy30D: 8.5,
+    netAPR: 0.44,
+    apr30D: 8.5,
   },
 ];

@@ -8,6 +8,25 @@ import { cn } from '@/lib/utils';
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: '', dark: '.dark' } as const;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PayloadItem = Record<string, any>;
+
+/**
+ * Recharts v3 changed its prop types; `payload`, `label`, and `active`
+ * are injected at runtime by the `<Tooltip content={…} />` wrapper but
+ * are no longer present in `ComponentProps<typeof Tooltip>`.
+ * We declare them explicitly so the content components type-check cleanly.
+ */
+interface TooltipContentPassthroughProps {
+  active?: boolean;
+  payload?: PayloadItem[];
+  label?: string;
+  labelFormatter?: (label: string, payload: PayloadItem[]) => React.ReactNode;
+  labelClassName?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  formatter?: (value: any, name: any, item: any, index: any, payload: any) => React.ReactNode;
+}
+
 export type ChartConfig = {
   [k in string]: {
     label?: React.ReactNode;
@@ -68,7 +87,7 @@ const ChartTooltip = RechartsPrimitive.Tooltip;
 
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
+  TooltipContentPassthroughProps &
     React.ComponentProps<'div'> & {
       hideLabel?: boolean;
       hideIndicator?: boolean;
@@ -112,7 +131,7 @@ const ChartTooltipContent = React.forwardRef<
 
       if (labelFormatter) {
         return (
-          <div className={cn('font-medium', labelClassName)}>{labelFormatter(value, payload)}</div>
+          <div className={cn('font-medium', labelClassName)}>{labelFormatter(value as string, payload!)}</div>
         );
       }
 
@@ -216,6 +235,7 @@ const ChartLegendContent = React.forwardRef<
     Omit<RechartsPrimitive.LegendProps, 'content'> & {
       hideIcon?: boolean;
       nameKey?: string;
+      payload?: PayloadItem[];
     }
 >(({ className, hideIcon = false, payload, verticalAlign = 'bottom', nameKey, ...props }, ref) => {
   const { config } = useChart();
