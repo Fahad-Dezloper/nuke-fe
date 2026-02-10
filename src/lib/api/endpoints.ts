@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
   },
   market: {
     feed: '/aggregated/live/market-feed',
+    averageApr: '/aggregated/average/apr',
     chart: (assetName: string, timeframe: '30m' | '1h' | '24h' = '30m') =>
       `/aggregated/chart/${assetName}?timeframe=${timeframe}`,
   },

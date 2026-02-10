@@ -8,6 +8,7 @@
 import { cn } from '@/lib/utils';
 import type { AssetDropdownItem } from '@/types/positions';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useBestPair } from '@/hooks/use-best-pair';
 
 interface BestPairTooltipProps {
   asset: AssetDropdownItem;
@@ -15,17 +16,19 @@ interface BestPairTooltipProps {
   position?: { x: number; y: number };
 }
 
+const PROTOCOL_LABELS: Record<string, string> = {
+  hyperliquid: 'HyperLiquid',
+  pacifica: 'Pacifica',
+};
+
 export function BestPairTooltip({ asset, isVisible, position }: BestPairTooltipProps) {
+  const { getBestPairForAsset } = useBestPair();
+
   if (!isVisible) return null;
 
-  // Determine best pair based on funding rates
-  // Long on lower funding rate, Short on higher funding rate
-  const hyperliquidRate = asset.hyperliquidFundingRate;
-  const pacificaRate = asset.pacificaFundingRate;
-  const isHyperliquidLower = hyperliquidRate < pacificaRate;
-
-  const longProtocol = isHyperliquidLower ? 'HyperLiquid' : 'Pacifica';
-  const shortProtocol = isHyperliquidLower ? 'Pacifica' : 'HyperLiquid';
+  const bestPair = getBestPairForAsset(asset);
+  const longProtocol = PROTOCOL_LABELS[bestPair.long] ?? bestPair.long;
+  const shortProtocol = PROTOCOL_LABELS[bestPair.short] ?? bestPair.short;
 
   return (
     <div

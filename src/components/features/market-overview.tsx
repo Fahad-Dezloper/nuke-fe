@@ -14,6 +14,7 @@ import { MetricItem } from '@/components/ui/metric-item';
 import { AssetDropdown } from '@/components/ui/asset-dropdown';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 import { selectedAssetAtom, marketFeedDataAtom } from '@/lib/stores/market-feed.store';
+import { useBestPair } from '@/hooks/use-best-pair';
 import { MarketOverviewSkeleton } from '@/components/ui/skeletons';
 import type { AssetDropdownItem } from '@/types/positions';
 
@@ -25,6 +26,7 @@ interface MarketOverviewProps {
 export function MarketOverview({ className, onAssetChange }: MarketOverviewProps) {
   const selectedAsset = useAtomValue(selectedAssetAtom);
   const marketFeedData = useAtomValue(marketFeedDataAtom);
+  const { getBestPairForAsset } = useBestPair();
 
   if (marketFeedData.length === 0) {
     return <MarketOverviewSkeleton className={className} />;
@@ -33,14 +35,14 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
   // Get price from selected asset (use hyperliquid mark price as primary)
   const currentPrice = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
 
-  // Get funding rates from protocols (modular approach)
-  const hyperliquidData = selectedAsset?.protocols?.hyperliquid;
-  const pacificaData = selectedAsset?.protocols?.pacifica;
+  // Get funding rates based on best pair direction
+  const bestPair = getBestPairForAsset(selectedAsset);
+  const longProtocolData = selectedAsset?.protocols?.[bestPair.long];
+  const shortProtocolData = selectedAsset?.protocols?.[bestPair.short];
 
-  const longFundingRate =
-    hyperliquidData?.fundingRateYearly || selectedAsset?.hyperliquidFundingRate || 0;
-  const shortFundingRate =
-    pacificaData?.fundingRateYearly || selectedAsset?.pacificaFundingRate || 0;
+  const longFundingRate = longProtocolData?.fundingRateYearly || 0;
+  const shortFundingRate = shortProtocolData?.fundingRateYearly || 0;
+
   // Net APR is always positive (higher rate - lower rate)
   const estimatedAPR = selectedAsset?.netAPR || 0;
 

@@ -17,6 +17,7 @@ import {
   selectedAssetAtom,
   selectedAssetSymbolAtom,
 } from '@/lib/stores/market-feed.store';
+import { useBestPair } from '@/hooks/use-best-pair';
 import { useAssetQueryParam } from '@/lib/hooks/use-asset-query-param';
 import { BestPairTooltip } from './best-pair-tooltip';
 import Image from 'next/image';
@@ -39,6 +40,7 @@ export function AssetDropdown({
   const globalSelectedAsset = useAtomValue(selectedAssetAtom);
   const setSelectedAsset = useSetAtom(selectedAssetAtom);
   const selectedSymbol = useAtomValue(selectedAssetSymbolAtom);
+  const { getBestPairForAsset, spreadAprData } = useBestPair();
 
   // URL query param sync
   const { updateUrlWithAsset } = useAssetQueryParam();
@@ -170,25 +172,6 @@ export function AssetDropdown({
     );
   };
 
-  // Determine best pair for an asset
-  // Logic: Long on lower funding rate, Short on higher funding rate
-  const getBestPair = (asset: AssetDropdownItem) => {
-    const hyperliquidRate = asset.hyperliquidFundingRate;
-    const pacificaRate = asset.pacificaFundingRate;
-
-    // Long on the platform with lower funding rate
-    // Short on the platform with higher funding rate
-    const longProtocol =
-      hyperliquidRate < pacificaRate ? ('hyperliquid' as const) : ('pacifica' as const);
-    const shortProtocol =
-      hyperliquidRate < pacificaRate ? ('pacifica' as const) : ('hyperliquid' as const);
-
-    return {
-      long: longProtocol,
-      short: shortProtocol,
-    };
-  };
-
   return (
     <div ref={dropdownRef} className={cn('relative z-[10000]', className)}>
       {/* Trigger Button */}
@@ -311,7 +294,7 @@ export function AssetDropdown({
                 NET APR
               </span>
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
-                30D APR
+                7D APR
               </span>
             </div>
           </div>
@@ -328,8 +311,8 @@ export function AssetDropdown({
                   const isSelected = selectedAsset?.asset === asset.asset;
                   const hyperliquidPositive = asset.hyperliquidFundingRate >= 0;
                   const pacificaPositive = asset.pacificaFundingRate >= 0;
-                  // Net APR and 30D APR are always positive (higher rate - lower rate)
-                  const bestPair = getBestPair(asset);
+                  const bestPair = getBestPairForAsset(asset);
+                  const assetSpreadApr = spreadAprData[asset.asset];
 
                   return (
                     <div key={asset.asset} className="relative">
@@ -432,9 +415,11 @@ export function AssetDropdown({
                           {formatPercentWithSign(asset.netAPR)}
                         </span>
 
-                        {/* 30D APR */}
+                        {/* 7D APR */}
                         <span className="text-sm  tabular-nums text-green-400">
-                          {formatPercentWithSign(asset.apr30D)}
+                          {assetSpreadApr
+                            ? formatPercentWithSign(assetSpreadApr.sevenDayApr)
+                            : '—'}
                         </span>
                       </button>
                     </div>

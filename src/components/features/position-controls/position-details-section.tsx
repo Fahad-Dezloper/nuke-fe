@@ -16,6 +16,7 @@ import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { marginAtom, leverageAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
+import { useBestPair } from '@/hooks/use-best-pair';
 import { formatPrice } from '@/lib/utils';
 
 interface PositionDetailsSectionProps {
@@ -26,6 +27,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const { getBestPairForAsset } = useBestPair();
   const { state: turnkeyState } = useTurnkey();
   const [isBridging, setIsBridging] = useState(false);
   const [selectedProtocol, setSelectedProtocol] = useState<'hyperliquid' | 'pacifica'>(
@@ -73,18 +75,9 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
       return formatPrice(amount, 'USD', 'en-US', 2, 2);
     }
 
-    function getBestPair() {
-      if (!selectedAsset) return { long: 'HYPERLIQUID', short: 'PACIFICA' };
-      const hyperliquidRate = selectedAsset.hyperliquidFundingRate ?? 0;
-      const pacificaRate = selectedAsset.pacificaFundingRate ?? 0;
-      const isHyperliquidLower = hyperliquidRate < pacificaRate;
-      return {
-        long: isHyperliquidLower ? 'HYPERLIQUID' : 'PACIFICA',
-        short: isHyperliquidLower ? 'PACIFICA' : 'HYPERLIQUID',
-      };
-    }
-
-    const { long: longProtocolName, short: shortProtocolName } = getBestPair();
+    const bestPair = getBestPairForAsset(selectedAsset);
+    const longProtocolName = bestPair.long.toUpperCase();
+    const shortProtocolName = bestPair.short.toUpperCase();
 
     return [
       {
@@ -102,7 +95,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
         size: calculateSize(halfMargin),
       },
     ];
-  }, [margin, leverage, price, selectedAsset]);
+  }, [margin, leverage, price, selectedAsset, getBestPairForAsset]);
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>

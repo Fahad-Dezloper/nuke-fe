@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { TradeDetailRow } from '@/components/ui/trade-detail-row';
 import { marginAtom, leverageAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
+import { useBestPair } from '@/hooks/use-best-pair';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 
 interface TradeDetailsSectionProps {
@@ -24,6 +25,7 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const { getBestPairForAsset } = useBestPair();
 
   // Calculate trade details from selected asset, margin, and leverage
   const tradeDetails = useMemo(() => {
@@ -31,20 +33,7 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
     const price = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
 
     // Determine best pair
-    const getBestPair = () => {
-      if (!selectedAsset) {
-        return { long: 'hyperliquid', short: 'pacifica' };
-      }
-      const hyperliquidRate = selectedAsset.hyperliquidFundingRate;
-      const pacificaRate = selectedAsset.pacificaFundingRate;
-      const isHyperliquidLower = hyperliquidRate < pacificaRate;
-      return {
-        long: isHyperliquidLower ? 'hyperliquid' : 'pacifica',
-        short: isHyperliquidLower ? 'pacifica' : 'hyperliquid',
-      };
-    };
-
-    const bestPair = getBestPair();
+    const bestPair = getBestPairForAsset(selectedAsset);
     const longProtocol = selectedAsset?.protocols?.[bestPair.long];
     const shortProtocol = selectedAsset?.protocols?.[bestPair.short];
 
@@ -87,7 +76,7 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
       estimatedAPR: formatPercentWithSign(estimatedAPR),
       maxDrawdown: formatPercentWithSign(100 / leverage), // Simplified: 100% / leverage
     };
-  }, [margin, leverage, selectedAsset]);
+  }, [margin, leverage, selectedAsset, getBestPairForAsset]);
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
