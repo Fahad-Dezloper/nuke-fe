@@ -8,6 +8,7 @@
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, TooltipProps } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartLegend, type ChartConfig } from '@/components/ui/chart';
+import { cn } from '@/lib/utils';
 import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
 import type { ChartTimeframe } from '@/lib/api/services/chart.service';
 import { getProtocolConfig, getAllProtocolIds } from '@/lib/protocols/config';
@@ -126,10 +127,17 @@ function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
             </span>
           </div>
         ))}
-        {hasBothData && data.netRate > 0 && (
+        {hasBothData && (
           <div className="flex items-center gap-2 pt-1 border-t border-border-white-10">
             <span className="text-text-muted-60">Net:</span>
-            <span className="font-medium text-yellow-400">{formatPercent(data.netRate)}</span>
+            <span
+              className={cn(
+                'font-medium',
+                data.netRate >= 0 ? 'text-green-400' : 'text-red-400'
+              )}
+            >
+              {formatPercent(data.netRate)}
+            </span>
           </div>
         )}
       </div>

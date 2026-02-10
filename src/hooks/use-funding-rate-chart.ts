@@ -5,6 +5,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
+import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
+import { getBestPair } from '@/hooks/use-best-pair';
 import {
   chartService,
   type ChartApiResponse,
@@ -105,6 +107,7 @@ interface UseFundingRateChartOptions {
 export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
   const { timeframe = '30m' } = options;
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const spreadAprData = useAtomValue(spreadAprDataAtom);
   const [chartData, setChartData] = useState<ChartApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -150,6 +153,11 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
 
     const { hyperliquid, pacifica } = chartData;
 
+    // ── Determine consistent long/short from best-pair (single source of truth) ──
+    const bestPair = getBestPair(selectedAsset, spreadAprData);
+    const consistentLong = bestPair.long; // e.g. 'pacifica'
+    const consistentShort = bestPair.short; // e.g. 'hyperliquid'
+
     // Create maps with normalized timestamps
     const hyperliquidMap = new Map<string, (typeof hyperliquid)[0]>();
     hyperliquid.forEach((item) => {
@@ -191,27 +199,12 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
       const hlYearly = hlData ? hourlyToYearlyPercentage(hlData.rate) : null;
       const pacYearly = pacData ? hourlyToYearlyPercentage(pacData.rate) : null;
 
-      // Determine LONG and SHORT based on funding rates
-      let longProtocol: 'hyperliquid' | 'pacifica' = 'hyperliquid';
-      let shortProtocol: 'hyperliquid' | 'pacifica' = 'pacifica';
-      let longRate = 0;
-      let shortRate = 0;
-      let netRate = 0;
-
-      if (hlYearly !== null && pacYearly !== null) {
-        const isHyperliquidLower = hlYearly < pacYearly;
-        longProtocol = isHyperliquidLower ? 'hyperliquid' : 'pacifica';
-        shortProtocol = isHyperliquidLower ? 'pacifica' : 'hyperliquid';
-        longRate = isHyperliquidLower ? hlYearly : pacYearly;
-        shortRate = isHyperliquidLower ? pacYearly : hlYearly;
-        netRate = shortRate - longRate;
-      } else {
-        longProtocol = 'hyperliquid';
-        shortProtocol = 'pacifica';
-        longRate = hlYearly ?? 0;
-        shortRate = pacYearly ?? 0;
-        netRate = Math.abs((hlYearly ?? 0) - (pacYearly ?? 0));
-      }
+      // Use the consistent best-pair assignment for ALL data points
+      const longRate =
+        consistentLong === 'hyperliquid' ? (hlYearly ?? 0) : (pacYearly ?? 0);
+      const shortRate =
+        consistentShort === 'hyperliquid' ? (hlYearly ?? 0) : (pacYearly ?? 0);
+      const netRate = shortRate - longRate;
 
       const isProjected = index >= projectionThreshold;
 
@@ -225,14 +218,14 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
         pacificaRaw: pacData?.rate || 0,
         projectedHyperliquid: isProjected && hlData ? (hlYearly ?? null) : null,
         projectedPacifica: isProjected && pacData ? (pacYearly ?? null) : null,
-        longProtocol,
-        shortProtocol,
+        longProtocol: consistentLong,
+        shortProtocol: consistentShort,
         longRate,
         shortRate,
         netRate,
       };
     });
-  }, [chartData, timeframe]);
+  }, [chartData, timeframe, selectedAsset, spreadAprData]);
 
   return {
     data: transformedData,
