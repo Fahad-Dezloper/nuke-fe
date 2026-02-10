@@ -4,11 +4,20 @@
  * Asset Dropdown Component
  * Professional dropdown component for selecting assets with search functionality
  * Displays asset image, name, max leverage, funding rates, and APR data
+ *
+ * Supports column sorting on Price, Net APR, and 7D APR.
  */
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { ChevronDown, Search, ArrowUp, ArrowDown, ArrowUpRight } from 'lucide-react';
+import {
+  ChevronDown,
+  Search,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpRight,
+  ChevronsUpDown,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPercentWithSign, formatPrice } from '@/lib/utils';
 import type { AssetDropdownItem } from '@/types/positions';
@@ -20,7 +29,127 @@ import {
 import { useBestPair } from '@/hooks/use-best-pair';
 import { useAssetQueryParam } from '@/lib/hooks/use-asset-query-param';
 import { BestPairTooltip } from './best-pair-tooltip';
+import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 import Image from 'next/image';
+
+// ─── Sorting Types & Helpers ──────────────────────────────────────────────────
+
+/** Columns that support sorting */
+type SortColumn = 'price' | 'netApr' | '7dApr';
+
+type SortDirection = 'asc' | 'desc';
+
+interface SortConfig {
+  column: SortColumn | null;
+  direction: SortDirection;
+}
+
+/** Default sort: 7D APR descending (highest first) */
+const DEFAULT_SORT: SortConfig = { column: '7dApr', direction: 'desc' };
+
+/**
+ * Extract the numeric value for a given sort column from an asset.
+ * Returns 0 for missing / unparseable values so they sort to the bottom.
+ */
+function getSortValue(
+  asset: AssetDropdownItem,
+  column: SortColumn,
+  spreadAprData: SpreadAprMap
+): number {
+  switch (column) {
+    case 'price':
+      return asset.markPx || asset.hyperliquidMarkPx || 0;
+    case 'netApr':
+      return asset.netAPR || 0;
+    case '7dApr':
+      return spreadAprData[asset.asset]?.sevenDayApr ?? -Infinity;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Compare two assets based on a SortConfig.
+ * Falls back to alphabetical asset name when values are equal.
+ */
+function compareAssets(
+  a: AssetDropdownItem,
+  b: AssetDropdownItem,
+  sort: SortConfig,
+  spreadAprData: SpreadAprMap
+): number {
+  if (!sort.column) return 0;
+
+  const valA = getSortValue(a, sort.column, spreadAprData);
+  const valB = getSortValue(b, sort.column, spreadAprData);
+
+  const diff = sort.direction === 'desc' ? valB - valA : valA - valB;
+
+  // Stable sort: tie-break by asset name
+  if (diff === 0) return a.asset.localeCompare(b.asset);
+  return diff;
+}
+
+/**
+ * Advance sort state when a column header is clicked.
+ *
+ * - Clicking a NEW column → sort that column descending
+ * - Clicking the SAME column → toggle direction (desc → asc → reset to default)
+ */
+function nextSortState(current: SortConfig, column: SortColumn): SortConfig {
+  if (current.column !== column) {
+    return { column, direction: 'desc' };
+  }
+  if (current.direction === 'desc') {
+    return { column, direction: 'asc' };
+  }
+  // asc → reset to default sort
+  return DEFAULT_SORT;
+}
+
+// ─── Sortable Header Sub-Component ───────────────────────────────────────────
+
+interface SortableHeaderProps {
+  label: string;
+  column: SortColumn;
+  sort: SortConfig;
+  onSort: (column: SortColumn) => void;
+}
+
+/**
+ * A clickable table header cell with a sort indicator icon.
+ */
+function SortableHeader({ label, column, sort, onSort }: SortableHeaderProps) {
+  const isActive = sort.column === column;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onSort(column);
+      }}
+      className={cn(
+        'flex items-center gap-1 text-[11px] uppercase tracking-wider font-semibold transition-colors',
+        'hover:text-text-primary cursor-pointer select-none',
+        isActive ? 'text-white' : 'text-text-muted-60'
+      )}
+    >
+      {label}
+      <span className="inline-flex shrink-0">
+        {isActive ? (
+          sort.direction === 'desc' ? (
+            <ArrowDown className="h-3 w-3" />
+          ) : (
+            <ArrowUp className="h-3 w-3" />
+          )
+        ) : (
+          <ChevronsUpDown className="h-3 w-3 opacity-40" />
+        )}
+      </span>
+    </button>
+  );
+}
 
 export interface AssetDropdownProps {
   selectedAsset?: AssetDropdownItem;
@@ -50,12 +179,18 @@ export function AssetDropdown({
 
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sort, setSort] = useState<SortConfig>(DEFAULT_SORT);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [hoveredAsset, setHoveredAsset] = useState<AssetDropdownItem | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Sort and filter assets
+  /** Handler for clicking a sortable column header */
+  const handleSort = useCallback((column: SortColumn) => {
+    setSort((prev) => nextSortState(prev, column));
+  }, []);
+
+  // Filter and sort assets
   const sortedAndFilteredAssets = useMemo(() => {
     let filtered = assets;
 
@@ -68,13 +203,9 @@ export function AssetDropdown({
       );
     }
 
-    // Sort by mark price (descending - highest first)
-    return [...filtered].sort((a, b) => {
-      const priceA = a.markPx || a.hyperliquidMarkPx || 0;
-      const priceB = b.markPx || b.hyperliquidMarkPx || 0;
-      return priceB - priceA;
-    });
-  }, [assets, searchQuery]);
+    // Apply sort
+    return [...filtered].sort((a, b) => compareAssets(a, b, sort, spreadAprData));
+  }, [assets, searchQuery, sort, spreadAprData]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -279,23 +410,29 @@ export function AssetDropdown({
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
                 BEST PAIR
               </span>
-              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
-                PRICE
-              </span>
+              <SortableHeader label="PRICE" column="price" sort={sort} onSort={handleSort} />
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold flex items-center gap-2">
-                <Image src="/tokens/hype.png" alt="Hyperliquid" width={20} height={20} className="rounded shrink-0" />
+                <Image
+                  src="/tokens/hype.png"
+                  alt="Hyperliquid"
+                  width={20}
+                  height={20}
+                  className="rounded shrink-0"
+                />
                 HYPERLIQUID
               </span>
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold flex items-center gap-2">
-              <Image src="/tokens/pacifica.jpg" alt="Pacifica" width={20} height={20} className="rounded shrink-0" />
+                <Image
+                  src="/tokens/pacifica.jpg"
+                  alt="Pacifica"
+                  width={20}
+                  height={20}
+                  className="rounded shrink-0"
+                />
                 PACIFICA
               </span>
-              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
-                NET APR
-              </span>
-              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
-                7D APR
-              </span>
+              <SortableHeader label="NET APR" column="netApr" sort={sort} onSort={handleSort} />
+              <SortableHeader label="7D APR" column="7dApr" sort={sort} onSort={handleSort} />
             </div>
           </div>
 
@@ -417,9 +554,7 @@ export function AssetDropdown({
 
                         {/* 7D APR */}
                         <span className="text-sm  tabular-nums text-green-400">
-                          {assetSpreadApr
-                            ? formatPercentWithSign(assetSpreadApr.sevenDayApr)
-                            : '—'}
+                          {assetSpreadApr ? formatPercentWithSign(assetSpreadApr.sevenDayApr) : '—'}
                         </span>
                       </button>
                     </div>
