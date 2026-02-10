@@ -13,8 +13,8 @@
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export type {
-  Protocol,
-  Chain,
+  Exchange,
+  ExchangeName,
   HedgeIntentStatus,
   HedgeLegStatus,
   HedgeAction,

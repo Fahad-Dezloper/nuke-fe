@@ -23,6 +23,8 @@ import type {
   HedgeIntent,
 } from './types';
 
+// Note: Backend expects trailing slash on create endpoint
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const hedgeIntentApi = {
@@ -35,7 +37,7 @@ export const hedgeIntentApi = {
    */
   async create(request: CreateHedgeIntentRequest): Promise<string> {
     const response = await apiClient.post<CreateHedgeIntentResponse>(
-      '/hedge-intents',
+      '/hedge-intents/',
       request
     );
     return response.hedge_intent_id;

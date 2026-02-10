@@ -18,11 +18,14 @@ import { PacificaAdapter } from '@/lib/arbitrage/adapters/pacifica-adapter';
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
 import { MarketPriceHelper } from '@/dex/hyperliquid/utils/market-price';
+import { positionsService } from '@/lib/api/services/positions.service';
+import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
 import type { QuoteRequest } from '@/lib/bridge/types';
+import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 import type {
   NextActionResponse,
   LegResultEntry,
-  Protocol,
+  Exchange,
   BridgeActionParams,
   OpenPositionActionParams,
   ClosePositionActionParams,
@@ -41,6 +44,8 @@ export interface ExecutorContext {
   solanaAddress: string;
   /** Turnkey organization ID */
   organizationId: string;
+  /** Spread APR data for determining long/short direction */
+  spreadAprData: SpreadAprMap;
 }
 
 // ─── Result ──────────────────────────────────────────────────────────────────
@@ -117,43 +122,22 @@ export class HedgeActionExecutor {
   ): Promise<ActionResult> {
     switch (action.action) {
       case 'BRIDGE_BASE_TO_ARB':
-        return this.executeBridge(action, context, 'HL');
+        return this.executeBridge(action, context, 'hyperliquid');
 
       case 'BRIDGE_BASE_TO_SOL':
-        return this.executeBridge(action, context, 'PACIFICA');
+        return this.executeBridge(action, context, 'pacifica');
 
-      case 'DEPOSIT_TO_HL':
-        return this.executeDeposit(context, 'HL', action);
+      case 'DEPOSIT_TO_HYPERLIQUID':
+        return this.executeDeposit(context, 'hyperliquid', action);
 
       case 'DEPOSIT_TO_PACIFICA':
-        return this.executeDeposit(context, 'PACIFICA', action);
+        return this.executeDeposit(context, 'pacifica', action);
 
       case 'OPEN_HEDGE_POSITION':
-        // TODO: Re-enable after bridge + fund leg testing is complete
-        // return this.executeOpenPosition(action, context);
-        console.log('[HedgeExecutor] OPEN_HEDGE_POSITION skipped (testing bridge + fund only)');
-        return {
-          success: true,
-          txHash: null,
-          error: null,
-          legResults: (action.params as unknown as OpenPositionActionParams)?.legs?.map((leg) => ({
-            protocol: leg.protocol,
-            success: true,
-            tx_hash: `mock-${leg.protocol}-${Date.now()}`,
-            error: null,
-          })) ?? null,
-        };
+        return this.executeOpenPosition(action, context);
 
       case 'CLOSE_POSITION':
-        // TODO: Re-enable after bridge + fund leg testing is complete
-        // return this.executeClosePosition(action, context);
-        console.log('[HedgeExecutor] CLOSE_POSITION skipped (testing bridge + fund only)');
-        return {
-          success: true,
-          txHash: null,
-          error: null,
-          legResults: null,
-        };
+        return this.executeClosePosition(action, context);
 
       default:
         return {
@@ -181,11 +165,11 @@ export class HedgeActionExecutor {
   private async executeBridge(
     action: NextActionResponse,
     context: ExecutorContext,
-    protocol: Protocol
+    exchange: Exchange
   ): Promise<ActionResult> {
     const params = action.params as unknown as BridgeActionParams;
     const legId = params.leg_id;
-    const handler = protocol === 'HL'
+    const handler = exchange === 'hyperliquid'
       ? this.hlDepositHandler
       : this.pacificaDepositHandler;
 
@@ -221,7 +205,7 @@ export class HedgeActionExecutor {
 
     // Recipient: EVM address for Arb, Solana address for Sol
     const recipient = params.recipient || (
-      protocol === 'HL' ? context.evmAddress : context.solanaAddress
+      exchange === 'hyperliquid' ? context.evmAddress : context.solanaAddress
     );
 
     // 1. Get bridge quote
@@ -285,10 +269,10 @@ export class HedgeActionExecutor {
    */
   private async executeDeposit(
     context: ExecutorContext,
-    protocol: Protocol,
+    exchange: Exchange,
     action: NextActionResponse
   ): Promise<ActionResult> {
-    const handler = protocol === 'HL'
+    const handler = exchange === 'hyperliquid'
       ? this.hlDepositHandler
       : this.pacificaDepositHandler;
 
@@ -312,12 +296,13 @@ export class HedgeActionExecutor {
   // ─── Open Hedge Position ─────────────────────────────────────────────────
 
   /**
-   * Open delta-neutral positions on both protocols.
+   * Open delta-neutral positions on both exchanges.
    *
    * Flow:
-   * 1. Update leverage on both protocols (parallel, best-effort)
-   * 2. Fetch market price
-   * 3. Open positions on both protocols (parallel)
+   * 1. Determine long/short direction from spread APR data
+   * 2. Update leverage on both exchanges (parallel)
+   * 3. Fetch market price
+   * 4. Open positions on both exchanges (parallel)
    *
    * Uses effective_margin_usd (min of funded amounts) to ensure
    * both legs are equally sized → delta-neutral.
@@ -332,9 +317,22 @@ export class HedgeActionExecutor {
     const params = action.params as unknown as OpenPositionActionParams;
     const { asset, leverage, effective_margin_usd, legs } = params;
 
-    // ── Step 1: Update leverage on both protocols ──
-    // Run in parallel, both must succeed before we open positions.
-    console.log(`[HedgeExecutor] Setting leverage to ${leverage}x on both protocols...`);
+    // ── Step 1: Determine long/short direction from spread APR data ──
+    const spreadData = context.spreadAprData[asset];
+    let getDirection: (exchange: Exchange) => 'long' | 'short';
+
+    if (spreadData) {
+      getDirection = (exchange: Exchange) =>
+        exchange === spreadData.longPlatform ? 'long' : 'short';
+    } else {
+      // Fallback: hyperliquid long, pacifica short
+      console.warn(`[HedgeExecutor] No spread APR data for ${asset}, defaulting HL=long, Pacifica=short`);
+      getDirection = (exchange: Exchange) =>
+        exchange === 'hyperliquid' ? 'long' : 'short';
+    }
+
+    // ── Step 2: Update leverage on both exchanges ──
+    console.log(`[HedgeExecutor] Setting leverage to ${leverage}x on both exchanges...`);
 
     const [hlLeverageResult, pacificaLeverageResult] = await Promise.allSettled([
       this.hlService.updateLeverage(
@@ -390,9 +388,9 @@ export class HedgeActionExecutor {
       };
     }
 
-    console.log(`[HedgeExecutor] Leverage set to ${leverage}x on both protocols ✓`);
+    console.log(`[HedgeExecutor] Leverage set to ${leverage}x on both exchanges ✓`);
 
-    // ── Step 2: Fetch market price for position sizing (Pacifica requires it) ──
+    // ── Step 3: Fetch market price for position sizing (Pacifica requires it) ──
     let marketPrice: string | undefined;
     try {
       const priceData = await this.priceHelper.getMarketPriceForTrading(
@@ -405,13 +403,15 @@ export class HedgeActionExecutor {
       console.warn('Could not fetch market price, adapters will attempt internally:', err);
     }
 
-    // ── Step 3: Open both legs in parallel ──
+    // ── Step 4: Open both legs in parallel ──
     const results = await Promise.allSettled(
       legs.map(async (leg) => {
-        if (leg.protocol === 'HL') {
+        const direction = getDirection(leg.exchange);
+
+        if (leg.exchange === 'hyperliquid') {
           const result = await this.hlAdapter.openPosition({
             asset,
-            direction: 'long',
+            direction,
             margin: effective_margin_usd.toString(),
             leverage,
             walletAddress: context.evmAddress,
@@ -419,11 +419,11 @@ export class HedgeActionExecutor {
             isMarket: true,
             price: marketPrice,
           });
-          return { protocol: 'HL' as Protocol, result };
+          return { exchange: leg.exchange, result };
         } else {
           const result = await this.pacificaAdapter.openPosition({
             asset,
-            direction: 'short',
+            direction,
             margin: effective_margin_usd.toString(),
             leverage,
             walletAddress: context.solanaAddress,
@@ -431,25 +431,25 @@ export class HedgeActionExecutor {
             isMarket: true,
             price: marketPrice,
           });
-          return { protocol: 'PACIFICA' as Protocol, result };
+          return { exchange: leg.exchange, result };
         }
       })
     );
 
     // Build per-leg results
     const legResults: LegResultEntry[] = results.map((settled, idx) => {
-      const protocol = legs[idx].protocol;
+      const exchange = legs[idx].exchange;
       if (settled.status === 'fulfilled') {
         const { result } = settled.value;
         return {
-          protocol,
+          exchange,
           success: result.success,
           tx_hash: result.positionId || null,
           error: result.error || null,
         };
       }
       return {
-        protocol,
+        exchange,
         success: false,
         tx_hash: null,
         error: settled.reason?.message || 'Unknown error',
@@ -469,30 +469,157 @@ export class HedgeActionExecutor {
   // ─── Close Position (Safety Mode) ────────────────────────────────────────
 
   /**
-   * Close a position on a single protocol (safety mode).
+   * Close a position on a single exchange (safety mode).
    * Triggered by the backend when one leg has an active position
    * but the other failed.
+   *
+   * Flow (mirrors use-close-position.ts):
+   *  1. Fetch open positions from the aggregate API
+   *  2. Find the position for the target asset
+   *  3. Close the specific exchange's leg using the service directly
    */
   private async executeClosePosition(
     action: NextActionResponse,
     context: ExecutorContext
   ): Promise<ActionResult> {
     const params = action.params as unknown as ClosePositionActionParams;
-    const { protocol, asset } = params;
+    const { exchange, asset } = params;
 
-    const adapter = protocol === 'HL' ? this.hlAdapter : this.pacificaAdapter;
-    const walletAddress = protocol === 'HL' ? context.evmAddress : context.solanaAddress;
+    try {
+      // Step 1: Fetch open positions from the aggregate API
+      console.log(`[HedgeExecutor] Fetching open positions to close ${asset} on ${exchange}...`);
+      const rawPositions = await positionsService.getOpenPositionsRaw(
+        context.evmAddress,
+        context.solanaAddress
+      );
 
-    const result = await adapter.closePosition(
-      asset, // positionId — adapters use asset for lookup
-      walletAddress,
+      // Step 2: Find the position for this asset
+      const position = rawPositions.find(
+        (p) => p.symbol.toUpperCase() === asset.toUpperCase()
+      );
+
+      if (!position) {
+        return {
+          success: false,
+          txHash: null,
+          error: `No open position found for ${asset}`,
+          legResults: null,
+        };
+      }
+
+      // Step 3: Close the specific exchange's leg
+      if (exchange === 'hyperliquid') {
+        return this.closeHLPosition(position.hyperliquid, asset, context);
+      } else {
+        return this.closePacificaPosition(position.pacifica, asset, context);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[HedgeExecutor] Close position failed for ${asset} on ${exchange}:`, error);
+      return {
+        success: false,
+        txHash: null,
+        error: `Close position failed: ${errorMessage}`,
+        legResults: null,
+      };
+    }
+  }
+
+  /**
+   * Close a HyperLiquid position for a given asset.
+   * Mirrors closeHLPosition() from use-close-position.ts.
+   */
+  private async closeHLPosition(
+    hlPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
+    asset: string,
+    context: ExecutorContext
+  ): Promise<ActionResult> {
+    if (!hlPosition) {
+      return {
+        success: false,
+        txHash: null,
+        error: `No HyperLiquid position found for ${asset}`,
+        legResults: null,
+      };
+    }
+
+    const assetIndex = await perpTickerToIndex(hlPosition.symbol.toUpperCase());
+    if (assetIndex === -1) {
+      return {
+        success: false,
+        txHash: null,
+        error: `Unknown asset index for ${hlPosition.symbol}`,
+        legResults: null,
+      };
+    }
+
+    console.log(
+      `[HedgeExecutor] Closing HL position: ${hlPosition.symbol} ${hlPosition.side} size=${hlPosition.size}`
+    );
+
+    const result = await this.hlService.closePosition(
+      {
+        assetIndex,
+        assetName: hlPosition.symbol.toUpperCase(),
+        price: 0, // Market order — price is ignored
+        size: hlPosition.size,
+        isLong: hlPosition.side === 'Long',
+        isMarket: true,
+        userAddress: context.evmAddress,
+      },
+      context.evmAddress,
       context.organizationId
     );
 
     return {
       success: result.success,
-      txHash: result.positionId || null,
-      error: result.error || null,
+      txHash: null,
+      error: result.success ? null : (result.error || result.message || 'Failed to close HL position'),
+      legResults: null,
+    };
+  }
+
+  /**
+   * Close a Pacifica position by creating a reduce-only market order on the opposite side.
+   * Mirrors closePacificaPosition() from use-close-position.ts.
+   */
+  private async closePacificaPosition(
+    pacPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
+    asset: string,
+    context: ExecutorContext
+  ): Promise<ActionResult> {
+    if (!pacPosition) {
+      return {
+        success: false,
+        txHash: null,
+        error: `No Pacifica position found for ${asset}`,
+        legResults: null,
+      };
+    }
+
+    // To close: submit opposite-side reduce_only market order
+    const closeSide: 'bid' | 'ask' = pacPosition.side === 'Long' ? 'ask' : 'bid';
+
+    console.log(
+      `[HedgeExecutor] Closing Pacifica position: ${pacPosition.symbol} ${pacPosition.side} size=${pacPosition.size} closeSide=${closeSide}`
+    );
+
+    const result = await this.pacificaService.createMarketOrder(
+      {
+        symbol: pacPosition.symbol.toUpperCase(),
+        amount: pacPosition.size,
+        side: closeSide,
+        slippage_percent: '3', // 3% slippage tolerance
+        reduce_only: true,
+      },
+      context.solanaAddress,
+      context.organizationId
+    );
+
+    return {
+      success: result.success,
+      txHash: result.order_id || null,
+      error: result.success ? null : (result.error || result.message || 'Failed to close Pacifica position'),
       legResults: null,
     };
   }

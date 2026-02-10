@@ -9,6 +9,7 @@
  */
 
 import { PacificaService } from '@/lib/services/pacifica';
+import { positionsService } from '@/lib/api/services/positions.service';
 import type { CreateMarketOrderRequest } from '@/lib/services/pacifica/types';
 import type { ProtocolAdapter } from './protocol-adapter.interface';
 import type {
@@ -23,13 +24,31 @@ import type {
  *
  * Implements the ProtocolAdapter interface for Pacifica protocol.
  * Wraps PacificaService and converts between unified and protocol-specific types.
+ *
+ * Note: getPosition and closePosition require an EVM address (in addition
+ * to the Solana address) to query the aggregate positions API.
+ * Pass the EVM address via the constructor config.
  */
 export class PacificaAdapter implements ProtocolAdapter {
   private service: PacificaService;
   private readonly protocolName = 'pacifica';
+  private evmAddress: string | undefined;
 
-  constructor(service?: PacificaService) {
+  /**
+   * @param service - Optional PacificaService instance
+   * @param config - Optional config with evmAddress for positions queries
+   */
+  constructor(service?: PacificaService, config?: { evmAddress?: string }) {
     this.service = service || new PacificaService();
+    this.evmAddress = config?.evmAddress;
+  }
+
+  /**
+   * Sets the EVM address for aggregate position queries.
+   * Call this before using getPosition or closePosition.
+   */
+  setEvmAddress(evmAddress: string): void {
+    this.evmAddress = evmAddress;
   }
 
   /**
@@ -143,43 +162,129 @@ export class PacificaAdapter implements ProtocolAdapter {
   }
 
   /**
-   * Closes an existing position on Pacifica
+   * Closes an existing position on Pacifica.
    *
-   * Note: This requires position details to create a reduce-only order
+   * Flow:
+   *  1. Query aggregate positions API for the user's Pacifica position
+   *  2. Submit a reduce-only market order on the opposite side
+   *
+   * Requires evmAddress to be set via constructor config or setEvmAddress().
+   *
+   * @param positionId - Asset name (e.g. "ETH", "BTC")
+   * @param walletAddress - User's Solana wallet address
+   * @param organizationId - Turnkey organization ID
    */
   async closePosition(
     positionId: string,
-    _walletAddress: string,
-    _organizationId: string
+    walletAddress: string,
+    organizationId: string
   ): Promise<UnifiedPositionResult> {
-    // Note: Pacifica closePosition requires position details (size, side, etc.)
-    // This is a simplified implementation - in production, you'd need to
-    // first query the position to get its details
-    return {
-      success: false,
-      positionId,
-      protocol: this.protocolName,
-      asset: '',
-      direction: 'long',
-      size: '0',
-      entryPrice: '0',
-      margin: '0',
-      leverage: 1,
-      error: 'closePosition requires position details - use getPosition first',
-      message: 'Position details required for closing',
-    };
+    try {
+      const asset = positionId.toUpperCase();
+
+      // Step 1: Get current position details
+      const position = await this.getPosition(positionId, walletAddress);
+
+      // Step 2: Determine the close side (opposite of current position)
+      const closeSide: 'bid' | 'ask' = position.direction === 'long' ? 'ask' : 'bid';
+
+      // Step 3: Submit reduce-only market order to close
+      const closeRequest: CreateMarketOrderRequest = {
+        symbol: asset,
+        amount: position.size,
+        side: closeSide,
+        slippage_percent: '3', // 3% slippage tolerance
+        reduce_only: true,
+      };
+
+      const result = await this.service.createMarketOrder(
+        closeRequest,
+        walletAddress,
+        organizationId
+      );
+
+      return {
+        success: result.success,
+        positionId,
+        protocol: this.protocolName,
+        asset,
+        direction: position.direction,
+        size: position.size,
+        entryPrice: position.entryPrice,
+        margin: position.margin,
+        leverage: position.leverage,
+        error: result.success ? undefined : (result.error || 'Failed to close position'),
+        message: result.message,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return {
+        success: false,
+        positionId,
+        protocol: this.protocolName,
+        asset: positionId,
+        direction: 'long',
+        size: '0',
+        entryPrice: '0',
+        margin: '0',
+        leverage: 1,
+        error: errorMessage,
+        message: `Failed to close position: ${errorMessage}`,
+      };
+    }
   }
 
   /**
-   * Gets information about an existing position
+   * Gets information about an existing Pacifica position.
    *
-   * Note: This is a placeholder - Pacifica position querying
-   * would need to be implemented based on their API
+   * Uses the aggregate positions API to query the user's positions.
+   * Requires evmAddress to be set via constructor config or setEvmAddress().
+   *
+   * @param positionId - Asset name (e.g. "ETH", "BTC")
+   * @param walletAddress - User's Solana wallet address
    */
-  async getPosition(_positionId: string, _walletAddress: string): Promise<UnifiedPosition> {
-    // Placeholder implementation
-    // In production, this would query Pacifica API for position details
-    throw new Error('getPosition not yet implemented for Pacifica');
+  async getPosition(positionId: string, walletAddress: string): Promise<UnifiedPosition> {
+    const asset = positionId.toUpperCase();
+
+    if (!this.evmAddress) {
+      throw new Error(
+        'Pacifica adapter requires evmAddress for position queries. ' +
+        'Set it via constructor config or setEvmAddress().'
+      );
+    }
+
+    // Fetch positions from the aggregate API
+    const rawPositions = await positionsService.getOpenPositionsRaw(
+      this.evmAddress,
+      walletAddress
+    );
+
+    // Find the position for this asset
+    const positionData = rawPositions.find(
+      (p) => p.symbol.toUpperCase() === asset
+    );
+
+    if (!positionData?.pacifica) {
+      throw new Error(`No open Pacifica position found for ${asset}`);
+    }
+
+    const pac = positionData.pacifica;
+    const size = parseFloat(pac.size);
+    if (size === 0) {
+      throw new Error(`Pacifica position for ${asset} has zero size`);
+    }
+
+    return {
+      positionId: asset,
+      protocol: this.protocolName,
+      asset,
+      direction: pac.side === 'Long' ? 'long' : 'short',
+      size: pac.size,
+      entryPrice: '0', // Not available in aggregate API response
+      margin: pac.margin,
+      leverage: pac.leverage,
+      unrealizedPnl: pac.pnl,
+    };
   }
 
   /**

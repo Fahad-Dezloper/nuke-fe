@@ -140,8 +140,8 @@ export function HedgeExecutionProgress({
   error,
   className,
 }: HedgeExecutionProgressProps) {
-  const hlLeg = detail?.legs.find((l) => l.protocol === 'HL');
-  const pacLeg = detail?.legs.find((l) => l.protocol === 'PACIFICA');
+  const hlLeg = detail?.legs.find((l) => l.exchange === 'hyperliquid');
+  const pacLeg = detail?.legs.find((l) => l.exchange === 'pacifica');
   const progress = calculateProgress(detail);
 
   const steps = [

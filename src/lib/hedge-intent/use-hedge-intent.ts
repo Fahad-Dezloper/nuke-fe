@@ -17,8 +17,10 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useAtomValue } from 'jotai';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
+import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { hedgeIntentApi } from './api';
 import { HedgeIntentEngine, type EngineCallbacks } from './engine';
 import type { ExecutorContext } from './action-executor';
@@ -26,7 +28,7 @@ import type {
   HedgeAction,
   HedgeIntentStatus,
   HedgeIntentDetail,
-  Protocol,
+  ExchangeName,
   ExecutionPhase,
 } from './types';
 import { ACTIVE_HEDGE_INTENT_KEY } from './types';
@@ -65,8 +67,8 @@ export interface OpenHedgeParams {
   marginUsd: number;
   /** Leverage multiplier (≥ 1) */
   leverage: number;
-  /** Protocols to use (default: ["HL", "PACIFICA"]) */
-  protocols?: [Protocol, Protocol];
+  /** Exchanges to use (default: ["Hyperliquid", "Pacifica"]) */
+  exchanges?: [ExchangeName, ExchangeName];
 }
 
 /** Return type of the useHedgeIntent hook */
@@ -120,6 +122,7 @@ const IN_PROGRESS_STATUSES: HedgeIntentStatus[] = [
 
 export function useHedgeIntent(): UseHedgeIntentReturn {
   const { state: turnkeyState } = useTurnkey();
+  const spreadAprData = useAtomValue(spreadAprDataAtom);
 
   // ── State ───────────────────────────────────────────────────
   const [isExecuting, setIsExecuting] = useState(false);
@@ -160,8 +163,9 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
       evmAddress,
       solanaAddress,
       organizationId: turnkeyState.turnkeySubOrgId,
+      spreadAprData,
     };
-  }, [turnkeyState]);
+  }, [turnkeyState, spreadAprData]);
 
   // ── Build engine callbacks ─────────────────────────────────
   const buildCallbacks = useCallback(
@@ -269,13 +273,13 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
 
       try {
         const context = buildContext();
-        const protocols = params.protocols || (['HL', 'PACIFICA'] as [Protocol, Protocol]);
+        const exchanges = params.exchanges || (['Hyperliquid', 'Pacifica'] as [ExchangeName, ExchangeName]);
 
         // Create the intent on backend
         const newIntentId = await hedgeIntentApi.create({
           user_id: context.organizationId, // Using Turnkey org ID as user ID
           asset: params.asset,
-          protocols,
+          exchanges,
           margin_usd: params.marginUsd,
           leverage: params.leverage,
           evm_address: context.evmAddress,

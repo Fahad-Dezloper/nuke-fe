@@ -4,16 +4,21 @@
  * TypeScript types matching the backend API contract for the
  * client-signed, backend-orchestrated hedge intent saga.
  *
- * See: docs/HEDGE_INTENT_FE_INTEGRATION.md
+ * See: docs/HEDGE_INTEGRATION.md
  */
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
-/** Supported protocols */
-export type Protocol = 'HL' | 'PACIFICA';
+/**
+ * Exchange identifiers (lowercase) — used in most API responses and leg results.
+ */
+export type Exchange = 'hyperliquid' | 'pacifica';
 
-/** Destination chains per protocol */
-export type Chain = 'ARB' | 'SOL';
+/**
+ * Exchange names (PascalCase) — used ONLY in the create-intent request body.
+ * The backend expects this exact casing in the `exchanges` array.
+ */
+export type ExchangeName = 'Hyperliquid' | 'Pacifica';
 
 /** Hedge intent lifecycle status (owned by backend) */
 export type HedgeIntentStatus =
@@ -43,7 +48,7 @@ export type HedgeLegStatus =
 export type HedgeAction =
   | 'BRIDGE_BASE_TO_ARB'
   | 'BRIDGE_BASE_TO_SOL'
-  | 'DEPOSIT_TO_HL'
+  | 'DEPOSIT_TO_HYPERLIQUID'
   | 'DEPOSIT_TO_PACIFICA'
   | 'OPEN_HEDGE_POSITION'
   | 'CLOSE_POSITION'
@@ -52,18 +57,18 @@ export type HedgeAction =
 
 // ─── API Request / Response Types ────────────────────────────────────────────
 
-/** POST /hedge-intents — request body */
+/** POST /hedge-intents/ — request body */
 export interface CreateHedgeIntentRequest {
   user_id: string;
   asset: string;
-  protocols: Protocol[];
+  exchanges: [ExchangeName, ExchangeName]; // Exactly 2 different exchanges
   margin_usd: number;
   leverage: number;
   evm_address: string;
   solana_address: string;
 }
 
-/** POST /hedge-intents — response */
+/** POST /hedge-intents/ — response */
 export interface CreateHedgeIntentResponse {
   hedge_intent_id: string;
 }
@@ -71,14 +76,14 @@ export interface CreateHedgeIntentResponse {
 /** GET /hedge-intents/{id}/next-action — response */
 export interface NextActionResponse {
   action: HedgeAction;
-  leg: Protocol | null;
+  leg: string | null; // Lowercase exchange name (e.g. "hyperliquid", "pacifica")
   amount_usd: number | null;
   params: Record<string, unknown> | null;
 }
 
 /** Per-leg result for OPEN_HEDGE_POSITION action reports */
 export interface LegResultEntry {
-  protocol: Protocol;
+  exchange: string; // Lowercase: "hyperliquid" | "pacifica"
   success: boolean;
   tx_hash: string | null;
   error: string | null;
@@ -88,9 +93,9 @@ export interface LegResultEntry {
 export interface ActionResultRequest {
   action: HedgeAction;
   success: boolean;
-  tx_hash: string | null;
-  error: string | null;
-  leg_results: LegResultEntry[] | null;
+  tx_hash?: string | null;
+  error?: string | null;
+  leg_results?: LegResultEntry[] | null;
 }
 
 /** POST /hedge-intents/{id}/action-result — response */
@@ -106,8 +111,8 @@ export interface HedgeIntent {
   id: string;
   user_id: string;
   asset: string;
-  protocol_a: string;
-  protocol_b: string;
+  protocol_a: string; // Lowercase exchange name
+  protocol_b: string; // Lowercase exchange name
   margin_usd: number;
   leverage: number;
   evm_address: string;
@@ -121,13 +126,15 @@ export interface HedgeIntent {
 export interface HedgeLeg {
   id: string;
   hedge_intent_id: string;
-  protocol: Protocol;
-  chain: Chain;
+  exchange: Exchange;
+  chain: string; // Chain ID as string (e.g. "42161", "792703809")
   target_amount_usd: number;
   funded_amount_usd: number;
   status: HedgeLegStatus;
   retry_count: number;
   last_error: string | null;
+  existing_margin_usd: number; // USDC already in exchange margin
+  existing_onchain_usd: number; // USDC already on destination chain
   created_at: string;
   updated_at: string;
 }
@@ -149,15 +156,18 @@ export interface BridgeActionParams {
   user_address: string;
   recipient: string;
   leg_id: string;
+  existing_margin_usd: number;
+  existing_onchain_usd: number;
 }
 
-/** Params shape for DEPOSIT_TO_HL / DEPOSIT_TO_PACIFICA */
+/** Params shape for DEPOSIT_TO_HYPERLIQUID / DEPOSIT_TO_PACIFICA */
 export interface DepositActionParams {
-  protocol: Protocol;
-  chain: Chain;
+  protocol: string; // Lowercase exchange name
+  chain: number; // Chain ID (42161 or 792703809)
   user_address: string;
   amount_usd: number;
   leg_id: string;
+  existing_margin_usd: number;
 }
 
 /** Params shape for OPEN_HEDGE_POSITION */
@@ -166,8 +176,8 @@ export interface OpenPositionActionParams {
   leverage: number;
   effective_margin_usd: number;
   legs: Array<{
-    protocol: Protocol;
-    chain: Chain;
+    exchange: Exchange;
+    chain: number;
     funded_amount_usd: number;
   }>;
 }
@@ -175,8 +185,8 @@ export interface OpenPositionActionParams {
 /** Params shape for CLOSE_POSITION */
 export interface ClosePositionActionParams {
   asset: string;
-  protocol: Protocol;
-  chain: Chain;
+  exchange: Exchange;
+  chain: number;
   reason: string;
 }
 
