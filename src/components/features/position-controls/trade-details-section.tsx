@@ -13,7 +13,9 @@ import { cn } from '@/lib/utils';
 import { TradeDetailRow } from '@/components/ui/trade-detail-row';
 import { marginAtom, leverageAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
+import { bridgeFeesAtom, bridgeFeesLoadingAtom } from '@/lib/stores/bridge-fees.store';
 import { useBestPair } from '@/hooks/use-best-pair';
+import { useBridgeFeeEstimate } from '@/hooks/use-bridge-fee-estimate';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 
 interface TradeDetailsSectionProps {
@@ -26,6 +28,11 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
   const [leverage] = useAtom(leverageAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
   const { getBestPairForAsset } = useBestPair();
+  const bridgeFees = useAtomValue(bridgeFeesAtom);
+  const bridgeFeesLoading = useAtomValue(bridgeFeesLoadingAtom);
+
+  // Fetch bridge fee estimates when margin changes (debounced)
+  useBridgeFeeEstimate();
 
   // Calculate trade details from selected asset, margin, and leverage
   const tradeDetails = useMemo(() => {
@@ -56,11 +63,12 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
     // Liquidation prices (simplified calculation: entry * (1 - 1/leverage))
     const liqLong = entryLong * (1 - 1 / leverage);
     const liqShort = entryShort * (1 + 1 / leverage);
+    const totalFees = bridgeFees?.totalFeeUsd ?? 0;
 
     return {
       positionSize: formatPrice(positionSize, 'USD', 'en-US', 2, 2),
       margin: formatPrice(marginValue, 'USD', 'en-US', 2, 2),
-      estimatedFees: formatPrice(marginValue * 0.001, 'USD', 'en-US', 2, 2), // 0.1% fee estimate
+      estimatedFees: totalFees > 0 ? formatPrice(totalFees, 'USD', 'en-US', 2, 2) : '—',
       entryPrice: {
         long: formatPrice(entryLong, 'USD', 'en-US', 2, 4),
         short: formatPrice(entryShort, 'USD', 'en-US', 2, 4),
@@ -76,7 +84,7 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
       estimatedAPR: formatPercentWithSign(estimatedAPR),
       maxDrawdown: formatPercentWithSign(100 / leverage), // Simplified: 100% / leverage
     };
-  }, [margin, leverage, selectedAsset, getBestPairForAsset]);
+  }, [margin, leverage, selectedAsset, getBestPairForAsset, bridgeFees]);
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
@@ -94,7 +102,7 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
             <div className="pt-2 space-y-0">
               <TradeDetailRow
                 label="Est. Fees"
-                value={tradeDetails.estimatedFees}
+                value={bridgeFeesLoading ? '...' : tradeDetails.estimatedFees}
                 valueColor="muted"
               />
               <TradeDetailRow label="Entry (Long)" value={tradeDetails.entryPrice.long} />

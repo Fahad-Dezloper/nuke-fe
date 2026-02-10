@@ -61,44 +61,29 @@ export interface BridgeStepItem {
 
 /**
  * Quote Response
+ *
+ * Matches the backend's flattened response format.
+ * The backend calls Relay.link, processes the raw response,
+ * and returns this simplified structure.
  */
 export interface QuoteResponse {
   steps: BridgeStep[];
-  fees: {
-    gas?: FeeInfo;
-    relayer?: FeeInfo;
-    relayerGas?: FeeInfo;
-    relayerService?: FeeInfo;
-    app?: FeeInfo;
-    subsidized?: FeeInfo;
-  };
-  details: {
-    operation: string;
-    sender: string;
-    recipient: string;
-    currencyIn: CurrencyAmount;
-    currencyOut: CurrencyAmount;
-    [key: string]: any;
-  };
-  protocol?: {
-    v2?: {
-      orderId: string;
-      orderData: any;
-      paymentDetails: any;
-    };
-  };
-}
-
-export interface FeeInfo {
-  amount: string;
-  currency: string;
-  [key: string]: any;
-}
-
-export interface CurrencyAmount {
-  amount: string;
-  currency: string;
-  [key: string]: any;
+  /** Estimated time in seconds */
+  timeEstimate: number;
+  /** Amount being sent (formatted, e.g. "110.0") */
+  amountIn: string;
+  /** Amount received after fees (formatted) */
+  amountOut: string;
+  /** Minimum amount received accounting for slippage */
+  minimumReceived: string;
+  /** Exchange rate */
+  rate: string;
+  /** Gas fee in USD (e.g. "0.208046") */
+  gasFeeUsd: string;
+  /** Relay service fee in USD (e.g. "0.273600") */
+  relayFeeUsd: string;
+  /** Protocol fee in USD (e.g. "0.2") */
+  protocolFees: string;
 }
 
 /**
