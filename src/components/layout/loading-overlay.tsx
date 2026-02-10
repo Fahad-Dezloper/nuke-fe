@@ -13,12 +13,8 @@ export function LoadingOverlay() {
 
   return (
     <>
-      {state.isLoggingIn && (
-        <LoadingModal isOpen={true} type="login" />
-      )}
-      {state.isCreatingWallet && (
-        <LoadingModal isOpen={true} type="wallet-creation" />
-      )}
+      {state.isLoggingIn && <LoadingModal isOpen={true} type="login" />}
+      {state.isCreatingWallet && <LoadingModal isOpen={true} type="wallet-creation" />}
     </>
   );
 }

@@ -11,7 +11,7 @@ export class SessionManager {
    *
    * @param turnkey - Turnkey SDK instance
    */
-  constructor(private turnkey: Turnkey) { }
+  constructor(private turnkey: Turnkey) {}
 
   /**
    * Refreshes the current session if it has expired or is invalid.

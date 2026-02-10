@@ -40,4 +40,3 @@ export const mockConversionRate = 0.05; // 1 USD = 0.05 LINEA/HYPE
  * Mock step size for position
  */
 export const mockStepSize = 100; // HYPE
-

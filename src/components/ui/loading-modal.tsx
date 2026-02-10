@@ -21,20 +21,12 @@ const messages = {
   login: {
     title: 'PREPARING FOR LOGIN',
     description: 'Setting up your account and fetching wallet data',
-    steps: [
-      'Connecting to Turnkey',
-      'Fetching your wallets',
-      'Initializing session',
-    ],
+    steps: ['Connecting to Turnkey', 'Fetching your wallets', 'Initializing session'],
   },
   'wallet-creation': {
     title: 'SETTING UP ACCOUNT',
     description: 'Generating secure keys and creating your wallet',
-    steps: [
-      'Generating secure keys',
-      'Creating wallet addresses',
-      'Finalizing setup',
-    ],
+    steps: ['Generating secure keys', 'Creating wallet addresses', 'Finalizing setup'],
   },
 };
 
@@ -98,9 +90,7 @@ export function LoadingModal({ isOpen, type }: LoadingModalProps) {
         <h2 className="text-lg font-semibold text-text-primary mb-1 tracking-tight">
           {config.title}
         </h2>
-        <p className="text-xs text-text-muted-60">
-          {config.description}
-        </p>
+        <p className="text-xs text-text-muted-60">{config.description}</p>
       </motion.div>
 
       {/* Loading Card */}
@@ -127,15 +117,15 @@ export function LoadingModal({ isOpen, type }: LoadingModalProps) {
               {config.steps.map((step, index) => {
                 const isActive = index === activeStep;
                 const isCompleted = index < activeStep;
-                
+
                 return (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, x: -10 }}
-                    animate={{ 
-                      opacity: 1, 
+                    animate={{
+                      opacity: 1,
                       x: 0,
-                      color: isActive ? 'var(--text-primary)' : 'var(--text-muted-60)'
+                      color: isActive ? 'var(--text-primary)' : 'var(--text-muted-60)',
                     }}
                     transition={{ delay: 0.2 + index * 0.1, duration: 0.3 }}
                     className="flex items-center gap-2.5"
@@ -145,10 +135,14 @@ export function LoadingModal({ isOpen, type }: LoadingModalProps) {
                         'w-1.5 h-1.5 rounded-full',
                         isActive ? 'bg-accent' : isCompleted ? 'bg-accent/60' : 'bg-text-muted-30'
                       )}
-                      animate={isActive ? {
-                        scale: [1, 1.3, 1],
-                        opacity: [0.6, 1, 0.6],
-                      } : {}}
+                      animate={
+                        isActive
+                          ? {
+                              scale: [1, 1.3, 1],
+                              opacity: [0.6, 1, 0.6],
+                            }
+                          : {}
+                      }
                       transition={{
                         duration: 1.5,
                         repeat: isActive ? Infinity : 0,

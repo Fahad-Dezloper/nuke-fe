@@ -1,6 +1,6 @@
 /**
  * Protocol Registry
- * 
+ *
  * Manages protocol adapters and provides access to them by name.
  * This allows the orchestrator to retrieve the correct adapter
  * for each protocol in an arbitrage pair.
@@ -10,7 +10,7 @@ import type { ProtocolAdapter } from './adapters/protocol-adapter.interface';
 
 /**
  * Protocol Registry
- * 
+ *
  * Stores and manages protocol adapters.
  * Provides methods to register and retrieve adapters by protocol name.
  */
@@ -19,7 +19,7 @@ export class ProtocolRegistry {
 
   /**
    * Registers a protocol adapter
-   * 
+   *
    * @param name - Protocol name (e.g., "hyperliquid", "pacifica")
    * @param adapter - The protocol adapter instance
    */
@@ -37,7 +37,7 @@ export class ProtocolRegistry {
 
   /**
    * Gets a protocol adapter by name
-   * 
+   *
    * @param name - Protocol name
    * @returns The protocol adapter
    * @throws Error if protocol is not registered
@@ -56,7 +56,7 @@ export class ProtocolRegistry {
 
   /**
    * Gets all registered adapters
-   * 
+   *
    * @returns Array of all protocol adapters
    */
   getAll(): ProtocolAdapter[] {
@@ -65,7 +65,7 @@ export class ProtocolRegistry {
 
   /**
    * Gets all registered protocol names
-   * 
+   *
    * @returns Array of protocol names
    */
   getProtocolNames(): string[] {
@@ -74,7 +74,7 @@ export class ProtocolRegistry {
 
   /**
    * Checks if a protocol is registered
-   * 
+   *
    * @param name - Protocol name
    * @returns True if protocol is registered
    */
@@ -84,7 +84,7 @@ export class ProtocolRegistry {
 
   /**
    * Removes a protocol adapter
-   * 
+   *
    * @param name - Protocol name to remove
    */
   unregister(name: string): void {
@@ -100,13 +100,11 @@ export class ProtocolRegistry {
 
   /**
    * Gets adapters by wallet type
-   * 
+   *
    * @param walletType - Wallet type ('ethereum' or 'solana')
    * @returns Array of adapters that require the specified wallet type
    */
   getByWalletType(walletType: 'ethereum' | 'solana'): ProtocolAdapter[] {
-    return this.getAll().filter(
-      (adapter) => adapter.getRequiredWalletType() === walletType
-    );
+    return this.getAll().filter((adapter) => adapter.getRequiredWalletType() === walletType);
   }
 }

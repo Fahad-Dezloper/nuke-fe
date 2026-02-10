@@ -1,5 +1,3 @@
-
-
 import { useState } from 'react';
 
 type SetValue<T> = T | ((val: T) => T);
@@ -28,8 +26,7 @@ export function useLocalStorage<T>(
   const setValue = (value: SetValue<T>) => {
     try {
       // Allow value to be a function so we have the same API as useState
-      const valueToStore =
-        value instanceof Function ? value(storedValue) : value;
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
 
       setStoredValue(valueToStore);
 
@@ -43,4 +40,3 @@ export function useLocalStorage<T>(
 
   return [storedValue, setValue];
 }
-

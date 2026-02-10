@@ -34,10 +34,10 @@ export async function POST(request: NextRequest) {
         {
           userName: decodedData
             ? JSON.stringify({
-              name: decodedData?.name,
-              picture: decodedData?.picture,
-              time: String(Date.now()),
-            })
+                name: decodedData?.name,
+                picture: decodedData?.picture,
+                time: String(Date.now()),
+              })
             : `user-${String(Date.now())}`,
           userEmail: decodedData ? decodedData?.email : '',
           apiKeys: apiKeys || [],
@@ -55,9 +55,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ subOrganizationId });
   } catch (error) {
     console.error('Create suborg error:', error);
-    return NextResponse.json(
-      { message: 'Something went wrong.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Something went wrong.' }, { status: 500 });
   }
 }

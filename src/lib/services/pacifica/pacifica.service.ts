@@ -1,343 +1,520 @@
 import { PACIFICA_HTTP_URL } from '@/dex/pacifica/constants';
-import {
-    ErrorCode,
-    createError,
-    toAppError,
-    getUserMessage,
-} from '@/lib/errors';
+import { ErrorCode, createError, toAppError, getUserMessage } from '@/lib/errors';
 import type {
-    CreateMarketOrderRequest,
-    CreateLimitOrderRequest,
-    CreateOrderResponse,
-    PacificaApiResponse,
+  CreateMarketOrderRequest,
+  CreateLimitOrderRequest,
+  CancelOrderRequest,
+  CreateOrderResponse,
+  PacificaApiResponse,
 } from './types';
-import {
-    prepareSigningData,
-    messageToBytes,
-} from './utils/signing';
+import { prepareSigningData, messageToBytes } from './utils/signing';
 import { signPacificaMessageWithTurnkey } from './utils/turnkey-signing';
 
 export class PacificaService {
-    private baseUrl: string;
-    private timeout: number;
+  private baseUrl: string;
+  private timeout: number;
 
-    constructor(baseUrl: string = PACIFICA_HTTP_URL) {
-        this.baseUrl = baseUrl;
-        this.timeout = 30000; // 30 seconds
+  constructor(baseUrl: string = PACIFICA_HTTP_URL) {
+    this.baseUrl = baseUrl;
+    this.timeout = 30000; // 30 seconds
+  }
+
+  /**
+   * Signs a Pacifica order request using Turnkey
+   * @param operationType - The operation type (e.g., "create_market_order")
+   * @param operationData - The operation data to sign
+   * @param walletAddress - Turnkey Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   * @param expiryWindow - Optional expiry window in milliseconds (default: 30000)
+   * @returns Object with timestamp and signature
+   */
+  async signOrderRequest(
+    operationType: string,
+    operationData: Record<string, unknown>,
+    walletAddress: string,
+    organizationId: string,
+    expiryWindow?: number
+  ): Promise<{ timestamp: number; signature: string }> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
+
+      // Generate timestamp
+      const timestamp = Date.now();
+
+      // Prepare the message for signing (recursive sort + compact JSON)
+      const messageToSign = prepareSigningData(
+        operationType,
+        operationData,
+        timestamp,
+        expiryWindow
+      );
+
+      // Convert to bytes
+      const messageBytes = messageToBytes(messageToSign);
+
+      // Sign with Turnkey
+      const signature = await signPacificaMessageWithTurnkey(
+        messageBytes,
+        walletAddress,
+        organizationId
+      );
+
+      return {
+        timestamp,
+        signature,
+      };
+    } catch (error) {
+      console.error('Error signing Pacifica order request:', error);
+      throw toAppError(error, ErrorCode.WALLET_SIGNING_FAILED);
     }
+  }
 
-    /**
-     * Signs a Pacifica order request using Turnkey
-     * @param operationType - The operation type (e.g., "create_market_order")
-     * @param operationData - The operation data to sign
-     * @param walletAddress - Turnkey Solana wallet address
-     * @param organizationId - Turnkey organization ID
-     * @param expiryWindow - Optional expiry window in milliseconds (default: 30000)
-     * @returns Object with timestamp and signature
-     */
-    async signOrderRequest(
-        operationType: string,
-        operationData: Record<string, unknown>,
-        walletAddress: string,
-        organizationId: string,
-        expiryWindow?: number
-    ): Promise<{ timestamp: number; signature: string }> {
-        try {
-            if (!walletAddress) {
-                throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
-            }
+  /**
+   * Submits a signed order to Pacifica API
+   * @param endpoint - API endpoint
+   * @param requestBody - The complete request body with signature
+   * @returns Pacifica API response
+   */
+  private async submitToPacifica(
+    endpoint: string,
+    requestBody: Record<string, unknown>
+  ): Promise<PacificaApiResponse> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-            if (!organizationId) {
-                throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
-            }
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
 
-            // Generate timestamp
-            const timestamp = Date.now();
+      clearTimeout(timeoutId);
 
-            // Prepare the message for signing (recursive sort + compact JSON)
-            const messageToSign = prepareSigningData(
-                operationType,
-                operationData,
-                timestamp,
-                expiryWindow
-            );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw createError(
+          ErrorCode.API_BAD_REQUEST,
+          {
+            status: response.status,
+            statusText: response.statusText,
+            errorData,
+            endpoint,
+          },
+          new Error(`Pacifica API error: ${response.status} ${response.statusText}`)
+        );
+      }
 
-            // Convert to bytes
-            const messageBytes = messageToBytes(messageToSign);
-
-            // Sign with Turnkey
-            const signature = await signPacificaMessageWithTurnkey(
-                messageBytes,
-                walletAddress,
-                organizationId
-            );
-
-            return {
-                timestamp,
-                signature,
-            };
-        } catch (error) {
-            console.error('Error signing Pacifica order request:', error);
-            throw toAppError(error, ErrorCode.WALLET_SIGNING_FAILED);
-        }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error submitting to Pacifica:', error);
+      throw toAppError(error, ErrorCode.NET_CONNECTION_ERROR);
     }
+  }
 
-    /**
-     * Submits a signed order to Pacifica API
-     * @param endpoint - API endpoint
-     * @param requestBody - The complete request body with signature
-     * @returns Pacifica API response
-     */
-    private async submitToPacifica(
-        endpoint: string,
-        requestBody: Record<string, unknown>
-    ): Promise<PacificaApiResponse> {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+  /**
+   * Creates a market order on Pacifica
+   * @param request - Market order request parameters
+   * @param walletAddress - Turnkey Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   * @returns Order creation response
+   */
+  async createMarketOrder(
+    request: CreateMarketOrderRequest,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
 
-            const response = await fetch(`${this.baseUrl}${endpoint}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-                signal: controller.signal,
-            });
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
 
-            clearTimeout(timeoutId);
+      // Validate required fields
+      if (!request.symbol || !request.amount || !request.side) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['symbol', 'amount', 'side'].filter(
+            (field) => !request[field as keyof CreateMarketOrderRequest]
+          ),
+        });
+      }
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw createError(
-                    ErrorCode.API_BAD_REQUEST,
-                    {
-                        status: response.status,
-                        statusText: response.statusText,
-                        errorData,
-                        endpoint,
-                    },
-                    new Error(
-                        `Pacifica API error: ${response.status} ${response.statusText}`
-                    )
-                );
-            }
+      // Prepare operation data for signing
+      const operationData: Record<string, unknown> = {
+        symbol: request.symbol,
+        amount: request.amount, // Already a string
+        side: request.side,
+        slippage_percent: request.slippage_percent,
+        reduce_only: request.reduce_only,
+      };
 
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('Error submitting to Pacifica:', error);
-            throw toAppError(error, ErrorCode.NET_CONNECTION_ERROR);
-        }
+      // Add optional fields
+      if (request.client_order_id) {
+        operationData.client_order_id = request.client_order_id;
+      }
+      if (request.take_profit) {
+        operationData.take_profit = request.take_profit;
+      }
+      if (request.stop_loss) {
+        operationData.stop_loss = request.stop_loss;
+      }
+
+      // Sign the order request
+      const { timestamp, signature } = await this.signOrderRequest(
+        'create_market_order',
+        operationData,
+        walletAddress,
+        organizationId,
+        request.expiry_window
+      );
+
+      // Build the final request (operation data + signature header fields)
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        ...operationData, // Spread operation data (NOT wrapped in "data")
+      };
+
+      // Add optional header fields
+      if (request.expiry_window !== undefined) {
+        finalRequest.expiry_window = request.expiry_window;
+      }
+      if (request.agent_wallet) {
+        finalRequest.agent_wallet = request.agent_wallet;
+      }
+
+      // Submit to Pacifica API
+      const apiResponse = await this.submitToPacifica('/orders/create_market', finalRequest);
+
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_POSITION_CREATE_FAILED, {
+          error: apiResponse.error,
+          code: apiResponse.code,
+          symbol: request.symbol,
+        });
+      }
+
+      return {
+        success: true,
+        order_id: String(apiResponse.order_id || ''),
+        data: apiResponse,
+        message: 'Market order created successfully',
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
+      console.error('Error creating market order:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to create market order',
+      };
     }
+  }
 
-    /**
-     * Creates a market order on Pacifica
-     * @param request - Market order request parameters
-     * @param walletAddress - Turnkey Solana wallet address
-     * @param organizationId - Turnkey organization ID
-     * @returns Order creation response
-     */
-    async createMarketOrder(
-        request: CreateMarketOrderRequest,
-        walletAddress: string,
-        organizationId: string
-    ): Promise<CreateOrderResponse> {
-        try {
-            if (!walletAddress) {
-                throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
-            }
+  /**
+   * Updates leverage for a specific symbol on Pacifica.
+   *
+   * Follows the same signing pattern as other Pacifica operations:
+   *   operation_type = "update_leverage"
+   *   operation_data = { symbol, leverage }
+   *   POST /account/update_leverage
+   *
+   * @param symbol - Asset symbol (e.g. "BTC")
+   * @param leverage - New leverage value
+   * @param walletAddress - Turnkey Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   * @returns Success/failure response
+   */
+  async updateLeverage(
+    symbol: string,
+    leverage: number,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
 
-            if (!organizationId) {
-                throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
-            }
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
 
-            // Validate required fields
-            if (!request.symbol || !request.amount || !request.side) {
-                throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
-                    missingFields: ['symbol', 'amount', 'side'].filter(
-                        (field) => !request[field as keyof CreateMarketOrderRequest]
-                    ),
-                });
-            }
+      if (!symbol) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['symbol'],
+        });
+      }
 
-            // Prepare operation data for signing
-            const operationData: Record<string, unknown> = {
-                symbol: request.symbol,
-                amount: request.amount, // Already a string
-                side: request.side,
-                slippage_percent: request.slippage_percent,
-                reduce_only: request.reduce_only,
-            };
+      if (leverage < 1 || leverage > 20) {
+        throw createError(ErrorCode.VALID_INVALID_LEVERAGE, {
+          leverage,
+          min: 1,
+          max: 20,
+        });
+      }
 
-            // Add optional fields
-            if (request.client_order_id) {
-                operationData.client_order_id = request.client_order_id;
-            }
-            if (request.take_profit) {
-                operationData.take_profit = request.take_profit;
-            }
-            if (request.stop_loss) {
-                operationData.stop_loss = request.stop_loss;
-            }
+      // Prepare operation data for signing
+      const operationData: Record<string, unknown> = {
+        symbol: symbol.toUpperCase(),
+        leverage,
+      };
 
-            // Sign the order request
-            const { timestamp, signature } = await this.signOrderRequest(
-                'create_market_order',
-                operationData,
-                walletAddress,
-                organizationId,
-                request.expiry_window
-            );
+      // Sign the request
+      const { timestamp, signature } = await this.signOrderRequest(
+        'update_leverage',
+        operationData,
+        walletAddress,
+        organizationId
+      );
 
-            // Build the final request (operation data + signature header fields)
-            const finalRequest: Record<string, unknown> = {
-                account: walletAddress,
-                signature,
-                timestamp,
-                ...operationData, // Spread operation data (NOT wrapped in "data")
-            };
+      // Build the final request
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        ...operationData,
+      };
 
-            // Add optional header fields
-            if (request.expiry_window !== undefined) {
-                finalRequest.expiry_window = request.expiry_window;
-            }
-            if (request.agent_wallet) {
-                finalRequest.agent_wallet = request.agent_wallet;
-            }
+      // Submit to Pacifica API
+      const apiResponse = await this.submitToPacifica('/account/leverage', finalRequest);
 
-            // Submit to Pacifica API
-            const apiResponse = await this.submitToPacifica(
-                '/orders/create_market',
-                finalRequest
-            );
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED, {
+          error: apiResponse.error,
+          code: apiResponse.code,
+          symbol,
+        });
+      }
 
-            if (apiResponse.error) {
-                throw createError(ErrorCode.TRADE_POSITION_CREATE_FAILED, {
-                    error: apiResponse.error,
-                    code: apiResponse.code,
-                    symbol: request.symbol,
-                });
-            }
-
-            return {
-                success: true,
-                order_id: String(apiResponse.order_id || ''),
-                data: apiResponse,
-                message: 'Market order created successfully',
-            };
-        } catch (error) {
-            const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
-            console.error('Error creating market order:', appError);
-            return {
-                success: false,
-                error: getUserMessage(appError),
-                message: 'Failed to create market order',
-            };
-        }
+      return {
+        success: true,
+        data: apiResponse,
+        message: `Leverage updated to ${leverage}x for ${symbol}`,
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED);
+      console.error('Error updating Pacifica leverage:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to update leverage',
+      };
     }
+  }
 
-    /**
-     * Creates a limit order on Pacifica
-     * @param request - Limit order request parameters
-     * @param walletAddress - Turnkey Solana wallet address
-     * @param organizationId - Turnkey organization ID
-     * @returns Order creation response
-     */
-    async createLimitOrder(
-        request: CreateLimitOrderRequest,
-        walletAddress: string,
-        organizationId: string
-    ): Promise<CreateOrderResponse> {
-        try {
-            if (!walletAddress) {
-                throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
-            }
+  /**
+   * Creates a limit order on Pacifica
+   * @param request - Limit order request parameters
+   * @param walletAddress - Turnkey Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   * @returns Order creation response
+   */
+  async createLimitOrder(
+    request: CreateLimitOrderRequest,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
 
-            if (!organizationId) {
-                throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
-            }
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
 
-            // Validate required fields
-            if (!request.symbol || !request.price || !request.amount || !request.side) {
-                throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
-                    missingFields: ['symbol', 'price', 'amount', 'side'].filter(
-                        (field) => !request[field as keyof CreateLimitOrderRequest]
-                    ),
-                });
-            }
+      // Validate required fields
+      if (!request.symbol || !request.price || !request.amount || !request.side) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['symbol', 'price', 'amount', 'side'].filter(
+            (field) => !request[field as keyof CreateLimitOrderRequest]
+          ),
+        });
+      }
 
-            // Prepare operation data for signing
-            const operationData: Record<string, unknown> = {
-                symbol: request.symbol,
-                price: request.price,
-                amount: request.amount,
-                side: request.side,
-                tif: request.tif,
-                slippage_percent: request.slippage_percent,
-                reduce_only: request.reduce_only,
-            };
+      // Prepare operation data for signing
+      const operationData: Record<string, unknown> = {
+        symbol: request.symbol,
+        price: request.price,
+        amount: request.amount,
+        side: request.side,
+        tif: request.tif,
+        slippage_percent: request.slippage_percent,
+        reduce_only: request.reduce_only,
+      };
 
-            // Add optional fields
-            if (request.client_order_id) {
-                operationData.client_order_id = request.client_order_id;
-            }
+      // Add optional fields
+      if (request.client_order_id) {
+        operationData.client_order_id = request.client_order_id;
+      }
 
-            // Sign the order request
-            const { timestamp, signature } = await this.signOrderRequest(
-                'create_order',
-                operationData,
-                walletAddress,
-                organizationId,
-                request.expiry_window
-            );
+      // Sign the order request
+      const { timestamp, signature } = await this.signOrderRequest(
+        'create_order',
+        operationData,
+        walletAddress,
+        organizationId,
+        request.expiry_window
+      );
 
-            // Build the final request
-            const finalRequest: Record<string, unknown> = {
-                account: walletAddress,
-                signature,
-                timestamp,
-                ...operationData,
-            };
+      // Build the final request
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        ...operationData,
+      };
 
-            // Add optional header fields
-            if (request.expiry_window !== undefined) {
-                finalRequest.expiry_window = request.expiry_window;
-            }
-            if (request.agent_wallet) {
-                finalRequest.agent_wallet = request.agent_wallet;
-            }
+      // Add optional header fields
+      if (request.expiry_window !== undefined) {
+        finalRequest.expiry_window = request.expiry_window;
+      }
+      if (request.agent_wallet) {
+        finalRequest.agent_wallet = request.agent_wallet;
+      }
 
-            // Submit to Pacifica API
-            const apiResponse = await this.submitToPacifica(
-                '/orders/create',
-                finalRequest
-            );
+      // Submit to Pacifica API
+      const apiResponse = await this.submitToPacifica('/orders/create', finalRequest);
 
-            if (apiResponse.error) {
-                throw createError(ErrorCode.TRADE_POSITION_CREATE_FAILED, {
-                    error: apiResponse.error,
-                    code: apiResponse.code,
-                    symbol: request.symbol,
-                });
-            }
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_POSITION_CREATE_FAILED, {
+          error: apiResponse.error,
+          code: apiResponse.code,
+          symbol: request.symbol,
+        });
+      }
 
-            return {
-                success: true,
-                order_id: String(apiResponse.order_id || ''),
-                data: apiResponse,
-                message: 'Limit order created successfully',
-            };
-        } catch (error) {
-            const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
-            console.error('Error creating limit order:', appError);
-            return {
-                success: false,
-                error: getUserMessage(appError),
-                message: 'Failed to create limit order',
-            };
-        }
+      return {
+        success: true,
+        order_id: String(apiResponse.order_id || ''),
+        data: apiResponse,
+        message: 'Limit order created successfully',
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
+      console.error('Error creating limit order:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to create limit order',
+      };
     }
+  }
+  /**
+   * Cancels an order on Pacifica
+   *
+   * Either `order_id` (exchange-assigned) or `client_order_id` must be provided.
+   *
+   * @param request - Cancel order request parameters
+   * @param walletAddress - Turnkey Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   * @returns Success/failure response
+   */
+  async cancelOrder(
+    request: CancelOrderRequest,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
+
+      // Validate required fields — need at least one of order_id or client_order_id
+      if (!request.symbol) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['symbol'],
+        });
+      }
+
+      if (request.order_id === undefined && !request.client_order_id) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['order_id or client_order_id'],
+        });
+      }
+
+      // Prepare operation data for signing
+      const operationData: Record<string, unknown> = {
+        symbol: request.symbol,
+      };
+
+      if (request.order_id !== undefined) {
+        operationData.order_id = request.order_id;
+      }
+      if (request.client_order_id) {
+        operationData.client_order_id = request.client_order_id;
+      }
+
+      // Sign the order request
+      const { timestamp, signature } = await this.signOrderRequest(
+        'cancel_order',
+        operationData,
+        walletAddress,
+        organizationId,
+        request.expiry_window
+      );
+
+      // Build the final request
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        ...operationData,
+      };
+
+      // Add optional header fields
+      if (request.expiry_window !== undefined) {
+        finalRequest.expiry_window = request.expiry_window;
+      }
+      if (request.agent_wallet) {
+        finalRequest.agent_wallet = request.agent_wallet;
+      }
+
+      // Submit to Pacifica API
+      const apiResponse = await this.submitToPacifica('/orders/cancel', finalRequest);
+
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_POSITION_CREATE_FAILED, {
+          error: apiResponse.error,
+          code: apiResponse.code,
+          symbol: request.symbol,
+        });
+      }
+
+      return {
+        success: true,
+        data: apiResponse,
+        message: `Order cancelled successfully for ${request.symbol}`,
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
+      console.error('Error cancelling Pacifica order:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to cancel order',
+      };
+    }
+  }
 }
 
 export const pacificaService = new PacificaService();

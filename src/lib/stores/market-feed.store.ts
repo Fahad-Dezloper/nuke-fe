@@ -26,16 +26,16 @@ export const selectedAssetAtom = atom(
   (get) => {
     const marketFeedData = get(marketFeedDataAtom);
     const selectedSymbol = get(selectedAssetSymbolAtom);
-    
+
     if (marketFeedData.length === 0) {
       return null;
     }
-    
+
     // If no symbol selected, return first asset (auto-selection handled in component)
     if (!selectedSymbol) {
       return marketFeedData[0];
     }
-    
+
     // Find the asset in the latest market feed data
     // This ensures we always get the most up-to-date data from polling
     const asset = marketFeedData.find((a) => a.asset === selectedSymbol);

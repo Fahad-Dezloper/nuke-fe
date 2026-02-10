@@ -1,16 +1,11 @@
 /**
  * Arbitrage Orchestrator
- * 
+ *
  * Coordinates the execution of arbitrage positions across multiple protocols.
  * Handles opening LONG and SHORT positions, managing failures, and rollbacks.
  */
 
-import {
-  ErrorCode,
-  createError,
-  toAppError,
-  getUserMessage,
-} from '@/lib/errors';
+import { ErrorCode, createError, toAppError, getUserMessage } from '@/lib/errors';
 import type { ProtocolAdapter } from './adapters/protocol-adapter.interface';
 import type {
   UnifiedPositionParams,
@@ -55,7 +50,7 @@ export interface ExecuteArbitragePairParams {
 
 /**
  * Arbitrage Orchestrator
- * 
+ *
  * Coordinates the execution of arbitrage positions across protocols.
  */
 export class ArbitrageOrchestrator {
@@ -66,7 +61,7 @@ export class ArbitrageOrchestrator {
 
   /**
    * Executes an arbitrage pair by opening LONG and SHORT positions
-   * 
+   *
    * @param params - Execution parameters
    * @returns Arbitrage execution result
    */
@@ -143,12 +138,7 @@ export class ArbitrageOrchestrator {
         };
       } else {
         // One or both failed - handle rollback
-        return await this.handlePartialFailure(
-          longResult,
-          shortResult,
-          pair,
-          params
-        );
+        return await this.handlePartialFailure(longResult, shortResult, pair, params);
       }
     } catch (error) {
       const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
@@ -192,7 +182,7 @@ export class ArbitrageOrchestrator {
 
   /**
    * Validates that wallets match protocol requirements
-   * 
+   *
    * @param longAdapter - LONG protocol adapter
    * @param shortAdapter - SHORT protocol adapter
    * @param longWallet - LONG wallet address
@@ -229,7 +219,7 @@ export class ArbitrageOrchestrator {
 
   /**
    * Handles partial failure - when one position succeeds and one fails
-   * 
+   *
    * @param longResult - LONG position result
    * @param shortResult - SHORT position result
    * @param pair - The arbitrage pair
@@ -256,10 +246,7 @@ export class ArbitrageOrchestrator {
         );
         rollbackPerformed = true;
       } catch (error) {
-        rollbackError =
-          error instanceof Error
-            ? error.message
-            : 'Failed to rollback LONG position';
+        rollbackError = error instanceof Error ? error.message : 'Failed to rollback LONG position';
         console.error('Rollback failed for LONG position:', error);
       }
     }
@@ -276,9 +263,7 @@ export class ArbitrageOrchestrator {
         rollbackPerformed = true;
       } catch (error) {
         rollbackError =
-          error instanceof Error
-            ? error.message
-            : 'Failed to rollback SHORT position';
+          error instanceof Error ? error.message : 'Failed to rollback SHORT position';
         console.error('Rollback failed for SHORT position:', error);
       }
     }

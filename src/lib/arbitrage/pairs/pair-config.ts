@@ -1,6 +1,6 @@
 /**
  * Pre-configured Arbitrage Pairs
- * 
+ *
  * Defines all available arbitrage pairs for different assets.
  * These pairs can be registered with the ArbitragePairRegistry.
  */
@@ -9,7 +9,7 @@ import type { ArbitragePair } from '../types';
 
 /**
  * Pre-defined arbitrage pairs
- * 
+ *
  * Each pair represents a specific LONG/SHORT combination
  * across two protocols for a given asset.
  */
@@ -69,19 +69,17 @@ export const ARBITRAGE_PAIRS: ArbitragePair[] = [
 
 /**
  * Helper function to get pairs for a specific asset
- * 
+ *
  * @param asset - Asset symbol
  * @returns Array of pairs for the asset
  */
 export function getPairsForAsset(asset: string): ArbitragePair[] {
-  return ARBITRAGE_PAIRS.filter(
-    (pair) => pair.asset === asset && pair.isActive
-  );
+  return ARBITRAGE_PAIRS.filter((pair) => pair.asset === asset && pair.isActive);
 }
 
 /**
  * Helper function to get a pair by ID
- * 
+ *
  * @param pairId - Pair ID
  * @returns The pair or undefined
  */

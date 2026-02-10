@@ -9,7 +9,5 @@ export { CumulativePnLChart } from './cumulative-pnl-chart';
 export { FundingRateChart } from './funding-rate-chart';
 export {
   generateFundingRateData,
-  generatePnLData,
   generateCumulativePnLData,
 } from './chart-data-generators';
-

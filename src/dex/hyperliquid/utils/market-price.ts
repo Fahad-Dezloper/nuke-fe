@@ -1,7 +1,7 @@
-import axios from "axios";
+import axios from 'axios';
 
-import { HYPERLIQUID_API } from "../constants";
-import { getPerpMeta, getSpotMeta } from "./get-meta";
+import { HYPERLIQUID_API } from '../constants';
+import { getPerpMeta, getSpotMeta } from './get-meta';
 
 interface AssetInfo {
   szDecimals: number;
@@ -15,7 +15,7 @@ interface L2BookResponse {
   time: number;
   levels: [
     Array<{ px: string; sz: string; n: number }>, // bids
-    Array<{ px: string; sz: string; n: number }> // asks
+    Array<{ px: string; sz: string; n: number }>, // asks
   ];
 }
 
@@ -23,16 +23,14 @@ export class MarketPriceHelper {
   private baseUrl: string;
 
   constructor(isTestnet: boolean = false) {
-    this.baseUrl = isTestnet
-      ? "https://api.hyperliquid-testnet.xyz"
-      : HYPERLIQUID_API;
+    this.baseUrl = isTestnet ? 'https://api.hyperliquid-testnet.xyz' : HYPERLIQUID_API;
   }
 
   async getCurrentPrice(assetIndex: number): Promise<number> {
     try {
       // First get asset info to get the coin name
       const metaResponse = await axios.post(`${this.baseUrl}/info`, {
-        type: "meta",
+        type: 'meta',
       });
 
       const meta = metaResponse.data;
@@ -47,7 +45,7 @@ export class MarketPriceHelper {
 
       // Get L2 book for the coin
       const bookResponse = await axios.post(`${this.baseUrl}/info`, {
-        type: "l2Book",
+        type: 'l2Book',
         coin: asset.name,
       });
 
@@ -61,7 +59,7 @@ export class MarketPriceHelper {
 
       return price;
     } catch (error) {
-      console.error("Failed to fetch current price:", error);
+      console.error('Failed to fetch current price:', error);
       throw error;
     }
   }
@@ -70,12 +68,12 @@ export class MarketPriceHelper {
     try {
       let asset = assetName;
 
-      if (assetName === "BTC") {
-        asset = "UBTC";
-      } else if (assetName === "ETH") {
-        asset = "UETH";
-      } else if (assetName === "SOL") {
-        asset = "USOL";
+      if (assetName === 'BTC') {
+        asset = 'UBTC';
+      } else if (assetName === 'ETH') {
+        asset = 'UETH';
+      } else if (assetName === 'SOL') {
+        asset = 'USOL';
       }
 
       const spotMeta = await getSpotMeta();
@@ -84,28 +82,28 @@ export class MarketPriceHelper {
       const token = spotMeta.tokens.find((t: any) => t.name === asset);
       const tokenId = token?.tokenId;
       const response = await axios.post(`${this.baseUrl}/info`, {
-        type: "tokenDetails",
+        type: 'tokenDetails',
         tokenId: tokenId,
       });
 
       return response.data.midPx;
     } catch (error) {
-      console.error("Failed to get current price. Error: ", error);
+      console.error('Failed to get current price. Error: ', error);
     }
   }
 
-  async getTickAndLotSize(assetName: string, market: "spot" | "perps") {
-    const MAX_DECIMALS = market === "perps" ? 6 : 8;
+  async getTickAndLotSize(assetName: string, market: 'spot' | 'perps') {
+    const MAX_DECIMALS = market === 'perps' ? 6 : 8;
 
     let asset = assetName;
 
-    if (market === "spot") {
-      if (assetName === "BTC") {
-        asset = "UBTC";
-      } else if (assetName === "ETH") {
-        asset = "UETH";
-      } else if (assetName === "SOL") {
-        asset = "USOL";
+    if (market === 'spot') {
+      if (assetName === 'BTC') {
+        asset = 'UBTC';
+      } else if (assetName === 'ETH') {
+        asset = 'UETH';
+      } else if (assetName === 'SOL') {
+        asset = 'USOL';
       }
     }
 
@@ -113,10 +111,9 @@ export class MarketPriceHelper {
     const spotMeta = await getSpotMeta();
 
     const szDecimals =
-      market === "perps"
+      market === 'perps'
         ? perpMeta.find((t) => t.name === asset.toUpperCase())?.szDecimals
-        : spotMeta.tokens.find((t) => t.name === asset.toUpperCase())
-            ?.szDecimals;
+        : spotMeta.tokens.find((t) => t.name === asset.toUpperCase())?.szDecimals;
 
     if (szDecimals === undefined) return;
 
@@ -132,8 +129,7 @@ export class MarketPriceHelper {
         return Number(roundedDownSize.toFixed(szDecimals)).toString();
       },
       roundPrice: (price: number) => {
-        const precisionDecimals =
-          assetName === "BTC" ? (price.toFixed(0).length === 5 ? 5 : 6) : 5;
+        const precisionDecimals = assetName === 'BTC' ? (price.toFixed(0).length === 5 ? 5 : 6) : 5;
         // Round to 5 significant figures (max as per HL docs)
         const precisePriceStr = price.toPrecision(precisionDecimals);
 
@@ -145,17 +141,15 @@ export class MarketPriceHelper {
     };
   }
 
-  async listAvailableAssets(): Promise<
-    { index: number; name: string; price: string }[]
-  > {
+  async listAvailableAssets(): Promise<{ index: number; name: string; price: string }[]> {
     try {
       const metaResponse = await axios.post(`${this.baseUrl}/info`, {
-        type: "meta",
+        type: 'meta',
       });
 
       const meta = metaResponse.data;
       if (!meta?.universe || !Array.isArray(meta.universe)) {
-        throw new Error("Invalid API response structure");
+        throw new Error('Invalid API response structure');
       }
 
       // Get prices for non-delisted assets
@@ -179,7 +173,7 @@ export class MarketPriceHelper {
 
       return Promise.all(assets);
     } catch (error) {
-      console.error("Failed to fetch assets:", error);
+      console.error('Failed to fetch assets:', error);
       throw error;
     }
   }
@@ -196,14 +190,14 @@ export class MarketPriceHelper {
 
   async getMarketPriceForTrading(
     assetTicker: string,
-    marketType: "spot" | "perps",
-    side: "buy" | "sell"
+    marketType: 'spot' | 'perps',
+    side: 'buy' | 'sell'
   ): Promise<{ price: number }> {
     // Fetch L2 book data for the assetTicker
     let bookData: L2BookResponse;
     try {
       const response = await axios.post(`${this.baseUrl}/info`, {
-        type: "l2Book",
+        type: 'l2Book',
         coin: assetTicker.toUpperCase(), // Ensure asset ticker is uppercase
       });
       bookData = response.data as L2BookResponse;
@@ -219,7 +213,7 @@ export class MarketPriceHelper {
 
     let price: number;
 
-    if (side === "buy") {
+    if (side === 'buy') {
       // For buying, use the current best (lowest) ask price.
       if (bookData.levels && bookData.levels[1] && bookData.levels[1][0]) {
         price = parseFloat(bookData.levels[1][0].px);
@@ -252,9 +246,9 @@ export class MarketPriceHelper {
   }
 
   async getAggressiveIOCPriceString(
-    side: "buy" | "sell",
+    side: 'buy' | 'sell',
     assetTicker: string,
-    marketType: "perps" // Assuming perps for now, can be extended
+    marketType: 'perps' // Assuming perps for now, can be extended
     // Reference price is no longer passed; it's fetched from L2 book
   ): Promise<string> {
     const tickInfo = await this.getTickAndLotSize(assetTicker, marketType);
@@ -268,30 +262,26 @@ export class MarketPriceHelper {
     let bookData: L2BookResponse;
     try {
       const response = await axios.post(`${this.baseUrl}/info`, {
-        type: "l2Book",
+        type: 'l2Book',
         coin: assetTicker.toUpperCase(), // Ensure asset ticker is uppercase
       });
       bookData = response.data as L2BookResponse;
     } catch (error) {
       console.error(`Failed to fetch L2 book for ${assetTicker}:`, error);
-      throw new Error(
-        `Could not fetch L2 book for ${assetTicker} to set IOC price.`
-      );
+      throw new Error(`Could not fetch L2 book for ${assetTicker} to set IOC price.`);
     }
 
     let targetPrice: number;
     const smallestPriceStep = Math.pow(10, -tickInfo.pxDecimals);
 
-    if (side === "buy") {
+    if (side === 'buy') {
       // For buying to close a short, use the current best (lowest) ask price,
       // then make it slightly more aggressive (one tick higher) to cross the spread.
       if (bookData.levels && bookData.levels[1] && bookData.levels[1][0]) {
         const bestAskPrice = parseFloat(bookData.levels[1][0].px);
         targetPrice = bestAskPrice + smallestPriceStep;
       } else {
-        throw new Error(
-          `No asks found in L2 book for ${assetTicker} to place buy IOC.`
-        );
+        throw new Error(`No asks found in L2 book for ${assetTicker} to place buy IOC.`);
       }
     } else {
       // For selling to close a long, use the current best (highest) bid price,
@@ -309,9 +299,7 @@ export class MarketPriceHelper {
           targetPrice = potentialTargetPrice;
         }
       } else {
-        throw new Error(
-          `No bids found in L2 book for ${assetTicker} to place sell IOC.`
-        );
+        throw new Error(`No bids found in L2 book for ${assetTicker} to place sell IOC.`);
       }
     }
 

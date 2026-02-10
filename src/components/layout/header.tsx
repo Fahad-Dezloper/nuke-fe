@@ -4,5 +4,4 @@
  * @deprecated Use Navbar component instead
  */
 
-export { Navbar as Header } from './navbar'
-
+export { Navbar as Header } from './navbar';

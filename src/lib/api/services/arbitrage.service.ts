@@ -17,10 +17,7 @@ export const arbitrageService = {
     pageSize?: number;
     status?: 'open' | 'closed';
   }): Promise<PaginatedResponse<Position>> {
-    return apiClient.get<PaginatedResponse<Position>>(
-      API_ENDPOINTS.arbitrage.positions,
-      params
-    );
+    return apiClient.get<PaginatedResponse<Position>>(API_ENDPOINTS.arbitrage.positions, params);
   },
 
   /**
@@ -41,9 +38,7 @@ export const arbitrageService = {
    * Get strategy by ID
    */
   async getStrategy(id: string): Promise<Strategy> {
-    return apiClient.get<Strategy>(
-      `${API_ENDPOINTS.arbitrage.strategies}/${id}`
-    );
+    return apiClient.get<Strategy>(`${API_ENDPOINTS.arbitrage.strategies}/${id}`);
   },
 
   /**
@@ -56,14 +51,8 @@ export const arbitrageService = {
   /**
    * Update a strategy
    */
-  async updateStrategy(
-    id: string,
-    data: Partial<Strategy>
-  ): Promise<Strategy> {
-    return apiClient.patch<Strategy>(
-      `${API_ENDPOINTS.arbitrage.strategies}/${id}`,
-      data
-    );
+  async updateStrategy(id: string, data: Partial<Strategy>): Promise<Strategy> {
+    return apiClient.patch<Strategy>(`${API_ENDPOINTS.arbitrage.strategies}/${id}`, data);
   },
 
   /**
@@ -82,10 +71,7 @@ export const arbitrageService = {
     startDate?: string;
     endDate?: string;
   }): Promise<PaginatedResponse<Position>> {
-    return apiClient.get<PaginatedResponse<Position>>(
-      API_ENDPOINTS.arbitrage.history,
-      params
-    );
+    return apiClient.get<PaginatedResponse<Position>>(API_ENDPOINTS.arbitrage.history, params);
   },
 
   /**
@@ -100,4 +86,3 @@ export const arbitrageService = {
     return apiClient.get(API_ENDPOINTS.arbitrage.stats);
   },
 };
-

@@ -1,4 +1,4 @@
-import { getPerpMeta, getSpotMeta } from "./get-meta";
+import { getPerpMeta, getSpotMeta } from './get-meta';
 
 // utiltily file to convert tickers to asset index and vice versa ("ETH" => 01, 01 => "ETH")
 export async function perpIndexToTicker(assetIndex: number) {
@@ -21,30 +21,26 @@ export async function perpTickerToIndex(ticker: string) {
 // spot asset index = 10000 + market index.
 
 export async function spotTickerToIndex(ticker: string, token?: string) {
-  if (ticker === "PURR/USDC") {
+  if (ticker === 'PURR/USDC') {
     return 10000;
   }
 
-  const quoteToken = token ? token : "USDC";
+  const quoteToken = token ? token : 'USDC';
   const tickerUpper = ticker.toUpperCase();
   let formattedTicker = tickerUpper;
 
-  if (formattedTicker === "ETH") {
-    formattedTicker = "UETH";
-  } else if (formattedTicker === "BTC") {
-    formattedTicker = "UBTC";
-  } else if (formattedTicker === "SOL") {
-    formattedTicker = "USOL";
+  if (formattedTicker === 'ETH') {
+    formattedTicker = 'UETH';
+  } else if (formattedTicker === 'BTC') {
+    formattedTicker = 'UBTC';
+  } else if (formattedTicker === 'SOL') {
+    formattedTicker = 'USOL';
   }
 
   const spotMeta = await getSpotMeta();
 
-  const baseIndex = spotMeta.tokens.findIndex(
-    (t) => t.name === formattedTicker
-  );
-  const quoteIndex = spotMeta.tokens.findIndex(
-    (t) => t.name === quoteToken.toUpperCase()
-  );
+  const baseIndex = spotMeta.tokens.findIndex((t) => t.name === formattedTicker);
+  const quoteIndex = spotMeta.tokens.findIndex((t) => t.name === quoteToken.toUpperCase());
 
   const match = spotMeta.universe.find(
     (m) => m.tokens[0] === baseIndex && m.tokens[1] === quoteIndex
@@ -70,16 +66,12 @@ export async function spotIndexToTicker(assetIndex: number) {
 
 export async function spotTickerToAtSymbol(
   ticker: string,
-  quoteToken: string = "USDC"
+  quoteToken: string = 'USDC'
 ): Promise<string | undefined> {
   const spotMeta = await getSpotMeta();
 
-  const baseIndex = spotMeta.tokens.findIndex(
-    (t) => t.name === ticker.toUpperCase()
-  );
-  const quoteIndex = spotMeta.tokens.findIndex(
-    (t) => t.name === quoteToken.toUpperCase()
-  );
+  const baseIndex = spotMeta.tokens.findIndex((t) => t.name === ticker.toUpperCase());
+  const quoteIndex = spotMeta.tokens.findIndex((t) => t.name === quoteToken.toUpperCase());
 
   const match = spotMeta.universe.find(
     (m) => m.tokens[0] === baseIndex && m.tokens[1] === quoteIndex
@@ -95,7 +87,7 @@ export async function spotTickerToAtSymbol(
  */
 export async function tickerToAllMidsKey(
   ticker: string,
-  quoteToken: string = "USDC"
+  quoteToken: string = 'USDC'
 ): Promise<string | undefined> {
   const perpMeta = await getPerpMeta();
 
@@ -104,12 +96,8 @@ export async function tickerToAllMidsKey(
 
   const spotMeta = await getSpotMeta();
 
-  const baseIndex = spotMeta.tokens.findIndex(
-    (t) => t.name === ticker.toUpperCase()
-  );
-  const quoteIndex = spotMeta.tokens.findIndex(
-    (t) => t.name === quoteToken.toUpperCase()
-  );
+  const baseIndex = spotMeta.tokens.findIndex((t) => t.name === ticker.toUpperCase());
+  const quoteIndex = spotMeta.tokens.findIndex((t) => t.name === quoteToken.toUpperCase());
 
   const spotMatch = spotMeta.universe.find(
     (m) => m.tokens[0] === baseIndex && m.tokens[1] === quoteIndex
@@ -119,7 +107,7 @@ export async function tickerToAllMidsKey(
 }
 
 function extractNumber(input: string): number {
-  return parseInt(input.replace("@", ""), 10);
+  return parseInt(input.replace('@', ''), 10);
 }
 
 export async function atSymbolToTicker(atSymbol: string) {
@@ -128,9 +116,7 @@ export async function atSymbolToTicker(atSymbol: string) {
   const spotMeta = await getSpotMeta();
 
   // Find the universe entry with the number in the atSymbol
-  const marketInfo = spotMeta.universe.find(
-    (market) => market.index === marketIndex
-  );
+  const marketInfo = spotMeta.universe.find((market) => market.index === marketIndex);
   if (!marketInfo) {
     return undefined;
   }
@@ -148,12 +134,12 @@ export async function atSymbolToTicker(atSymbol: string) {
 }
 
 export async function assetToTicker(asset: string | number): Promise<string> {
-  if (typeof asset === "string" && asset.startsWith("@")) {
+  if (typeof asset === 'string' && asset.startsWith('@')) {
     const ticker = atSymbolToTicker(asset);
     if (ticker) return ticker;
   }
 
-  const assetNum = typeof asset === "string" ? parseInt(asset, 10) : asset;
+  const assetNum = typeof asset === 'string' ? parseInt(asset, 10) : asset;
 
   if (assetNum >= 10000) {
     const ticker = await spotIndexToTicker(assetNum);
@@ -163,21 +149,21 @@ export async function assetToTicker(asset: string | number): Promise<string> {
   const ticker = await perpIndexToTicker(assetNum);
   if (ticker) return ticker;
 
-  return typeof asset === "string" ? asset : asset.toString();
+  return typeof asset === 'string' ? asset : asset.toString();
 }
 
-export type MarketType = "spot" | "perp";
+export type MarketType = 'spot' | 'perp';
 
 export async function tickerToAsset(
   ticker: string,
   marketType: MarketType
 ): Promise<string | number> {
-  if (ticker.startsWith("@")) {
+  if (ticker.startsWith('@')) {
     const index = await spotTickerToAtSymbol(ticker);
     if (index) return index;
   }
 
-  if (marketType === "spot") {
+  if (marketType === 'spot') {
     const index = await spotTickerToIndex(ticker);
     if (index !== -1) return index;
   } else {

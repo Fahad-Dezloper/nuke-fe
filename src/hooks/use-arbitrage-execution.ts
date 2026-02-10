@@ -58,11 +58,15 @@ export function useArbitrageExecution(): UseArbitrageExecutionResult {
         const solanaAddress = getSolanaAddress(wallets);
 
         if (!evmAddress) {
-          throw new Error('Ethereum wallet not found. Please ensure you have an Ethereum wallet connected.');
+          throw new Error(
+            'Ethereum wallet not found. Please ensure you have an Ethereum wallet connected.'
+          );
         }
 
         if (!solanaAddress) {
-          throw new Error('Solana wallet not found. Please ensure you have a Solana wallet connected.');
+          throw new Error(
+            'Solana wallet not found. Please ensure you have a Solana wallet connected.'
+          );
         }
 
         // Get the pair to determine which wallet goes where
@@ -72,12 +76,8 @@ export function useArbitrageExecution(): UseArbitrageExecutionResult {
         }
 
         // Get protocol adapters to determine wallet types
-        const longAdapter = arbitrageService
-          .getProtocolRegistry()
-          .getAdapter(pair.longProtocol);
-        const shortAdapter = arbitrageService
-          .getProtocolRegistry()
-          .getAdapter(pair.shortProtocol);
+        const longAdapter = arbitrageService.getProtocolRegistry().getAdapter(pair.longProtocol);
+        const shortAdapter = arbitrageService.getProtocolRegistry().getAdapter(pair.shortProtocol);
 
         if (!longAdapter || !shortAdapter) {
           throw new Error('Protocol adapters not found');
@@ -87,10 +87,8 @@ export function useArbitrageExecution(): UseArbitrageExecutionResult {
         const longWalletType = longAdapter.getRequiredWalletType();
         const shortWalletType = shortAdapter.getRequiredWalletType();
 
-        const longWalletAddress =
-          longWalletType === 'ethereum' ? evmAddress : solanaAddress;
-        const shortWalletAddress =
-          shortWalletType === 'ethereum' ? evmAddress : solanaAddress;
+        const longWalletAddress = longWalletType === 'ethereum' ? evmAddress : solanaAddress;
+        const shortWalletAddress = shortWalletType === 'ethereum' ? evmAddress : solanaAddress;
 
         // Execute arbitrage
         const executionResult = await arbitrageService.executePair({
@@ -113,8 +111,7 @@ export function useArbitrageExecution(): UseArbitrageExecutionResult {
 
         return executionResult;
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Unknown error occurred';
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
         setError(errorMessage);
         setIsExecuting(false);
 

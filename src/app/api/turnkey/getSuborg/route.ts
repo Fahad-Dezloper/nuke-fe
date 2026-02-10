@@ -28,9 +28,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Get suborg error:', error);
-    return NextResponse.json(
-      { message: 'Something went wrong.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Something went wrong.' }, { status: 500 });
   }
 }

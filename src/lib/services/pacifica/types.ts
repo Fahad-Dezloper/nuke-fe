@@ -34,6 +34,14 @@ export interface CreateLimitOrderRequest {
   expiry_window?: number;
 }
 
+export interface CancelOrderRequest {
+  symbol: string;
+  order_id?: number;
+  client_order_id?: string;
+  agent_wallet?: string;
+  expiry_window?: number;
+}
+
 export interface CreateOrderResponse {
   success: boolean;
   order_id?: string;

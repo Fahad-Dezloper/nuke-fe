@@ -33,17 +33,19 @@ src/
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - pnpm (recommended) or npm/yarn
 
 ### Installation
 
 1. Install dependencies:
+
 ```bash
 pnpm install
 ```
 
 2. Set up environment variables:
+
 ```bash
 cp .env.example .env
 ```
@@ -51,6 +53,7 @@ cp .env.example .env
 3. Update `.env` with your API URL and other configuration
 
 4. Run the development server:
+
 ```bash
 pnpm dev
 ```
@@ -143,6 +146,7 @@ The application uses a custom color palette defined in `globals.css`:
 - **Text**: White with various opacity levels (10%, 30%, 40%, 60%, 80%, 100%)
 
 Use Tailwind classes like:
+
 - `bg-background`, `bg-card`
 - `text-text-primary`, `text-text-muted-60`
 - `text-accent`, `bg-accent-secondary`
@@ -164,6 +168,7 @@ Use Tailwind classes like:
 ### Adding New API Endpoints
 
 1. Add endpoint to `src/lib/api/endpoints.ts`:
+
 ```typescript
 export const API_ENDPOINTS = {
   myFeature: {
@@ -174,6 +179,7 @@ export const API_ENDPOINTS = {
 ```
 
 2. Create service in `src/lib/api/services/`:
+
 ```typescript
 export const myFeatureService = {
   async getList() {

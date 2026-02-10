@@ -34,18 +34,23 @@ function hourlyToYearlyPercentage(hourlyRate: number): number {
 /**
  * Chart Service
  */
+export type ChartTimeframe = '30m' | '1h' | '24h';
+
 export const chartService = {
   /**
-   * Fetch chart data for a specific asset
+   * Fetch chart data for a specific asset and timeframe
    */
-  async getChartData(assetName: string): Promise<ChartApiResponse> {
+  async getChartData(
+    assetName: string,
+    timeframe: ChartTimeframe = '30m'
+  ): Promise<ChartApiResponse> {
     try {
       const response = await apiClient.get<ChartApiResponse>(
-        API_ENDPOINTS.market.chart(assetName)
+        API_ENDPOINTS.market.chart(assetName, timeframe)
       );
       return response;
     } catch (error) {
-      console.error(`Error fetching chart data for ${assetName}:`, error);
+      console.error(`Error fetching chart data for ${assetName} (${timeframe}):`, error);
       throw error;
     }
   },

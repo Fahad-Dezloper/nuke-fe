@@ -5,7 +5,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
-import { chartService, type ChartApiResponse } from '@/lib/api/services/chart.service';
+import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
+import { getBestPair } from '@/hooks/use-best-pair';
+import {
+  chartService,
+  type ChartApiResponse,
+  type ChartTimeframe,
+} from '@/lib/api/services/chart.service';
 
 /**
  * Convert hourly funding rate to yearly percentage
@@ -15,25 +21,20 @@ function hourlyToYearlyPercentage(hourlyRate: number): number {
 }
 
 /**
- * Format timestamp to chart time label based on duration
+ * Format timestamp to chart time label based on timeframe
  */
-function formatTimeLabel(timestamp: string, duration: string): string {
+function formatTimeLabel(timestamp: string, timeframe: ChartTimeframe): string {
   const date = new Date(timestamp);
   const hour = date.getHours();
   const minutes = date.getMinutes();
   const day = date.getDate();
   const month = date.getMonth() + 1;
-  const year = date.getFullYear();
 
-  // Format time based on duration
-  if (duration === '1 Hour') {
-    // Show HH:MM format
+  if (timeframe === '30m' || timeframe === '1h') {
+    // Show HH:MM format for 30m and 1h timeframes
     return `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  } else if (duration === '1 Day') {
-    // Show MM/DD HH:MM format
-    return `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')} ${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  } else if (duration === '1 Week') {
-    // Show MM/DD format
+  } else if (timeframe === '24h') {
+    // Show MM/DD format for 24h (daily) timeframe
     return `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
   }
 
@@ -55,7 +56,32 @@ function formatFullTimestamp(timestamp: string): string {
   return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
 }
 
+/**
+ * Normalize timestamps for bucketing based on timeframe
+ */
+function normalizeTimestamp(timestamp: string, timeframe: ChartTimeframe): string {
+  const date = new Date(timestamp);
+
+  if (timeframe === '30m') {
+    // Round to nearest 30 minutes
+    const minutes = date.getMinutes();
+    const roundedMinutes = Math.floor(minutes / 30) * 30;
+    date.setMinutes(roundedMinutes);
+    date.setSeconds(0, 0);
+  } else if (timeframe === '1h') {
+    // Round to nearest hour
+    date.setMinutes(0);
+    date.setSeconds(0, 0);
+  } else if (timeframe === '24h') {
+    // Round to nearest day (use the date, zero out time)
+    date.setHours(0, 0, 0, 0);
+  }
+
+  return date.toISOString();
+}
+
 export interface ChartDataPoint {
+  dataIndex: number; // Unique sequential index for x-axis positioning
   time: string;
   fullTimestamp: string;
   hyperliquid: number | null; // Yearly percentage (null if data missing)
@@ -73,17 +99,20 @@ export interface ChartDataPoint {
 }
 
 interface UseFundingRateChartOptions {
+  timeframe?: ChartTimeframe;
+  /** @deprecated Use timeframe instead */
   duration?: string;
 }
 
 export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
-  const { duration = '1 Week' } = options;
+  const { timeframe = '30m' } = options;
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const spreadAprData = useAtomValue(spreadAprDataAtom);
   const [chartData, setChartData] = useState<ChartApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Fetch chart data when asset changes
+  // Fetch chart data when asset or timeframe changes
   useEffect(() => {
     if (!selectedAsset?.asset) {
       setChartData(null);
@@ -96,7 +125,7 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
       setLoading(true);
       setError(null);
       try {
-        const data = await chartService.getChartData(selectedAsset?.asset || '');
+        const data = await chartService.getChartData(selectedAsset?.asset || '', timeframe);
         if (!cancelled) {
           setChartData(data);
         }
@@ -116,7 +145,7 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
     return () => {
       cancelled = true;
     };
-  }, [selectedAsset?.asset]);
+  }, [selectedAsset?.asset, timeframe]);
 
   // Transform chart data to match chart component format
   const transformedData = useMemo<ChartDataPoint[]>(() => {
@@ -124,55 +153,15 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
 
     const { hyperliquid, pacifica } = chartData;
 
-    // Filter data based on duration
-    const durationMap: Record<string, number> = {
-      '1 Hour': 1 / 24, // 1 hour in days
-      '1 Day': 1,
-      '1 Week': 7,
-    };
-
-    const daysToShow = durationMap[duration] || 7;
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysToShow);
-
-    // Filter data points within the duration
-    const filteredHyperliquid = hyperliquid.filter((item) => {
-      const itemDate = new Date(item.timestamp);
-      return itemDate >= cutoffDate;
-    });
-
-    const filteredPacifica = pacifica.filter((item) => {
-      const itemDate = new Date(item.timestamp);
-      return itemDate >= cutoffDate;
-    });
-
-    // Group timestamps by time buckets based on duration
-    // This helps match timestamps that are close but not identical
-    const normalizeTimestamp = (timestamp: string): string => {
-      const date = new Date(timestamp);
-
-      if (duration === '1 Hour') {
-        // Round to nearest minute for 1 hour view
-        date.setSeconds(0, 0);
-      } else if (duration === '1 Day') {
-        // Round to nearest 5 minutes for 1 day view
-        const minutes = date.getMinutes();
-        const roundedMinutes = Math.floor(minutes / 5) * 5;
-        date.setMinutes(roundedMinutes);
-        date.setSeconds(0, 0);
-      } else {
-        // Round to nearest hour for 1 week view
-        date.setMinutes(0);
-        date.setSeconds(0, 0);
-      }
-
-      return date.toISOString();
-    };
+    // ── Determine consistent long/short from best-pair (single source of truth) ──
+    const bestPair = getBestPair(selectedAsset, spreadAprData);
+    const consistentLong = bestPair.long; // e.g. 'pacifica'
+    const consistentShort = bestPair.short; // e.g. 'hyperliquid'
 
     // Create maps with normalized timestamps
-    const hyperliquidMap = new Map<string, typeof filteredHyperliquid[0]>();
-    filteredHyperliquid.forEach((item) => {
-      const normalized = normalizeTimestamp(item.timestamp);
+    const hyperliquidMap = new Map<string, (typeof hyperliquid)[0]>();
+    hyperliquid.forEach((item) => {
+      const normalized = normalizeTimestamp(item.timestamp, timeframe);
       // Keep the most recent data point if multiple map to same bucket
       const existing = hyperliquidMap.get(normalized);
       if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
@@ -180,10 +169,9 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
       }
     });
 
-    const pacificaMap = new Map<string, typeof filteredPacifica[0]>();
-    filteredPacifica.forEach((item) => {
-      const normalized = normalizeTimestamp(item.timestamp);
-      // Keep the most recent data point if multiple map to same bucket
+    const pacificaMap = new Map<string, (typeof pacifica)[0]>();
+    pacifica.forEach((item) => {
+      const normalized = normalizeTimestamp(item.timestamp, timeframe);
       const existing = pacificaMap.get(normalized);
       if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
         pacificaMap.set(normalized, item);
@@ -208,54 +196,36 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
       const displayTimestamp = hlData?.timestamp || pacData?.timestamp || normalizedTimestamp;
 
       // Convert hourly rates to yearly percentages
-      // Only convert if data exists, otherwise use null (chart will handle gaps)
       const hlYearly = hlData ? hourlyToYearlyPercentage(hlData.rate) : null;
       const pacYearly = pacData ? hourlyToYearlyPercentage(pacData.rate) : null;
 
-      // Determine LONG and SHORT based on funding rates (lower = LONG, higher = SHORT)
-      // Only calculate if both rates exist
-      let longProtocol: 'hyperliquid' | 'pacifica' = 'hyperliquid';
-      let shortProtocol: 'hyperliquid' | 'pacifica' = 'pacifica';
-      let longRate = 0;
-      let shortRate = 0;
-      let netRate = 0;
-
-      if (hlYearly !== null && pacYearly !== null) {
-        const isHyperliquidLower = hlYearly < pacYearly;
-        longProtocol = isHyperliquidLower ? 'hyperliquid' : 'pacifica';
-        shortProtocol = isHyperliquidLower ? 'pacifica' : 'hyperliquid';
-        longRate = isHyperliquidLower ? hlYearly : pacYearly;
-        shortRate = isHyperliquidLower ? pacYearly : hlYearly;
-        netRate = shortRate - longRate; // Always positive
-      } else {
-        // If only one platform has data, we can't determine LONG/SHORT properly
-        // Use default values but the tooltip will handle this
-        longProtocol = 'hyperliquid';
-        shortProtocol = 'pacifica';
-        longRate = hlYearly ?? 0;
-        shortRate = pacYearly ?? 0;
-        netRate = Math.abs((hlYearly ?? 0) - (pacYearly ?? 0));
-      }
+      // Use the consistent best-pair assignment for ALL data points
+      const longRate =
+        consistentLong === 'hyperliquid' ? (hlYearly ?? 0) : (pacYearly ?? 0);
+      const shortRate =
+        consistentShort === 'hyperliquid' ? (hlYearly ?? 0) : (pacYearly ?? 0);
+      const netRate = shortRate - longRate;
 
       const isProjected = index >= projectionThreshold;
 
       return {
-        time: formatTimeLabel(displayTimestamp, duration),
+        dataIndex: index,
+        time: formatTimeLabel(displayTimestamp, timeframe),
         fullTimestamp: formatFullTimestamp(displayTimestamp),
-        hyperliquid: hlYearly ?? null, // Keep null for missing data
-        pacifica: pacYearly ?? null, // Keep null for missing data
+        hyperliquid: hlYearly ?? null,
+        pacifica: pacYearly ?? null,
         hyperliquidRaw: hlData?.rate || 0,
         pacificaRaw: pacData?.rate || 0,
         projectedHyperliquid: isProjected && hlData ? (hlYearly ?? null) : null,
         projectedPacifica: isProjected && pacData ? (pacYearly ?? null) : null,
-        longProtocol,
-        shortProtocol,
+        longProtocol: consistentLong,
+        shortProtocol: consistentShort,
         longRate,
         shortRate,
         netRate,
       };
     });
-  }, [chartData, duration]);
+  }, [chartData, timeframe, selectedAsset, spreadAprData]);
 
   return {
     data: transformedData,

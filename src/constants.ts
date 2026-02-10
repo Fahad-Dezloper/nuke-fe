@@ -1,1 +1,2 @@
-export const BACKEND_URL = "http://localhost:8000";
+export const BACKEND_URL = 'http://localhost:8000';
+export const HYPERLIQUID_ROUTER_CONTRACT = '0x377a90f0c3D1CfFc93815a5d4F6E705e047d6F04';

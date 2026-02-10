@@ -91,4 +91,3 @@ export const mockTradeDetails: TradeDetails = {
   estimatedAPR: '+257.1%',
   maxDrawdown: '-5.2%',
 };
-

@@ -13,13 +13,10 @@ interface ChartSectionContentProps {
   className?: string;
 }
 
-export function ChartSectionContent({
-  className,
-}: ChartSectionContentProps) {
+export function ChartSectionContent({ className }: ChartSectionContentProps) {
   return (
     <ChartSection className={className}>
-      <FundingRatesChart className='h-full' />
+      <FundingRatesChart className="h-full" />
     </ChartSection>
   );
 }
-

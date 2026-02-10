@@ -31,22 +31,22 @@ export function PositionDetailsCard({
         'shadow-lg shadow-black/20',
         gradientClass,
         className
-      )}>
-      <div className='flex items-center justify-between'>
-        <span className='text-xs font-medium text-text-primary'>{label}</span>
-        <span className='text-xs text-text-muted-60'>{platform}</span>
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-text-primary">{label}</span>
+        <span className="text-xs text-text-muted-60">{platform}</span>
       </div>
-      <div className='flex flex-col gap-2'>
-        <div className='flex items-center justify-between'>
-          <span className='text-xs text-text-muted-60'>MARGIN</span>
-          <span className='text-xs text-text-primary'>{margin}</span>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-text-muted-60">MARGIN</span>
+          <span className="text-xs text-text-primary">{margin}</span>
         </div>
-        <div className='flex items-center justify-between'>
-          <span className='text-xs text-text-muted-60'>SIZE</span>
-          <span className='text-xs text-text-primary'>{size}</span>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-text-muted-60">SIZE</span>
+          <span className="text-xs text-text-primary">{size}</span>
         </div>
       </div>
     </div>
   );
 }
-

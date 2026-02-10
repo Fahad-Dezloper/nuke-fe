@@ -5,4 +5,6 @@ export { useArbitrageExecution } from './use-arbitrage-execution';
 export { useFundingRateChart } from './use-funding-rate-chart';
 export type { ChartDataPoint } from './use-funding-rate-chart';
 export { usePositions } from './use-positions';
-
+export { useClosePosition } from './use-close-position';
+export type { CloseStatus, CloseLegResult, ClosePositionResult } from './use-close-position';
+export { useUSDCBalanceBase } from './use-usdc-balance-base';

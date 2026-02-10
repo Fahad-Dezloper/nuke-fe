@@ -88,8 +88,18 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
 
   // Determine which protocol has long and short positions
   // Normalize protocol names to lowercase IDs for consistency
-  const longProtocolId = hyperliquid?.side === 'Long' ? 'hyperliquid' : pacifica?.side === 'Long' ? 'pacifica' : 'hyperliquid';
-  const shortProtocolId = hyperliquid?.side === 'Short' ? 'hyperliquid' : pacifica?.side === 'Short' ? 'pacifica' : 'pacifica';
+  const longProtocolId =
+    hyperliquid?.side === 'Long'
+      ? 'hyperliquid'
+      : pacifica?.side === 'Long'
+        ? 'pacifica'
+        : 'hyperliquid';
+  const shortProtocolId =
+    hyperliquid?.side === 'Short'
+      ? 'hyperliquid'
+      : pacifica?.side === 'Short'
+        ? 'pacifica'
+        : 'pacifica';
 
   // Get display names (will be resolved in components using protocol config)
   const longProtocol = longProtocolId;
@@ -153,17 +163,17 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
     protocolData: {
       hyperliquid: hyperliquid
         ? ({
-          size: hyperliquid.size,
-          pnl: formatCurrency(hyperliquidPnl),
-          funding: formatCurrency(hyperliquidFunding),
-        } as ProtocolPositionData)
+            size: hyperliquid.size,
+            pnl: formatCurrency(hyperliquidPnl),
+            funding: formatCurrency(hyperliquidFunding),
+          } as ProtocolPositionData)
         : null,
       pacifica: pacifica
         ? ({
-          size: pacifica.size,
-          pnl: formatCurrency(pacificaPnl),
-          funding: formatCurrency(pacificaFunding),
-        } as ProtocolPositionData)
+            size: pacifica.size,
+            pnl: formatCurrency(pacificaPnl),
+            funding: formatCurrency(pacificaFunding),
+          } as ProtocolPositionData)
         : null,
     } as Record<string, ProtocolPositionData | null>,
   };
@@ -174,15 +184,20 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
  */
 export const positionsService = {
   /**
-   * Get open positions for a user
+   * Get open positions for a user (transformed for UI)
    */
-  async getOpenPositions(
-    evmAddress: string,
-    solanaAddress: string
-  ): Promise<ArbitragePosition[]> {
+  async getOpenPositions(evmAddress: string, solanaAddress: string): Promise<ArbitragePosition[]> {
     const endpoint = API_ENDPOINTS.arbitrage.openPositions(evmAddress, solanaAddress);
     const response = await apiClient.get<PositionApiResponse[]>(endpoint);
 
     return response.map(transformPositionData);
+  },
+
+  /**
+   * Get raw open positions from API (needed for close operations)
+   */
+  async getOpenPositionsRaw(evmAddress: string, solanaAddress: string): Promise<PositionApiResponse[]> {
+    const endpoint = API_ENDPOINTS.arbitrage.openPositions(evmAddress, solanaAddress);
+    return apiClient.get<PositionApiResponse[]>(endpoint);
   },
 };

@@ -1,14 +1,9 @@
-import { PACIFICA_HTTP_URL } from "./constants";
-import {
-  Side,
-  TpSlParams,
-  SetPositionTpSlReq,
-  TpSlStopOrder,
-} from "./types";
+import { PACIFICA_HTTP_URL } from './constants';
+import { Side, TpSlParams, SetPositionTpSlReq, TpSlStopOrder } from './types';
 
 export interface TpSlSigningData {
   type: string;
-  request: Omit<SetPositionTpSlReq, "signature">;
+  request: Omit<SetPositionTpSlReq, 'signature'>;
   endpoint: string;
 }
 
@@ -25,9 +20,7 @@ export class TpSlManager {
    */
   public prepareSetPositionTpSl(params: TpSlParams): TpSlSigningData {
     if (!params.takeProfitPrice && !params.stopLossPrice) {
-      throw new Error(
-        "At least one of take profit or stop loss price must be provided",
-      );
+      throw new Error('At least one of take profit or stop loss price must be provided');
     }
 
     let takeProfit: TpSlStopOrder | undefined;
@@ -51,7 +44,7 @@ export class TpSlManager {
 
     const timestamp = Date.now();
 
-    const request: Omit<SetPositionTpSlReq, "signature"> = {
+    const request: Omit<SetPositionTpSlReq, 'signature'> = {
       account: params.account,
       timestamp,
       symbol: params.symbol,
@@ -63,7 +56,7 @@ export class TpSlManager {
     };
 
     return {
-      type: "set_position_tpsl",
+      type: 'set_position_tpsl',
       request,
       endpoint: `${this.baseUrl}/positions/tpsl`,
     };
@@ -73,13 +66,11 @@ export class TpSlManager {
    * Sets take profit and/or stop loss for an existing position
    * Requires a signed request
    */
-  public async setPositionTpSl(
-    request: SetPositionTpSlReq,
-  ): Promise<boolean> {
+  public async setPositionTpSl(request: SetPositionTpSlReq): Promise<boolean> {
     const response = await fetch(`${this.baseUrl}/positions/tpsl`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(request),
     });
@@ -89,9 +80,9 @@ export class TpSlManager {
     }
 
     if (response.status === 400) {
-      throw new Error("Failed to set position TP/SL. Bad request");
+      throw new Error('Failed to set position TP/SL. Bad request');
     }
 
-    throw new Error("Internal server error");
+    throw new Error('Internal server error');
   }
 }

@@ -55,22 +55,23 @@ export function DepositButton({
           'bg-gradient-to-br from-card/60 via-card/50 to-card/40',
           'backdrop-blur-xl border border-border-white-10/50',
           'text-text-primary',
-          'hover:border-border-white-30',
-          'hover:from-card/70 hover:via-card/60 hover:to-card/50',
-          'hover:backdrop-blur-2xl',
+          'hover:border-border-white-20 hover:bg-card/70',
+          'transition-colors duration-200 cursor-pointer',
+          'outline-none focus:outline-none',
           'font-medium transition-all duration-300',
-          'shadow-lg shadow-black/30 hover:shadow-black/40',
+          'shadow-lg shadow-black/30 hover:shadow-black/40 cursor-pointer',
           'flex items-center gap-2',
           sizeClasses[size],
           fullWidth && 'w-full',
           className
-        )}>
+        )}
+      >
         {/* Glassmorphism overlay */}
-        <div className='absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl' />
-        
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+
         {/* Button content */}
-        <Wallet className='w-4 h-4' />
-        <span className='relative z-10'>DEPOSIT</span>
+        <Wallet className="w-4 h-4" />
+        <span className="relative z-10 text-xs">DEPOSIT</span>
       </motion.button>
 
       <DepositModal

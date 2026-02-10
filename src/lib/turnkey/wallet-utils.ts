@@ -19,28 +19,27 @@ import { ADDRESS_FORMATS } from './constants';
  * ```
  */
 export function getEVMAddress(wallets: Wallet[]): string | undefined {
-    if (!wallets || wallets.length === 0) {
-        return undefined;
-    }
-
-    for (const wallet of wallets) {
-        if (!wallet.accounts || wallet.accounts.length === 0) {
-            continue;
-        }
-
-        // Look for Ethereum address format
-        const evmAccount = wallet.accounts.find(
-            (account) =>
-                account.addressFormat === ADDRESS_FORMATS.ETHEREUM ||
-                account.address?.startsWith('0x')
-        );
-
-        if (evmAccount?.address) {
-            return evmAccount.address;
-        }
-    }
-
+  if (!wallets || wallets.length === 0) {
     return undefined;
+  }
+
+  for (const wallet of wallets) {
+    if (!wallet.accounts || wallet.accounts.length === 0) {
+      continue;
+    }
+
+    // Look for Ethereum address format
+    const evmAccount = wallet.accounts.find(
+      (account) =>
+        account.addressFormat === ADDRESS_FORMATS.ETHEREUM || account.address?.startsWith('0x')
+    );
+
+    if (evmAccount?.address) {
+      return evmAccount.address;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -61,28 +60,26 @@ export function getEVMAddress(wallets: Wallet[]): string | undefined {
  * ```
  */
 export function getSolanaAddress(wallets: Wallet[]): string | undefined {
-    if (!wallets || wallets.length === 0) {
-        return undefined;
-    }
-
-    for (const wallet of wallets) {
-        if (!wallet.accounts || wallet.accounts.length === 0) {
-            continue;
-        }
-
-        // Look for Solana address format
-        const solanaAccount = wallet.accounts.find(
-            (account) =>
-                account.addressFormat === ADDRESS_FORMATS.SOLANA ||
-                (account.address &&
-                    !account.address.startsWith('0x') &&
-                    account.address.length > 40)
-        );
-
-        if (solanaAccount?.address) {
-            return solanaAccount.address;
-        }
-    }
-
+  if (!wallets || wallets.length === 0) {
     return undefined;
+  }
+
+  for (const wallet of wallets) {
+    if (!wallet.accounts || wallet.accounts.length === 0) {
+      continue;
+    }
+
+    // Look for Solana address format
+    const solanaAccount = wallet.accounts.find(
+      (account) =>
+        account.addressFormat === ADDRESS_FORMATS.SOLANA ||
+        (account.address && !account.address.startsWith('0x') && account.address.length > 40)
+    );
+
+    if (solanaAccount?.address) {
+      return solanaAccount.address;
+    }
+  }
+
+  return undefined;
 }

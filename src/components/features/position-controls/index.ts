@@ -7,9 +7,9 @@ export { ArbitragePairSelector } from './arbitrage-pair-selector';
 
 // Export store atoms
 export {
-    leverageAtom,
-    marginAtom,
-    marginCurrencyAtom,
-    selectedArbitragePairAtom,
-    selectedAssetAtom,
+  leverageAtom,
+  marginAtom,
+  marginCurrencyAtom,
+  selectedArbitragePairAtom,
+  selectedAssetAtom,
 } from './store';

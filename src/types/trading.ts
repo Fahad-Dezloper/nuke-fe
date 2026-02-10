@@ -27,4 +27,3 @@ export interface PositionSizeConfig {
  * Currency option for position size
  */
 export type Currency = 'USD' | 'EUR' | 'GBP';
-
