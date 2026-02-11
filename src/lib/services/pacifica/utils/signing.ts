@@ -37,9 +37,8 @@ export function sortJsonKeysRecursively(value: unknown): unknown {
  * Uses standard separators (",", ":")
  */
 export function createCompactJson(data: unknown): string {
-  return JSON.stringify(data, null, 0).replace(/\s+/g, '');
+  return JSON.stringify(data);
 }
-
 /**
  * Prepares the data structure for signing according to Pacifica's requirements
  * 1. Creates signature header with timestamp, expiry_window, and type

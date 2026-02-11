@@ -1,6 +1,8 @@
 /**
  * Hook to close hedged positions on both Hyperliquid and Pacifica simultaneously.
  *
+ * Uses React Query useMutation for proper state management.
+ *
  * Flow:
  *  1. User clicks close on a position row
  *  2. Both legs (HL + Pacifica) are closed in parallel via Promise.allSettled
@@ -8,10 +10,12 @@
  *  4. After all retries, final status is reported per-leg
  */
 
+'use client';
+
 import { useState, useCallback, useRef } from 'react';
-import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
-import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
-import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { closeHLPosition, closePacificaPosition } from '@/lib/trading/close-position';
+import { queryKeys } from '@/lib/query-keys';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -42,95 +46,10 @@ interface UseClosePositionOptions {
   onSuccess?: () => void;
 }
 
-// ─── Services (singleton) ─────────────────────────────────────────────────────
-
-const hlService = new HyperLiquidService();
-const pacificaService = new PacificaService();
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Close a HyperLiquid position for a given asset.
- */
-async function closeHLPosition(
-  hl: NonNullable<PositionApiResponse['hyperliquid']>,
-  evmAddress: string,
-  organizationId: string
-): Promise<CloseLegResult> {
-  try {
-    const assetIndex = await perpTickerToIndex(hl.symbol.toUpperCase());
-    if (assetIndex === -1) {
-      return { protocol: 'hyperliquid', success: false, error: `Unknown asset: ${hl.symbol}` };
-    }
-
-    const result = await hlService.closePosition(
-      {
-        assetIndex,
-        assetName: hl.symbol.toUpperCase(),
-        price: 0, // Market order — price is ignored
-        size: hl.size,
-        isLong: hl.side === 'Long',
-        isMarket: true,
-        userAddress: evmAddress,
-      },
-      evmAddress,
-      organizationId
-    );
-
-    return {
-      protocol: 'hyperliquid',
-      success: result.success,
-      error: result.success ? undefined : result.error || result.message,
-    };
-  } catch (err) {
-    return {
-      protocol: 'hyperliquid',
-      success: false,
-      error: err instanceof Error ? err.message : 'Unknown error',
-    };
-  }
-}
-
-/**
- * Close a Pacifica position by creating a reduce-only market order on the opposite side.
- */
-async function closePacificaPosition(
-  pac: NonNullable<PositionApiResponse['pacifica']>,
-  solanaAddress: string,
-  organizationId: string
-): Promise<CloseLegResult> {
-  try {
-    // To close: submit opposite-side reduce_only market order
-    const closeSide: 'bid' | 'ask' = pac.side === 'Long' ? 'ask' : 'bid';
-
-    const result = await pacificaService.createMarketOrder(
-      {
-        symbol: pac.symbol.toUpperCase(),
-        amount: pac.size,
-        side: closeSide,
-        slippage_percent: '3', // 3% slippage tolerance
-        reduce_only: true,
-      },
-      solanaAddress,
-      organizationId
-    );
-
-    return {
-      protocol: 'pacifica',
-      success: result.success,
-      error: result.success ? undefined : result.error || result.message,
-    };
-  } catch (err) {
-    return {
-      protocol: 'pacifica',
-      success: false,
-      error: err instanceof Error ? err.message : 'Unknown error',
-    };
-  }
 }
 
 /**
@@ -146,7 +65,6 @@ async function closeLegWithRetries(
     lastResult = await closeFn();
     if (lastResult.success) return lastResult;
 
-    // Don't sleep after the last attempt
     if (attempt < maxRetries) {
       console.warn(
         `[close-position] ${lastResult.protocol} attempt ${attempt + 1}/${maxRetries + 1} failed: ${lastResult.error}. Retrying...`
@@ -165,8 +83,9 @@ async function closeLegWithRetries(
 
 export function useClosePosition(options: UseClosePositionOptions) {
   const { evmAddress, solanaAddress, organizationId, onSuccess } = options;
+  const queryClient = useQueryClient();
 
-  // Track which assets are currently closing  (asset key → status)
+  // Track which assets are currently closing (asset key → status)
   const [closingAssets, setClosingAssets] = useState<Record<string, CloseStatus>>({});
   const activeCloses = useRef<Set<string>>(new Set());
 
@@ -225,8 +144,10 @@ export function useClosePosition(options: UseClosePositionOptions) {
         setClosingAssets((prev) => ({ ...prev, [key]: status }));
         activeCloses.current.delete(key);
 
-        if (allSuccess && onSuccess) {
-          onSuccess();
+        if (allSuccess) {
+          // Invalidate positions cache so it refetches
+          queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+          onSuccess?.();
         }
 
         return { status, legs: results };
@@ -237,7 +158,7 @@ export function useClosePosition(options: UseClosePositionOptions) {
         return { status: 'error', legs: [] };
       }
     },
-    [evmAddress, solanaAddress, organizationId, onSuccess]
+    [evmAddress, solanaAddress, organizationId, onSuccess, queryClient]
   );
 
   /**

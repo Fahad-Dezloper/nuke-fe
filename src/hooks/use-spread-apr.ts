@@ -1,48 +1,53 @@
 /**
  * Spread APR Hook
- * Fetches 7-day spread APR data once on mount and stores in global state
- * No polling needed - backend CRON updates daily
+ *
+ * Fetches 7-day spread APR data using React Query.
+ * No polling needed — backend CRON updates daily.
+ * Syncs into Jotai atoms for global consumption.
  */
 
-import { useEffect, useRef } from 'react';
+'use client';
+
+import { useEffect } from 'react';
 import { useSetAtom } from 'jotai';
+import { useQuery } from '@tanstack/react-query';
 import {
   spreadAprDataAtom,
   spreadAprLoadingAtom,
   spreadAprErrorAtom,
 } from '@/lib/stores/spread-apr.store';
 import { aprService } from '@/lib/api/services/apr.service';
+import { queryKeys } from '@/lib/query-keys';
 
 /**
- * Hook to fetch spread APR data once
- * Should be called in a provider component high in the tree
+ * Hook to fetch spread APR data once per session.
+ * Should be called in a provider component high in the tree.
  */
 export function useSpreadApr() {
   const setSpreadAprData = useSetAtom(spreadAprDataAtom);
   const setLoading = useSetAtom(spreadAprLoadingAtom);
   const setError = useSetAtom(spreadAprErrorAtom);
-  const hasFetchedRef = useRef(false);
+
+  const query = useQuery({
+    queryKey: queryKeys.spreadApr.average,
+    queryFn: () => aprService.getAverageApr(),
+    // APR data is updated daily — keep it fresh for 1 hour
+    staleTime: 60 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
+  });
+
+  // Sync React Query state → Jotai atoms
+  useEffect(() => {
+    if (query.data) {
+      setSpreadAprData(query.data);
+    }
+  }, [query.data, setSpreadAprData]);
 
   useEffect(() => {
-    // Only fetch once per session
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
+    setLoading(query.isLoading);
+  }, [query.isLoading, setLoading]);
 
-    const fetchApr = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const data = await aprService.getAverageApr();
-        setSpreadAprData(data);
-      } catch (error) {
-        console.error('Error fetching spread APR:', error);
-        setError(error instanceof Error ? error : new Error('Unknown error'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchApr();
-  }, []); // Empty deps - fetch once on mount
+  useEffect(() => {
+    setError(query.error ?? null);
+  }, [query.error, setError]);
 }

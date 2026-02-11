@@ -22,6 +22,7 @@ import type {
   HedgeIntentDetail,
   HedgeIntent,
 } from './types';
+import { API_ENDPOINTS } from '../api';
 
 // Note: Backend expects trailing slash on create endpoint
 
@@ -37,7 +38,7 @@ export const hedgeIntentApi = {
    */
   async create(request: CreateHedgeIntentRequest): Promise<string> {
     const response = await apiClient.post<CreateHedgeIntentResponse>(
-      '/hedge-intents/',
+      API_ENDPOINTS.hedgeIntent.create,
       request
     );
     return response.hedge_intent_id;
@@ -52,7 +53,7 @@ export const hedgeIntentApi = {
    */
   async getNextAction(intentId: string): Promise<NextActionResponse> {
     return apiClient.get<NextActionResponse>(
-      `/hedge-intents/${intentId}/next-action`
+      API_ENDPOINTS.hedgeIntent.nextAction(intentId)
     );
   },
 
@@ -68,7 +69,7 @@ export const hedgeIntentApi = {
     result: ActionResultRequest
   ): Promise<ActionResultResponse> {
     return apiClient.post<ActionResultResponse>(
-      `/hedge-intents/${intentId}/action-result`,
+      API_ENDPOINTS.hedgeIntent.actionResult(intentId),
       result
     );
   },
@@ -81,7 +82,7 @@ export const hedgeIntentApi = {
    */
   async getDetail(intentId: string): Promise<HedgeIntentDetail> {
     return apiClient.get<HedgeIntentDetail>(
-      `/hedge-intents/${intentId}`
+      API_ENDPOINTS.hedgeIntent.detail(intentId)
     );
   },
 
@@ -92,7 +93,7 @@ export const hedgeIntentApi = {
    */
   async getUserIntents(userId: string): Promise<HedgeIntent[]> {
     return apiClient.get<HedgeIntent[]>(
-      `/hedge-intents/user/${userId}`
+      API_ENDPOINTS.hedgeIntent.userIntents(userId)
     );
   },
 };

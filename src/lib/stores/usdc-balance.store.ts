@@ -8,6 +8,7 @@
 import { atom } from 'jotai';
 import { getUSDCBalanceOnBase, formatUSDCBalance } from '@/lib/bridge/balance';
 import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
+import type { Wallet } from '@/lib/turnkey/types';
 
 /**
  * USDC balance on Base (in smallest unit - bigint)
@@ -110,7 +111,7 @@ export const fetchUSDCBalanceBaseAtom = atom(
  */
 export const fetchUSDCBalanceBaseFromTurnkeyAtom = atom(
   null,
-  async (get, set, wallets: Array<{ accounts?: Array<{ address: string }> }> | null) => {
+  async (get, set, wallets: Wallet[] | null) => {
     if (!wallets || wallets.length === 0) {
       set(usdcBalanceBaseAtom, null);
       set(usdcBalanceBaseErrorAtom, null);

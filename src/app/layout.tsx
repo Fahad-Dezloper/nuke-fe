@@ -4,8 +4,9 @@ import './globals.css';
 import { Navbar } from '@/components/layout/navbar';
 import { TurnkeyProvider } from '@/lib/turnkey';
 import { LoadingOverlay } from '@/components/layout/loading-overlay';
+import { QueryProvider } from '@/components/providers/query-provider';
 import { MarketFeedProvider } from '@/components/providers/market-feed-provider';
-// import { Footer } from '@/components/layout/footer';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 const robotoMono = Roboto_Mono({
   variable: '--font-roboto-mono',
@@ -38,16 +39,19 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${robotoMono.variable} antialiased overflow-hidden`}>
-        <TurnkeyProvider>
-          <MarketFeedProvider>
-            <LoadingOverlay />
-            <div className="flex h-screen flex-col">
-              <Navbar />
-              <main className="flex-1 overflow-hidden">{children}</main>
-              {/* <Footer /> */}
-            </div>
-          </MarketFeedProvider>
-        </TurnkeyProvider>
+        <ErrorBoundary>
+          <QueryProvider>
+            <TurnkeyProvider>
+              <MarketFeedProvider>
+                <LoadingOverlay />
+                <div className="flex h-screen flex-col">
+                  <Navbar />
+                  <main className="flex-1 overflow-hidden">{children}</main>
+                </div>
+              </MarketFeedProvider>
+            </TurnkeyProvider>
+          </QueryProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

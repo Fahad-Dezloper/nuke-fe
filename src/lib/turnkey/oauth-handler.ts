@@ -133,6 +133,12 @@ export class OAuthHandler {
     const flow = 'redirect';
     const normalizedRedirectUri = redirectUri.replace(/\/$/, '');
 
+    // Generate CSRF token and store it for validation on return
+    const csrfToken = crypto.randomUUID();
+    try {
+      sessionStorage.setItem('oauth_csrf_token', csrfToken);
+    } catch { /* sessionStorage not available */ }
+
     const googleAuthUrl = new URL(GOOGLE_AUTH_URL);
     googleAuthUrl.searchParams.set('client_id', clientId);
     googleAuthUrl.searchParams.set('redirect_uri', normalizedRedirectUri);
@@ -140,7 +146,7 @@ export class OAuthHandler {
     googleAuthUrl.searchParams.set('scope', 'openid email profile');
     googleAuthUrl.searchParams.set('nonce', nonce);
     googleAuthUrl.searchParams.set('prompt', 'select_account');
-    googleAuthUrl.searchParams.set('state', `provider=google&flow=${flow}`);
+    googleAuthUrl.searchParams.set('state', `provider=google&flow=${flow}&csrf=${csrfToken}`);
 
     return googleAuthUrl.toString();
   }

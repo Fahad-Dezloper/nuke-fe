@@ -117,11 +117,44 @@ export class ArbitrageOrchestrator {
         slippagePercent: params.slippagePercent,
       };
 
-      // 6. Execute both positions in parallel
-      const [longResult, shortResult] = await Promise.all([
+      // 6. Execute both positions in parallel (allSettled ensures we always get both results)
+      const [longSettled, shortSettled] = await Promise.allSettled([
         longAdapter.openPosition(longParams),
         shortAdapter.openPosition(shortParams),
       ]);
+
+      // Extract results — convert rejected promises to failed position results
+      const longResult: UnifiedPositionResult =
+        longSettled.status === 'fulfilled'
+          ? longSettled.value
+          : {
+              success: false,
+              positionId: '',
+              protocol: pair.longProtocol,
+              asset: pair.asset,
+              direction: 'long' as const,
+              size: '0',
+              entryPrice: '0',
+              margin: halfMargin,
+              leverage: params.leverage,
+              error: longSettled.reason?.message || 'Unknown error opening LONG position',
+            };
+
+      const shortResult: UnifiedPositionResult =
+        shortSettled.status === 'fulfilled'
+          ? shortSettled.value
+          : {
+              success: false,
+              positionId: '',
+              protocol: pair.shortProtocol,
+              asset: pair.asset,
+              direction: 'short' as const,
+              size: '0',
+              entryPrice: '0',
+              margin: halfMargin,
+              leverage: params.leverage,
+              error: shortSettled.reason?.message || 'Unknown error opening SHORT position',
+            };
 
       // 7. Handle results
       if (longResult.success && shortResult.success) {

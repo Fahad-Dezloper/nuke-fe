@@ -87,6 +87,20 @@ export function extractOAuthParams(): {
     const provider = stateParams.get('provider');
     const flow = stateParams.get('flow');
 
+    // Validate CSRF token
+    const csrfToken = stateParams.get('csrf');
+    if (csrfToken) {
+      try {
+        const storedCsrf = sessionStorage.getItem('oauth_csrf_token');
+        if (storedCsrf && storedCsrf !== csrfToken) {
+          console.error('[OAuth] CSRF token mismatch — possible CSRF attack');
+          return { idToken: null, provider: null, flow: null };
+        }
+        // Clean up after validation
+        sessionStorage.removeItem('oauth_csrf_token');
+      } catch { /* sessionStorage not available */ }
+    }
+
     return { idToken, provider, flow };
   }
 

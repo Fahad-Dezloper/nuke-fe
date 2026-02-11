@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, TooltipProps } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartLegend, type ChartConfig } from '@/components/ui/chart';
 import { cn } from '@/lib/utils';
 import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
@@ -50,7 +50,7 @@ interface FundingRateChartProps {
 /**
  * Custom Tooltip Component
  */
-function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartDataPoint; value?: number; name?: string }> }) {
   if (!active || !payload || payload.length === 0) {
     return null;
   }

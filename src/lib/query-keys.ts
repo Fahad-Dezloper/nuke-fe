@@ -1,0 +1,41 @@
+/**
+ * React Query Key Factory
+ *
+ * Centralized query key definitions for cache management.
+ * Following the query key factory pattern for consistency.
+ */
+
+export const queryKeys = {
+  positions: {
+    all: ['positions'] as const,
+    open: (evmAddress: string, solanaAddress: string) =>
+      ['positions', 'open', evmAddress, solanaAddress] as const,
+  },
+
+  marketFeed: {
+    all: ['market-feed'] as const,
+    live: ['market-feed', 'live'] as const,
+  },
+
+  spreadApr: {
+    all: ['spread-apr'] as const,
+    average: ['spread-apr', 'average'] as const,
+  },
+
+  chart: {
+    all: ['chart'] as const,
+    fundingRate: (asset: string, timeframe: string) =>
+      ['chart', 'funding-rate', asset, timeframe] as const,
+  },
+
+  bridgeFees: {
+    all: ['bridge-fees'] as const,
+    estimate: (amount: string, evmAddress: string) =>
+      ['bridge-fees', 'estimate', amount, evmAddress] as const,
+  },
+
+  balance: {
+    all: ['balance'] as const,
+    usdcBase: (address: string) => ['balance', 'usdc-base', address] as const,
+  },
+} as const;

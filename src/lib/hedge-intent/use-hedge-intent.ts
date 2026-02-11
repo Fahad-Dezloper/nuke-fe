@@ -19,7 +19,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAtomValue } from 'jotai';
 import { useTurnkey } from '@/lib/turnkey/hooks';
-import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
+import { getWalletContext } from '@/lib/wallet-context';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { hedgeIntentApi } from './api';
 import { HedgeIntentEngine, type EngineCallbacks } from './engine';
@@ -141,28 +141,9 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
 
   // ── Build executor context from Turnkey state ──────────────
   const buildContext = useCallback((): ExecutorContext => {
-    if (!turnkeyState.isLoggedIn) {
-      throw new Error('Please connect your wallet first');
-    }
-    if (!turnkeyState.turnkeySubOrgId) {
-      throw new Error('Turnkey organization not found');
-    }
-    const wallets = turnkeyState.userWallets;
-    if (!wallets || wallets.length === 0) {
-      throw new Error('No wallets found');
-    }
-    const evmAddress = getEVMAddress(wallets);
-    if (!evmAddress) {
-      throw new Error('No EVM wallet address found');
-    }
-    const solanaAddress = getSolanaAddress(wallets);
-    if (!solanaAddress) {
-      throw new Error('No Solana wallet address found');
-    }
+    const wallet = getWalletContext(turnkeyState);
     return {
-      evmAddress,
-      solanaAddress,
-      organizationId: turnkeyState.turnkeySubOrgId,
+      ...wallet,
       spreadAprData,
     };
   }, [turnkeyState, spreadAprData]);

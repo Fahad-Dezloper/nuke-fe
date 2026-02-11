@@ -11,6 +11,7 @@
  */
 
 import { bridgeService } from '@/lib/bridge/bridge.service';
+import { pollBridgeStatus } from '@/lib/bridge/poll-bridge-status';
 import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperliquid.handler';
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
 import { HyperLiquidAdapter } from '@/lib/arbitrage/adapters/hyperliquid-adapter';
@@ -19,7 +20,7 @@ import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.servi
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
 import { MarketPriceHelper } from '@/dex/hyperliquid/utils/market-price';
 import { positionsService } from '@/lib/api/services/positions.service';
-import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
+import { closeHLPosition, closePacificaPosition } from '@/lib/trading/close-position';
 import type { QuoteRequest } from '@/lib/bridge/types';
 import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 import type {
@@ -187,7 +188,7 @@ export class HedgeActionExecutor {
           // Fall through to retry bridge from scratch
         } else {
           // Still in progress — wait for it
-          await this.pollBridgeStatus(existingRequestId);
+          await pollBridgeStatus(existingRequestId);
           clearBridgeRequestId(legId);
           return { success: true, txHash: existingRequestId, error: null, legResults: null };
         }
@@ -249,7 +250,7 @@ export class HedgeActionExecutor {
     });
 
     // 5. Poll until bridge completes
-    await this.pollBridgeStatus(requestId);
+    await pollBridgeStatus(requestId);
 
     clearBridgeRequestId(legId);
 
@@ -509,9 +510,9 @@ export class HedgeActionExecutor {
 
       // Step 3: Close the specific exchange's leg
       if (exchange === 'hyperliquid') {
-        return this.closeHLPosition(position.hyperliquid, asset, context);
+        return this.closeHLPositionAction(position.hyperliquid, asset, context);
       } else {
-        return this.closePacificaPosition(position.pacifica, asset, context);
+        return this.closePacificaPositionAction(position.pacifica, asset, context);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -526,10 +527,9 @@ export class HedgeActionExecutor {
   }
 
   /**
-   * Close a HyperLiquid position for a given asset.
-   * Mirrors closeHLPosition() from use-close-position.ts.
+   * Close a HyperLiquid position using the shared utility.
    */
-  private async closeHLPosition(
+  private async closeHLPositionAction(
     hlPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
     asset: string,
     context: ExecutorContext
@@ -543,47 +543,24 @@ export class HedgeActionExecutor {
       };
     }
 
-    const assetIndex = await perpTickerToIndex(hlPosition.symbol.toUpperCase());
-    if (assetIndex === -1) {
-      return {
-        success: false,
-        txHash: null,
-        error: `Unknown asset index for ${hlPosition.symbol}`,
-        legResults: null,
-      };
-    }
-
     console.log(
       `[HedgeExecutor] Closing HL position: ${hlPosition.symbol} ${hlPosition.side} size=${hlPosition.size}`
     );
 
-    const result = await this.hlService.closePosition(
-      {
-        assetIndex,
-        assetName: hlPosition.symbol.toUpperCase(),
-        price: 0, // Market order — price is ignored
-        size: hlPosition.size,
-        isLong: hlPosition.side === 'Long',
-        isMarket: true,
-        userAddress: context.evmAddress,
-      },
-      context.evmAddress,
-      context.organizationId
-    );
+    const result = await closeHLPosition(hlPosition, context.evmAddress, context.organizationId);
 
     return {
       success: result.success,
       txHash: null,
-      error: result.success ? null : (result.error || result.message || 'Failed to close HL position'),
+      error: result.success ? null : (result.error || 'Failed to close HL position'),
       legResults: null,
     };
   }
 
   /**
-   * Close a Pacifica position by creating a reduce-only market order on the opposite side.
-   * Mirrors closePacificaPosition() from use-close-position.ts.
+   * Close a Pacifica position using the shared utility.
    */
-  private async closePacificaPosition(
+  private async closePacificaPositionAction(
     pacPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
     asset: string,
     context: ExecutorContext
@@ -597,72 +574,19 @@ export class HedgeActionExecutor {
       };
     }
 
-    // To close: submit opposite-side reduce_only market order
-    const closeSide: 'bid' | 'ask' = pacPosition.side === 'Long' ? 'ask' : 'bid';
-
     console.log(
-      `[HedgeExecutor] Closing Pacifica position: ${pacPosition.symbol} ${pacPosition.side} size=${pacPosition.size} closeSide=${closeSide}`
+      `[HedgeExecutor] Closing Pacifica position: ${pacPosition.symbol} ${pacPosition.side} size=${pacPosition.size}`
     );
 
-    const result = await this.pacificaService.createMarketOrder(
-      {
-        symbol: pacPosition.symbol.toUpperCase(),
-        amount: pacPosition.size,
-        side: closeSide,
-        slippage_percent: '3', // 3% slippage tolerance
-        reduce_only: true,
-      },
-      context.solanaAddress,
-      context.organizationId
-    );
+    const result = await closePacificaPosition(pacPosition, context.solanaAddress, context.organizationId);
 
     return {
       success: result.success,
-      txHash: result.order_id || null,
-      error: result.success ? null : (result.error || result.message || 'Failed to close Pacifica position'),
+      txHash: null,
+      error: result.success ? null : (result.error || 'Failed to close Pacifica position'),
       legResults: null,
     };
   }
 
-  // ─── Bridge Status Polling ───────────────────────────────────────────────
-
-  /**
-   * Poll Relay.link bridge status until completion or timeout.
-   * Same logic as the existing useBridge pollBridgeStatus.
-   */
-  private async pollBridgeStatus(requestId: string): Promise<void> {
-    const POLL_INTERVAL = 3_000;
-    const MAX_POLL_TIME = 300_000; // 5 minutes
-    const startTime = Date.now();
-
-    while (true) {
-      if (Date.now() - startTime >= MAX_POLL_TIME) {
-        throw new Error('Bridge status check timed out after 5 minutes');
-      }
-
-      try {
-        const statusResponse = await bridgeService.getStatus(requestId);
-
-        if (statusResponse.status === 'success') {
-          return;
-        }
-
-        if (statusResponse.status === 'failure' || statusResponse.status === 'refunded') {
-          throw new Error(statusResponse.details || 'Bridge transaction failed');
-        }
-      } catch (err) {
-        // If it's our own thrown error, re-throw
-        if (err instanceof Error && (
-          err.message.includes('timed out') ||
-          err.message.includes('Bridge transaction failed')
-        )) {
-          throw err;
-        }
-        // Otherwise it's a network error — continue polling
-        console.warn('Error polling bridge status, will retry:', err);
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
-    }
-  }
+  // Bridge status polling is now handled by the shared pollBridgeStatus utility
 }

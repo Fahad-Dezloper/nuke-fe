@@ -7,7 +7,7 @@
  */
 
 import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, Cell, TooltipProps } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, Cell } from 'recharts';
 import {
   ChartContainer,
   ChartTooltip,
@@ -184,7 +184,7 @@ function compute1WBars(
 
 // --- Tooltip ---
 
-function PnLTooltip({ active, payload }: TooltipProps<number, string>) {
+function PnLTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: PnLBarData; value?: number; name?: string }> }) {
   if (!active || !payload || payload.length === 0) return null;
 
   const data = payload[0].payload as PnLBarData;
