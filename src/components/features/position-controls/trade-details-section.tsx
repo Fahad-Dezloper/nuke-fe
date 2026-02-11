@@ -15,7 +15,6 @@ import { marginAtom, leverageAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { bridgeFeesAtom, bridgeFeesLoadingAtom } from '@/lib/stores/bridge-fees.store';
 import { useBestPair } from '@/hooks/use-best-pair';
-import { useBridgeFeeEstimate } from '@/hooks/use-bridge-fee-estimate';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 
 interface TradeDetailsSectionProps {
@@ -30,9 +29,6 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
   const { getBestPairForAsset } = useBestPair();
   const bridgeFees = useAtomValue(bridgeFeesAtom);
   const bridgeFeesLoading = useAtomValue(bridgeFeesLoadingAtom);
-
-  // Fetch bridge fee estimates when margin changes (debounced)
-  useBridgeFeeEstimate();
 
   // Calculate trade details from selected asset, margin, and leverage
   const tradeDetails = useMemo(() => {

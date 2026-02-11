@@ -492,7 +492,6 @@ export class HyperLiquidService {
           assetTicker: request.assetTicker,
         });
       }
-
       // Resolve asset ticker to HyperLiquid asset index
       const assetIndex = await perpTickerToIndex(request.assetTicker.toUpperCase());
       if (assetIndex < 0) {

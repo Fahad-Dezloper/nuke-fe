@@ -605,7 +605,7 @@ export class TurnkeyClient {
 
       // Export the wallet account
       const exportResponse = await indexedDbClient.exportWalletAccount({
-        address,
+        address: "3v8sLhz4KfVeBroMVBUzHfYFE8g9E6pgrnUKXZnwgqEZ",
         targetPublicKey: `${iframeClient?.iframePublicKey}`,
       });
 
@@ -614,7 +614,7 @@ export class TurnkeyClient {
         await iframeClient?.injectKeyExportBundle(
           exportResponse.exportBundle,
           session.organizationId,
-          'HEXADECIMAL' as any
+          'SOLANA' as any
         );
         return { success: true };
       }

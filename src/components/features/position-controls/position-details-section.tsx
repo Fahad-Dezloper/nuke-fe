@@ -115,61 +115,9 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
           const marginValue = Number(margin) || 0;
           const legMargin = marginValue / 2;
 
-          const handleFundClick = async () => {
-            if (legMargin <= 0) {
-              return;
-            }
-
-            setSelectedProtocol(protocol);
-            setBridgeError(null);
-            setIsBridging(true);
-
-            // Convert margin to smallest unit (USDC has 6 decimals)
-            const amountInSmallestUnit = BigInt(Math.floor(legMargin * 1_000_000)).toString();
-
-            try {
-              const feePayerAddress = process.env.NEXT_PUBLIC_HYPERLIQUID_FEEPAYER_ADDRESS;
-
-              // Get Solana address for Pacifica bridge
-              let solanaRecipient: string | undefined;
-              if (protocol === 'pacifica') {
-                const wallets = turnkeyState.userWallets;
-                if (wallets && wallets.length > 0) {
-                  solanaRecipient = getSolanaAddress(wallets);
-                  if (!solanaRecipient) {
-                    throw new Error(
-                      'No Solana wallet address found. Please ensure you have a Solana wallet connected.'
-                    );
-                  }
-                }
-              }
-
-              await bridge(amountInSmallestUnit, protocol, feePayerAddress, solanaRecipient);
-            } catch (err) {
-              // Error is handled by useBridge onError callback
-              console.error('Bridge error:', err);
-            }
-          };
-
           return (
             <div key={card.label} className="flex flex-col gap-2">
               <PositionDetailsCard {...card} />
-              <button
-                onClick={handleFundClick}
-                disabled={isBridging || legMargin <= 0}
-                className={cn(
-                  'w-full py-2 px-3 rounded-xl border border-border-white-10/50',
-                  'backdrop-blur-md',
-                  'text-xs font-medium text-text-primary',
-                  'hover:border-border-white-20 hover:bg-opacity-80',
-                  'transition-all duration-200',
-                  'shadow-sm shadow-black/10',
-                  'disabled:opacity-50 disabled:cursor-not-allowed',
-                  buttonGradientClass
-                )}
-              >
-                {isBridging ? 'Funding...' : 'Fund leg'}
-              </button>
             </div>
           );
         })}
