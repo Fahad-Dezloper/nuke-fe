@@ -10,13 +10,16 @@ import type {
 import { prepareSigningData, messageToBytes } from './utils/signing';
 import { signPacificaMessageWithTurnkey } from './utils/turnkey-signing';
 import { roundAmount, roundPrice } from '@/dex/pacifica/utils/rounding';
+import axios from 'axios';
+
+export const ACCESS_CODE = 'HV6X60D82C3SDGAS';
+export const EXPIRY_WINDOW = 300000;
 
 export class PacificaService {
   private baseUrl: string;
   private timeout: number;
 
   private expiryWindow = 30_000;
-
 
   constructor(baseUrl: string = PACIFICA_HTTP_URL) {
     this.baseUrl = baseUrl;
@@ -76,6 +79,46 @@ export class PacificaService {
     } catch (error) {
       console.error('Error signing Pacifica order request:', error);
       throw toAppError(error, ErrorCode.WALLET_SIGNING_FAILED);
+    }
+  }
+
+  //   {"data":{"code":"1P2M7XE2GNDVZHTY"},"expiry_window":300000,"timestamp":1770815904528,"type":"claim_access_code"}
+
+  // {"account":"3v8sLhz4KfVeBroMVBUzHfYFE8g9E6pgrnUKXZnwgqEZ","code":"1P2M7XE2GNDVZHTY","signature":{"type":"raw","value":"64Y7NNDecmQUp72zM6ZLUzjPVvELCkZqAjq6DH5dqr1RAAp8VR167BXTskraDK1hZBBT3bYJZ3fP4DNV34M5jdT2"},"timestamp":1770815904528,"expiry_window":300000}
+
+  // Payload above!
+
+  // POST API -
+  // https://api.pacifica.fi/api/v1/whitelist/claim
+
+  // Response - {"success":true,"data":{"success":true},"error":null,"code":null}
+
+  async whitelistAddress(organizationId: string, account: string, timestamp: number) {
+    try {
+      const message = new TextEncoder().encode(
+        JSON.stringify({
+          data: { code: ACCESS_CODE },
+          expiry_window: EXPIRY_WINDOW,
+          timestamp,
+          type: 'claim_access_code',
+        })
+      );
+      const signature = await signPacificaMessageWithTurnkey(message, account, organizationId);
+
+      const { data } = await axios.post(`${PACIFICA_HTTP_URL}/whitelist/claim`, {
+        account,
+        code: ACCESS_CODE,
+        signature: {
+          type: 'raw',
+          value: signature,
+        },
+        timestamp,
+        expiry_window: EXPIRY_WINDOW,
+      });
+
+      return data;
+    } catch (err) {
+      console.error('Failed to whitelist with error', err?.toString());
     }
   }
 
@@ -177,7 +220,6 @@ export class PacificaService {
         });
       }
 
-
       // Prepare operation data for signing
       const operationData: Record<string, unknown> = {
         symbol: symbol.toUpperCase(),
@@ -271,7 +313,7 @@ export class PacificaService {
       if (request.client_order_id) {
         operationData.client_order_id = request.client_order_id;
       }
-      
+
       if (request.take_profit) {
         operationData.take_profit = {
           stop_price: await roundPrice(request.take_profit.stop_price, symbol),
@@ -283,7 +325,7 @@ export class PacificaService {
           }),
         };
       }
-      
+
       if (request.stop_loss) {
         operationData.stop_loss = {
           stop_price: await roundPrice(request.stop_loss.stop_price, symbol),
@@ -348,7 +390,6 @@ export class PacificaService {
       };
     }
   }
-
 
   /**
    * Creates a limit order on Pacifica

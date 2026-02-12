@@ -31,7 +31,7 @@ interface SpotMeta {
 }
 
 export async function getPerpMeta(): Promise<PerpAssetMeta[]> {
-  const response = await fetch(`${BACKEND_URL}hyperliquid/perp-metadata`);
+  const response = await fetch(`${BACKEND_URL}/hyperliquid/perp-metadata`);
 
   const data = await response.json();
 
@@ -47,7 +47,7 @@ export async function getPerpMeta(): Promise<PerpAssetMeta[]> {
 }
 
 export async function getSpotMeta(): Promise<SpotMeta> {
-  const response = await fetch(`${BACKEND_URL}hyperliquid/spot-metadata`);
+  const response = await fetch(`${BACKEND_URL}/hyperliquid/spot-metadata`);
 
   const data = await response.json();
 

@@ -30,7 +30,7 @@ export async function getPacificaPerpMeta(): Promise<PacificaPerpAssetMeta[]> {
     return cachedMeta;
   }
 
-  const response = await fetch(`${BACKEND_URL}pacifica/perp-metadata`);
+  const response = await fetch(`${BACKEND_URL}/pacifica/perp-metadata`);
   const data = await response.json();
 
   if (!data || !Array.isArray(data)) return [];
@@ -43,11 +43,7 @@ export async function getPacificaPerpMeta(): Promise<PacificaPerpAssetMeta[]> {
 /**
  * Returns the metadata for a single symbol, or undefined if not found.
  */
-export async function getAssetMeta(
-  symbol: string
-): Promise<PacificaPerpAssetMeta | undefined> {
+export async function getAssetMeta(symbol: string): Promise<PacificaPerpAssetMeta | undefined> {
   const meta = await getPacificaPerpMeta();
-  return meta.find(
-    (m) => m.symbol.toUpperCase() === symbol.toUpperCase()
-  );
+  return meta.find((m) => m.symbol.toUpperCase() === symbol.toUpperCase());
 }

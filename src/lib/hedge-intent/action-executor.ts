@@ -69,7 +69,9 @@ const BRIDGE_REQUEST_PREFIX = 'hedge_bridge_';
 function storeBridgeRequestId(legId: string, requestId: string): void {
   try {
     localStorage.setItem(`${BRIDGE_REQUEST_PREFIX}${legId}`, requestId);
-  } catch { /* localStorage not available */ }
+  } catch {
+    /* localStorage not available */
+  }
 }
 
 function loadBridgeRequestId(legId: string): string | null {
@@ -83,7 +85,9 @@ function loadBridgeRequestId(legId: string): string | null {
 function clearBridgeRequestId(legId: string): void {
   try {
     localStorage.removeItem(`${BRIDGE_REQUEST_PREFIX}${legId}`);
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 // ─── Executor ────────────────────────────────────────────────────────────────
@@ -117,10 +121,7 @@ export class HedgeActionExecutor {
    * Execute a single action.
    * Dispatches to the correct handler based on action type.
    */
-  async execute(
-    action: NextActionResponse,
-    context: ExecutorContext
-  ): Promise<ActionResult> {
+  async execute(action: NextActionResponse, context: ExecutorContext): Promise<ActionResult> {
     switch (action.action) {
       case 'BRIDGE_BASE_TO_ARB':
         return this.executeBridge(action, context, 'hyperliquid');
@@ -170,9 +171,8 @@ export class HedgeActionExecutor {
   ): Promise<ActionResult> {
     const params = action.params as unknown as BridgeActionParams;
     const legId = params.leg_id;
-    const handler = exchange === 'hyperliquid'
-      ? this.hlDepositHandler
-      : this.pacificaDepositHandler;
+    const handler =
+      exchange === 'hyperliquid' ? this.hlDepositHandler : this.pacificaDepositHandler;
 
     // ── Check for an in-flight bridge from a previous session ──
     const existingRequestId = loadBridgeRequestId(legId);
@@ -205,9 +205,8 @@ export class HedgeActionExecutor {
     const amountSmallestUnit = Math.floor(amountUsd * 1_000_000).toString();
 
     // Recipient: EVM address for Arb, Solana address for Sol
-    const recipient = params.recipient || (
-      exchange === 'hyperliquid' ? context.evmAddress : context.solanaAddress
-    );
+    const recipient =
+      params.recipient || (exchange === 'hyperliquid' ? context.evmAddress : context.solanaAddress);
 
     // 1. Get bridge quote
     const quoteRequest: QuoteRequest = {
@@ -221,15 +220,19 @@ export class HedgeActionExecutor {
 
     const quoteResponse = await bridgeService.getQuote(quoteRequest);
 
+    console.log('quote response is', quoteResponse);
+
     // 2. Find signature step
-    const signatureStep = quoteResponse.steps.find(
-      (step) => step.kind === 'signature'
-    );
+    const signatureStep = quoteResponse.steps.find((step) => step.kind === 'signature');
     if (!signatureStep) {
       throw new Error('No signature step found in bridge quote response');
     }
 
+    console.log('signature step', signatureStep);
+
     const requestId = signatureStep.requestId;
+
+    console.log('request id', requestId);
 
     // Store for resumability
     storeBridgeRequestId(legId, requestId);
@@ -240,6 +243,8 @@ export class HedgeActionExecutor {
       context.evmAddress,
       context.organizationId
     );
+
+    console.log('sign result', signResult);
 
     // 4. Execute permit via Relay
     await bridgeService.executePermit({
@@ -273,11 +278,10 @@ export class HedgeActionExecutor {
     exchange: Exchange,
     action: NextActionResponse
   ): Promise<ActionResult> {
-    const handler = exchange === 'hyperliquid'
-      ? this.hlDepositHandler
-      : this.pacificaDepositHandler;
+    const handler =
+      exchange === 'hyperliquid' ? this.hlDepositHandler : this.pacificaDepositHandler;
 
-    const legId = (action.params as Record<string, unknown>)?.leg_id as string || '';
+    const legId = ((action.params as Record<string, unknown>)?.leg_id as string) || '';
 
     const depositResult = await handler.executeDeposit({
       walletAddress: context.evmAddress,
@@ -327,13 +331,22 @@ export class HedgeActionExecutor {
         exchange === spreadData.longPlatform ? 'long' : 'short';
     } else {
       // Fallback: hyperliquid long, pacifica short
-      console.warn(`[HedgeExecutor] No spread APR data for ${asset}, defaulting HL=long, Pacifica=short`);
-      getDirection = (exchange: Exchange) =>
-        exchange === 'hyperliquid' ? 'long' : 'short';
+      console.warn(
+        `[HedgeExecutor] No spread APR data for ${asset}, defaulting HL=long, Pacifica=short`
+      );
+      getDirection = (exchange: Exchange) => (exchange === 'hyperliquid' ? 'long' : 'short');
     }
 
     // ── Step 2: Update leverage on both exchanges ──
     console.log(`[HedgeExecutor] Setting leverage to ${leverage}x on both exchanges...`);
+
+    const pacificaService = new PacificaService();
+
+    await pacificaService.whitelistAddress(
+      context.organizationId,
+      context.solanaAddress,
+      Date.now()
+    );
 
     const [hlLeverageResult, pacificaLeverageResult] = await Promise.allSettled([
       this.hlService.updateLeverage(
@@ -371,7 +384,10 @@ export class HedgeActionExecutor {
 
     // Check Pacifica leverage result
     if (pacificaLeverageResult.status === 'rejected') {
-      console.error('[HedgeExecutor] Pacifica leverage update rejected:', pacificaLeverageResult.reason);
+      console.error(
+        '[HedgeExecutor] Pacifica leverage update rejected:',
+        pacificaLeverageResult.reason
+      );
       return {
         success: false,
         txHash: null,
@@ -380,7 +396,10 @@ export class HedgeActionExecutor {
       };
     }
     if (!pacificaLeverageResult.value.success) {
-      console.error('[HedgeExecutor] Pacifica leverage update failed:', pacificaLeverageResult.value.error);
+      console.error(
+        '[HedgeExecutor] Pacifica leverage update failed:',
+        pacificaLeverageResult.value.error
+      );
       return {
         success: false,
         txHash: null,
@@ -495,9 +514,7 @@ export class HedgeActionExecutor {
       );
 
       // Step 2: Find the position for this asset
-      const position = rawPositions.find(
-        (p) => p.symbol.toUpperCase() === asset.toUpperCase()
-      );
+      const position = rawPositions.find((p) => p.symbol.toUpperCase() === asset.toUpperCase());
 
       if (!position) {
         return {
@@ -552,7 +569,7 @@ export class HedgeActionExecutor {
     return {
       success: result.success,
       txHash: null,
-      error: result.success ? null : (result.error || 'Failed to close HL position'),
+      error: result.success ? null : result.error || 'Failed to close HL position',
       legResults: null,
     };
   }
@@ -578,12 +595,16 @@ export class HedgeActionExecutor {
       `[HedgeExecutor] Closing Pacifica position: ${pacPosition.symbol} ${pacPosition.side} size=${pacPosition.size}`
     );
 
-    const result = await closePacificaPosition(pacPosition, context.solanaAddress, context.organizationId);
+    const result = await closePacificaPosition(
+      pacPosition,
+      context.solanaAddress,
+      context.organizationId
+    );
 
     return {
       success: result.success,
       txHash: null,
-      error: result.success ? null : (result.error || 'Failed to close Pacifica position'),
+      error: result.success ? null : result.error || 'Failed to close Pacifica position',
       legResults: null,
     };
   }
