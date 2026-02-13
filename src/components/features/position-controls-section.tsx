@@ -28,8 +28,10 @@ import {
   marginAtom,
   leverageAtom,
   selectedAssetAtom,
+  marginValidationAtom,
 } from './position-controls/store';
 import { useHedgeIntent } from '@/lib/hedge-intent';
+import { useExchangeBalances } from '@/hooks/use-exchange-balances';
 import { marketFeedDataAtom } from '@/lib/stores/market-feed.store';
 import { PositionControlsSkeleton } from '@/components/ui/skeletons';
 
@@ -49,6 +51,10 @@ export function PositionControlsSectionContent({
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const [selectedAsset] = useAtom(selectedAssetAtom);
+  const marginValidation = useAtomValue(marginValidationAtom);
+
+  // ── Exchange Balances (syncs to atoms for child components) ──
+  useExchangeBalances();
 
   // ── Hedge Intent Hook ──────────────────────────────────────
   const {
@@ -105,6 +111,7 @@ export function PositionControlsSectionContent({
     selectedAsset &&
     margin &&
     parseFloat(margin) > 0 &&
+    marginValidation.isValid &&
     !isExecuting;
 
   const isComplete = phase === 'complete';

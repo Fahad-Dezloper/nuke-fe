@@ -580,6 +580,63 @@ export class PacificaService {
     };
   }
 
+  /**
+   * Fetch the user's account balance from Pacifica.
+   *
+   * GET /account?account=<address>
+   * Returns `available_to_spend` — free margin not locked in positions/orders.
+   *
+   * @param account - Solana wallet address
+   * @returns Available balance in USD
+   */
+  async fetchAccountBalance(
+    account: string
+  ): Promise<{ success: boolean; availableToSpend: number; error?: string }> {
+    try {
+      if (!account) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+
+      const response = await fetch(`${this.baseUrl}/account?account=${account}`, {
+        method: 'GET',
+        headers: { Accept: '*/*' },
+      });
+
+      if (!response.ok) {
+        throw createError(ErrorCode.API_BAD_REQUEST, {
+          status: response.status,
+          statusText: response.statusText,
+          endpoint: '/account',
+        });
+      }
+
+      const json = await response.json();
+
+      if (!json.success || !json.data) {
+        return {
+          success: false,
+          availableToSpend: 0,
+          error: json.error || 'Failed to fetch Pacifica account balance',
+        };
+      }
+
+      const availableToSpend = parseFloat(json.data.available_to_spend ?? '0');
+
+      return {
+        success: true,
+        availableToSpend: isNaN(availableToSpend) ? 0 : availableToSpend,
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.API_BAD_REQUEST);
+      console.error('Error fetching Pacifica account balance:', appError);
+      return {
+        success: false,
+        availableToSpend: 0,
+        error: getUserMessage(appError),
+      };
+    }
+  }
+
   async cancelOrder(
     request: CancelOrderRequest,
     walletAddress: string,

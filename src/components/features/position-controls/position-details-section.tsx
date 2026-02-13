@@ -14,7 +14,7 @@ import { BridgeStatusModal } from '@/components/ui/bridge-status-modal';
 import { useBridge } from '@/lib/bridge';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getSolanaAddress } from '@/lib/turnkey/wallet-utils';
-import { marginAtom, leverageAtom } from './store';
+import { marginAtom, leverageAtom, hlBalanceAtom, pacBalanceAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { useBestPair } from '@/hooks/use-best-pair';
 import { formatPrice } from '@/lib/utils';
@@ -27,6 +27,8 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const hlBalance = useAtomValue(hlBalanceAtom);
+  const pacBalance = useAtomValue(pacBalanceAtom);
   const { getBestPairForAsset } = useBestPair();
   const { state: turnkeyState } = useTurnkey();
   const [isBridging, setIsBridging] = useState(false);
@@ -79,6 +81,11 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
     const longProtocolName = bestPair.long.toUpperCase();
     const shortProtocolName = bestPair.short.toUpperCase();
 
+    function getExistingBalance(protocol: string): string {
+      const bal = protocol === 'HYPERLIQUID' ? hlBalance : pacBalance;
+      return bal > 0 ? `$${bal.toFixed(2)}` : '$0.00';
+    }
+
     return [
       {
         label: 'LONG',
@@ -86,6 +93,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
         gradientColor: 'long' as const,
         margin: formatMargin(halfMargin),
         size: calculateSize(halfMargin),
+        existingBalance: getExistingBalance(longProtocolName),
       },
       {
         label: 'SHORT',
@@ -93,9 +101,10 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
         gradientColor: 'short' as const,
         margin: formatMargin(halfMargin),
         size: calculateSize(halfMargin),
+        existingBalance: getExistingBalance(shortProtocolName),
       },
     ];
-  }, [margin, leverage, price, selectedAsset, getBestPairForAsset]);
+  }, [margin, leverage, price, selectedAsset, getBestPairForAsset, hlBalance, pacBalance]);
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
@@ -117,7 +126,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
 
           return (
             <div key={card.label} className="flex flex-col gap-2">
-              <PositionDetailsCard {...card} />
+              <PositionDetailsCard {...card} existingBalance={card.existingBalance} />
             </div>
           );
         })}

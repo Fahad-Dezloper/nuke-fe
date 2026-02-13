@@ -8,6 +8,8 @@ import type { PositionDetailsCard as PositionDetailsCardType } from '@/types/pos
 
 export interface PositionDetailsCardProps extends PositionDetailsCardType {
   className?: string;
+  /** Optional existing exchange balance to show */
+  existingBalance?: string;
 }
 
 export function PositionDetailsCard({
@@ -16,6 +18,7 @@ export function PositionDetailsCard({
   gradientColor,
   margin,
   size,
+  existingBalance,
   className,
 }: PositionDetailsCardProps) {
   const gradientClass =
@@ -38,6 +41,12 @@ export function PositionDetailsCard({
         <span className="text-xs text-text-muted-60">{platform}</span>
       </div>
       <div className="flex flex-col gap-2">
+        {existingBalance !== undefined && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-text-muted-60/70">BALANCE</span>
+            <span className="text-[10px] text-text-muted-60">{existingBalance}</span>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-text-muted-60">MARGIN</span>
           <span className="text-xs text-text-primary">{margin}</span>
