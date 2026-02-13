@@ -7,10 +7,10 @@
  */
 
 import { useAtom, useAtomValue } from 'jotai';
-import { ChevronDown } from 'lucide-react';
+import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { marginAtom, marginCurrencyAtom, marginValidationAtom } from './store';
+import { marginAtom, marginValidationAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 
 interface PositionSizeSectionProps {
@@ -19,7 +19,6 @@ interface PositionSizeSectionProps {
 
 export function PositionSizeSection({ className }: PositionSizeSectionProps) {
   const [positionSize, setPositionSize] = useAtom(marginAtom);
-  const [currency, setCurrency] = useAtom(marginCurrencyAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
   const validation = useAtomValue(marginValidationAtom);
 
@@ -64,17 +63,15 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
             </button>
           )}
         </div>
-        <div className="relative">
-          <select
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            className="appearance-none bg-card/40 backdrop-blur-sm border border-border-white-10/50 rounded-xl px-3 py-2 pr-8 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/50 focus:bg-card/60 cursor-pointer shadow-md shadow-black/10"
-          >
-            <option>USD</option>
-            <option>EUR</option>
-            <option>GBP</option>
-          </select>
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted-60 pointer-events-none" />
+        <div className="flex items-center gap-1.5 bg-card/40 backdrop-blur-sm border border-border-white-10/50 rounded-xl px-3 py-2 shadow-md shadow-black/10">
+          <Image
+            src="/tokens/usdc.png"
+            alt="USDC"
+            width={16}
+            height={16}
+            className="shrink-0 rounded-full"
+          />
+          <span className="text-sm text-text-primary font-medium">USD</span>
         </div>
       </div>
       <div className="flex items-center justify-between text-xs text-text-muted-60">
