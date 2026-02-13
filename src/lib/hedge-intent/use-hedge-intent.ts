@@ -18,9 +18,11 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAtomValue } from 'jotai';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getWalletContext } from '@/lib/wallet-context';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
+import { queryKeys } from '@/lib/query-keys';
 import { hedgeIntentApi } from './api';
 import { HedgeIntentEngine, type EngineCallbacks } from './engine';
 import type { ExecutorContext } from './action-executor';
@@ -123,6 +125,7 @@ const IN_PROGRESS_STATUSES: HedgeIntentStatus[] = [
 export function useHedgeIntent(): UseHedgeIntentReturn {
   const { state: turnkeyState } = useTurnkey();
   const spreadAprData = useAtomValue(spreadAprDataAtom);
+  const queryClient = useQueryClient();
 
   // ── State ───────────────────────────────────────────────────
   const [isExecuting, setIsExecuting] = useState(false);
@@ -158,7 +161,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
 
       onActionComplete: (action, success) => {
         if (!success) {
-          console.warn(`[useHedgeIntent] Action ${action} failed — backend will decide next step`);
+          console.warn(`[useHedgeIntent] Action ${action} failed — engine will stop and show error`);
         }
         // Refresh detail after each action completes
         hedgeIntentApi.getDetail(hedgeIntentId)
@@ -181,12 +184,17 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
       },
 
       onComplete: (id, finalStatus) => {
-        setPhase('complete');
-        setStatusMessage(
-          finalStatus === 'ACTIVE'
-            ? 'Hedge is live!'
-            : `Hedge ${finalStatus.toLowerCase()}`
-        );
+        // Only treat ACTIVE as true success
+        if (finalStatus === 'ACTIVE') {
+          setPhase('complete');
+          setStatusMessage('Hedge is live!');
+          // Refresh the positions table so the new hedge appears immediately
+          queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+        } else {
+          // CANCELLED, FAILED, or unexpected — show as failed
+          setPhase('failed');
+          setStatusMessage(`Hedge ${finalStatus.toLowerCase()}`);
+        }
         setIsExecuting(false);
         isRunningRef.current = false;
         setCurrentAction(null);

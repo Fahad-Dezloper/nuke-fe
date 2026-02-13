@@ -82,44 +82,30 @@ export class PacificaService {
     }
   }
 
-  //   {"data":{"code":"1P2M7XE2GNDVZHTY"},"expiry_window":300000,"timestamp":1770815904528,"type":"claim_access_code"}
-
-  // {"account":"3v8sLhz4KfVeBroMVBUzHfYFE8g9E6pgrnUKXZnwgqEZ","code":"1P2M7XE2GNDVZHTY","signature":{"type":"raw","value":"64Y7NNDecmQUp72zM6ZLUzjPVvELCkZqAjq6DH5dqr1RAAp8VR167BXTskraDK1hZBBT3bYJZ3fP4DNV34M5jdT2"},"timestamp":1770815904528,"expiry_window":300000}
-
-  // Payload above!
-
-  // POST API -
-  // https://api.pacifica.fi/api/v1/whitelist/claim
-
-  // Response - {"success":true,"data":{"success":true},"error":null,"code":null}
 
   async whitelistAddress(organizationId: string, account: string, timestamp: number) {
-    try {
-      const message = new TextEncoder().encode(
-        JSON.stringify({
-          data: { code: ACCESS_CODE },
-          expiry_window: EXPIRY_WINDOW,
-          timestamp,
-          type: 'claim_access_code',
-        })
-      );
-      const signature = await signPacificaMessageWithTurnkey(message, account, organizationId);
-
-      const { data } = await axios.post(`${PACIFICA_HTTP_URL}/whitelist/claim`, {
-        account,
-        code: ACCESS_CODE,
-        signature: {
-          type: 'raw',
-          value: signature,
-        },
-        timestamp,
+    const message = new TextEncoder().encode(
+      JSON.stringify({
+        data: { code: ACCESS_CODE },
         expiry_window: EXPIRY_WINDOW,
-      });
+        timestamp,
+        type: 'claim_access_code',
+      })
+    );
+    const signature = await signPacificaMessageWithTurnkey(message, account, organizationId);
 
-      return data;
-    } catch (err) {
-      console.error('Failed to whitelist with error', err?.toString());
-    }
+    const { data } = await axios.post(`${PACIFICA_HTTP_URL}/whitelist/claim`, {
+      account,
+      code: ACCESS_CODE,
+      signature: {
+        type: 'raw',
+        value: signature,
+      },
+      timestamp,
+      expiry_window: EXPIRY_WINDOW,
+    });
+
+    return data;
   }
 
   /**
@@ -507,6 +493,93 @@ export class PacificaService {
    * @param organizationId - Turnkey organization ID
    * @returns Success/failure response
    */
+  /**
+   * Fetch account settings from Pacifica (leverage, margin mode, etc.)
+   *
+   * GET /account/settings?account=<address>
+   *
+   * Returns settings for all symbols that have been changed from default.
+   * Symbols not in the response use default settings (cross margin, max leverage).
+   *
+   * @param account - Solana wallet address
+   * @returns Array of account settings per symbol
+   */
+  async getAccountSettings(
+    account: string
+  ): Promise<{ success: boolean; data?: Array<{ symbol: string; isolated: boolean; leverage: number }>; error?: string }> {
+    try {
+      if (!account) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+
+      const response = await fetch(`${this.baseUrl}/account/settings?account=${account}`, {
+        method: 'GET',
+        headers: { Accept: '*/*' },
+      });
+
+      if (!response.ok) {
+        throw createError(ErrorCode.API_BAD_REQUEST, {
+          status: response.status,
+          statusText: response.statusText,
+          endpoint: '/account/settings',
+        });
+      }
+
+      const json = await response.json();
+
+      if (!json.success) {
+        return {
+          success: false,
+          error: json.error || 'Failed to fetch Pacifica account settings',
+        };
+      }
+
+      return {
+        success: true,
+        data: json.data || [],
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.API_BAD_REQUEST);
+      console.error('Error fetching Pacifica account settings:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+      };
+    }
+  }
+
+  /**
+   * Fetch the current leverage for a specific symbol on Pacifica.
+   *
+   * @param account - Solana wallet address
+   * @param symbol - Asset symbol (e.g. "BTC")
+   * @returns Current leverage value, or null if using default (max leverage)
+   */
+  async fetchLeverage(
+    account: string,
+    symbol: string
+  ): Promise<{ success: boolean; leverage: number | null; error?: string }> {
+    const settingsResult = await this.getAccountSettings(account);
+
+    if (!settingsResult.success || !settingsResult.data) {
+      return {
+        success: false,
+        leverage: null,
+        error: settingsResult.error || 'Failed to fetch account settings',
+      };
+    }
+
+    const entry = settingsResult.data.find(
+      (s) => s.symbol.toUpperCase() === symbol.toUpperCase()
+    );
+
+    return {
+      success: true,
+      // null means default (max leverage) — symbol not customized
+      leverage: entry ? entry.leverage : null,
+    };
+  }
+
   async cancelOrder(
     request: CancelOrderRequest,
     walletAddress: string,

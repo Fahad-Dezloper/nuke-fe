@@ -189,12 +189,29 @@ export class HedgeIntentEngine {
           await hedgeIntentApi.reportActionResult(intentId, report);
         } catch (retryErr) {
           console.error('[HedgeEngine] Failed to report result after retry:', retryErr);
-          // Continue the loop — backend may have received it,
-          // or will re-issue the action on next poll
+          // If we also can't report, stop — the user needs to know
+          if (!actionResult.success) {
+            callbacks.onError?.(
+              `${actionResult.error || 'Action failed'} (and failed to report to server)`
+            );
+            return;
+          }
         }
       }
 
-      // ── 5. Short delay, then loop ─────────────────────────────
+      // ── 5. If action failed, stop the engine and surface error ──
+      if (!actionResult.success) {
+        // Use the executor's error directly — it already contains descriptive context.
+        // Only add a generic fallback if no error message was provided.
+        const errorMsg = actionResult.error
+          || `${this.actionToPhaseLabel(nextAction.action)} failed unexpectedly`;
+
+        console.error(`[HedgeEngine] Action ${nextAction.action} failed — stopping execution.`, errorMsg);
+        callbacks.onError?.(errorMsg);
+        return;
+      }
+
+      // ── 6. Short delay, then loop ─────────────────────────────
       await this.sleep(POLL_INTERVAL_FAST);
     }
   }
@@ -216,16 +233,20 @@ export class HedgeIntentEngine {
         callbacks.onStatusChange?.('complete', 'Hedge is live!');
         callbacks.onComplete?.(intentId, finalStatus);
       } else if (finalStatus === 'CANCELLED') {
-        callbacks.onStatusChange?.('complete', 'Hedge has been safely cancelled.');
-        callbacks.onComplete?.(intentId, finalStatus);
+        // CANCELLED is NOT success — don't treat it as 'complete'
+        callbacks.onError?.('Hedge has been cancelled. No positions were opened.');
       } else if (finalStatus === 'FAILED') {
         callbacks.onError?.('Hedge intent failed. Check your positions.');
       } else {
-        callbacks.onComplete?.(intentId, finalStatus);
+        // Unknown terminal — report as error rather than assuming success
+        callbacks.onError?.(`Hedge ended with unexpected status: ${finalStatus}`);
       }
-    } catch {
-      // Can't fetch detail — assume completion
-      callbacks.onComplete?.(intentId, 'ACTIVE');
+    } catch (err) {
+      // Can't fetch detail — report error, do NOT assume success
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      callbacks.onError?.(
+        `Unable to verify hedge status (${errMsg}). Please check your positions manually.`
+      );
     }
   }
 
@@ -268,6 +289,28 @@ export class HedgeIntentEngine {
         return `Closing ${action.leg} position (safety mode)...`;
       default:
         return 'Processing...';
+    }
+  }
+
+  /**
+   * Map an action to a human-readable label (for error messages)
+   */
+  private actionToPhaseLabel(action: HedgeAction): string {
+    switch (action) {
+      case 'BRIDGE_BASE_TO_ARB':
+        return 'Bridge to Arbitrum';
+      case 'BRIDGE_BASE_TO_SOL':
+        return 'Bridge to Solana';
+      case 'DEPOSIT_TO_HYPERLIQUID':
+        return 'Deposit to Hyperliquid';
+      case 'DEPOSIT_TO_PACIFICA':
+        return 'Deposit to Pacifica';
+      case 'OPEN_HEDGE_POSITION':
+        return 'Open hedge positions';
+      case 'CLOSE_POSITION':
+        return 'Close position (safety mode)';
+      default:
+        return action;
     }
   }
 

@@ -115,6 +115,7 @@ export function PositionControlsSectionContent({
   const getButtonText = (): string => {
     if (!isExecuting) {
       if (isComplete) return 'HEDGE LIVE ✓';
+      if (isFailed) return 'OPEN HEDGED POSITION';
       return 'OPEN HEDGED POSITION';
     }
     switch (phase) {

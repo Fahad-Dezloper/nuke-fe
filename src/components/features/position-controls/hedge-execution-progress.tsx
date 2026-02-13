@@ -7,22 +7,40 @@
  * saga is running. Maps backend leg statuses to user-friendly UI.
  */
 
-import { Loader2, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Clock, AlertTriangle, MinusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
   HedgeIntentDetail,
   HedgeLeg,
-  HedgeLegStatus,
   ExecutionPhase,
   HedgeAction,
 } from '@/lib/hedge-intent';
 
 // ─── Step Helpers ────────────────────────────────────────────────────────────
 
-type StepState = 'pending' | 'in_progress' | 'done' | 'error';
+type StepState = 'pending' | 'in_progress' | 'done' | 'error' | 'skipped';
+
+/**
+ * Determine if a leg's bridge step was skipped.
+ * Bridge is skipped when funds were already on the destination chain
+ * (existing_onchain_usd + existing_margin_usd covers the target amount).
+ */
+function wasBridgeSkipped(leg: HedgeLeg): boolean {
+  const alreadyAvailable = (leg.existing_onchain_usd || 0) + (leg.existing_margin_usd || 0);
+  return alreadyAvailable >= leg.target_amount_usd;
+}
+
+/**
+ * Determine if a leg's deposit step was skipped.
+ * Deposit is skipped when funds were already in the exchange margin.
+ */
+function wasDepositSkipped(leg: HedgeLeg): boolean {
+  return (leg.existing_margin_usd || 0) >= leg.target_amount_usd;
+}
 
 function getLegBridgeState(leg: HedgeLeg | undefined): StepState {
   if (!leg) return 'pending';
+  if (wasBridgeSkipped(leg)) return 'skipped';
   switch (leg.status) {
     case 'PENDING':
       return 'pending';
@@ -35,7 +53,7 @@ function getLegBridgeState(leg: HedgeLeg | undefined): StepState {
     case 'ACTIVE':
       return 'done';
     case 'FAILED':
-      return leg.retry_count < 3 ? 'in_progress' : 'error';
+      return 'error';
     default:
       return 'pending';
   }
@@ -43,6 +61,7 @@ function getLegBridgeState(leg: HedgeLeg | undefined): StepState {
 
 function getLegDepositState(leg: HedgeLeg | undefined): StepState {
   if (!leg) return 'pending';
+  if (wasDepositSkipped(leg)) return 'skipped';
   switch (leg.status) {
     case 'PENDING':
     case 'BRIDGE_IN_PROGRESS':
@@ -55,7 +74,7 @@ function getLegDepositState(leg: HedgeLeg | undefined): StepState {
     case 'ACTIVE':
       return 'done';
     case 'FAILED':
-      return leg.retry_count < 3 ? 'in_progress' : 'error';
+      return 'error';
     default:
       return 'pending';
   }
@@ -82,13 +101,26 @@ function calculateProgress(detail: HedgeIntentDetail | null): number {
     case 'CREATED':
       return 5;
     case 'FUNDING': {
+      let totalSteps = 0;
       let stepsDone = 0;
       for (const leg of detail.legs) {
-        if (['BRIDGE_CONFIRMED', 'DEPOSIT_IN_PROGRESS', 'FUNDED', 'OPENING_POSITION', 'ACTIVE'].includes(leg.status)) stepsDone++;
-        if (['FUNDED', 'OPENING_POSITION', 'ACTIVE'].includes(leg.status)) stepsDone++;
+        // Count bridge step (only if not skipped)
+        if (!wasBridgeSkipped(leg)) {
+          totalSteps++;
+          if (['BRIDGE_CONFIRMED', 'DEPOSIT_IN_PROGRESS', 'FUNDED', 'OPENING_POSITION', 'ACTIVE'].includes(leg.status)) {
+            stepsDone++;
+          }
+        }
+        // Count deposit step (only if not skipped)
+        if (!wasDepositSkipped(leg)) {
+          totalSteps++;
+          if (['FUNDED', 'OPENING_POSITION', 'ACTIVE'].includes(leg.status)) {
+            stepsDone++;
+          }
+        }
       }
-      // 4 funding steps total (bridge + deposit for each leg)
-      return 10 + Math.round((stepsDone / 4) * 70);
+      if (totalSteps === 0) return 80; // All funding skipped
+      return 10 + Math.round((stepsDone / totalSteps) * 70);
     }
     case 'READY':
       return 80;
@@ -115,6 +147,8 @@ function StepIcon({ state }: { state: StepState }) {
       return <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin" />;
     case 'error':
       return <XCircle className="h-3.5 w-3.5 text-red-400" />;
+    case 'skipped':
+      return <MinusCircle className="h-3.5 w-3.5 text-text-muted-60/30" />;
     case 'pending':
     default:
       return <Clock className="h-3.5 w-3.5 text-text-muted-60/40" />;
@@ -198,9 +232,9 @@ export function HedgeExecutionProgress({
         </div>
       )}
 
-      {/* Step List */}
+      {/* Step List — only show steps that aren't skipped */}
       <div className="space-y-1.5">
-        {steps.map((step, i) => (
+        {steps.filter((step) => step.state !== 'skipped').map((step, i) => (
           <div
             key={i}
             className={cn(
