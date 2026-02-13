@@ -7,6 +7,7 @@ import { LoadingOverlay } from '@/components/layout/loading-overlay';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { MarketFeedProvider } from '@/components/providers/market-feed-provider';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { Toaster } from '@/components/ui/sonner';
 
 const robotoMono = Roboto_Mono({
   variable: '--font-roboto-mono',
@@ -48,6 +49,7 @@ export default function RootLayout({
                   <Navbar />
                   <main className="flex-1 overflow-hidden">{children}</main>
                 </div>
+                <Toaster position="bottom-right" theme="dark" richColors closeButton />
               </MarketFeedProvider>
             </TurnkeyProvider>
           </QueryProvider>

@@ -559,6 +559,54 @@ export class HyperLiquidService {
       };
     }
   }
+
+  /**
+   * Fetch the user's account balance (withdrawable USDC) from clearinghouse state.
+   *
+   * POST https://api.hyperliquid.xyz/info  { type: 'clearinghouseState', user }
+   * Returns the `withdrawable` field — free margin not locked in positions.
+   *
+   * @param userAddress - EVM wallet address
+   * @returns Withdrawable balance in USD
+   */
+  async fetchAccountBalance(
+    userAddress: string
+  ): Promise<{ success: boolean; withdrawable: number; error?: string }> {
+    try {
+      if (!userAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+
+      const response = await fetch(`${this.baseUrl}/info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'clearinghouseState', user: userAddress }),
+      });
+
+      if (!response.ok) {
+        throw createError(ErrorCode.NET_CONNECTION_ERROR, {
+          endpoint: `${this.baseUrl}/info`,
+          status: response.status,
+        });
+      }
+
+      const data = await response.json();
+      const withdrawable = parseFloat(data.withdrawable ?? '0');
+
+      return {
+        success: true,
+        withdrawable: isNaN(withdrawable) ? 0 : withdrawable,
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.NET_CONNECTION_ERROR);
+      console.error('Error fetching HL account balance:', appError);
+      return {
+        success: false,
+        withdrawable: 0,
+        error: getUserMessage(appError),
+      };
+    }
+  }
 }
 
 export const hyperLiquidService = new HyperLiquidService();

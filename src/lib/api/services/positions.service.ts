@@ -137,8 +137,10 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
     avgLeverage = pacifica.leverage;
   }
 
-  // TODO: Calculate APR from funding rates (for now, keep placeholder)
-  const apr = '21.9%'; // Placeholder - will be calculated from funding rates
+  // Calculate total margin
+  const hyperliquidMargin = hyperliquid ? parseFloat(hyperliquid.margin) : 0;
+  const pacificaMargin = pacifica ? parseFloat(pacifica.margin) : 0;
+  const totalMargin = hyperliquidMargin + pacificaMargin;
 
   return {
     asset: symbol,
@@ -150,22 +152,23 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
     short: {
       platform: shortProtocol,
     },
-    size: totalSize.toFixed(2),
-    apr,
+    size: totalSize.toFixed(4),
+    margin: `$${totalMargin.toFixed(2)}`,
     pricePnl: formatCurrency(totalPricePnl),
     fundingPnl: {
       current: formatCurrency(totalFundingPnl),
-      estimated: '', // Placeholder - will be calculated from funding rates
+      estimated: '',
     },
     totalPnl: formatCurrency(totalPnl),
-    // Store protocol-specific data for tooltips
-    // Uses protocol ID as key for modularity
+    // Store protocol-specific data for tooltips and inline display
     protocolData: {
       hyperliquid: hyperliquid
         ? ({
             size: hyperliquid.size,
             pnl: formatCurrency(hyperliquidPnl),
             funding: formatCurrency(hyperliquidFunding),
+            margin: `$${hyperliquidMargin.toFixed(2)}`,
+            liquidationPrice: `$${parseFloat(hyperliquid.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
           } as ProtocolPositionData)
         : null,
       pacifica: pacifica
@@ -173,6 +176,8 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
             size: pacifica.size,
             pnl: formatCurrency(pacificaPnl),
             funding: formatCurrency(pacificaFunding),
+            margin: `$${pacificaMargin.toFixed(2)}`,
+            liquidationPrice: `$${parseFloat(pacifica.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
           } as ProtocolPositionData)
         : null,
     } as Record<string, ProtocolPositionData | null>,

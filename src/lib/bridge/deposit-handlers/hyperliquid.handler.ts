@@ -9,10 +9,7 @@
 
 import { signPermitWithTurnkey } from '../signing';
 import { depositService } from '../deposit.service';
-import {
-  getUSDCBalanceOnArbitrum,
-  formatUSDCBalanceArbitrum,
-} from '../balance';
+import { getUSDCBalanceOnArbitrum, formatUSDCBalanceArbitrum } from '../balance';
 import { createUsdcPermit, signUsdcPermit } from '../usdc-permit';
 import { CHAIN_IDS, MIN_DEPOSIT_AMOUNT } from '../types';
 import type { BridgeStep, PermitData } from '../types';
@@ -64,11 +61,7 @@ export class HyperliquidDepositHandler implements DepositHandler {
     }
 
     // Sign with Turnkey
-    const signature = await signPermitWithTurnkey(
-      permitData,
-      walletAddress,
-      organizationId
-    );
+    const signature = await signPermitWithTurnkey(permitData, walletAddress, organizationId);
 
     return { signature, executeKind, executeApi };
   }
@@ -98,11 +91,7 @@ export class HyperliquidDepositHandler implements DepositHandler {
     const balanceInUSDC = formatUSDCBalanceArbitrum(arbitrumBalance);
     const spenderAddress = HYPERLIQUID_ROUTER_CONTRACT;
 
-    const permitResult = await createUsdcPermit(
-      balanceInUSDC,
-      walletAddress,
-      spenderAddress
-    );
+    const permitResult = await createUsdcPermit(balanceInUSDC, walletAddress, spenderAddress);
 
     if (!permitResult.success || !permitResult.typedData) {
       throw new Error(permitResult.error || 'Failed to create USDC permit');

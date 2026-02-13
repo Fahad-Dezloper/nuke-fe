@@ -15,39 +15,52 @@ export interface PacificaPerpAssetMeta {
   created_at: number;
 }
 
-/** In-memory cache */
+// ─── In-memory cache (loaded once, reused for the session) ──────────────────
+
 let cachedMeta: PacificaPerpAssetMeta[] | null = null;
-let cacheTimestamp = 0;
-const CACHE_TTL = 60_000; // 1 minute
+let metaPromise: Promise<PacificaPerpAssetMeta[]> | null = null;
 
 /**
  * Fetches Pacifica perp metadata from the backend proxy.
- * Results are cached in memory for CACHE_TTL ms.
+ * Cached in memory for the entire session — this data is static.
+ * Deduplicates concurrent requests via a shared promise.
  */
 export async function getPacificaPerpMeta(): Promise<PacificaPerpAssetMeta[]> {
-  const now = Date.now();
-  if (cachedMeta && now - cacheTimestamp < CACHE_TTL) {
-    return cachedMeta;
+  if (cachedMeta) return cachedMeta;
+
+  if (!metaPromise) {
+    metaPromise = (async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/pacifica/perp-metadata`);
+        const data = await response.json();
+
+        if (!data || !Array.isArray(data)) return [];
+
+        cachedMeta = data as PacificaPerpAssetMeta[];
+        return cachedMeta;
+      } catch (err) {
+        // Allow retry on next call
+        metaPromise = null;
+        throw err;
+      }
+    })();
   }
 
-  const response = await fetch(`${BACKEND_URL}pacifica/perp-metadata`);
-  const data = await response.json();
-
-  if (!data || !Array.isArray(data)) return [];
-
-  cachedMeta = data as PacificaPerpAssetMeta[];
-  cacheTimestamp = now;
-  return cachedMeta;
+  return metaPromise;
 }
 
 /**
  * Returns the metadata for a single symbol, or undefined if not found.
  */
-export async function getAssetMeta(
-  symbol: string
-): Promise<PacificaPerpAssetMeta | undefined> {
+export async function getAssetMeta(symbol: string): Promise<PacificaPerpAssetMeta | undefined> {
   const meta = await getPacificaPerpMeta();
-  return meta.find(
-    (m) => m.symbol.toUpperCase() === symbol.toUpperCase()
-  );
+  return meta.find((m) => m.symbol.toUpperCase() === symbol.toUpperCase());
+}
+
+/**
+ * Pre-warm the Pacifica metadata cache.
+ * Call once on app load so all subsequent usage is instant.
+ */
+export async function preloadPacificaMeta(): Promise<void> {
+  await getPacificaPerpMeta();
 }

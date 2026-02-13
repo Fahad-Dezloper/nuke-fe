@@ -33,7 +33,7 @@ function ProtocolTooltip({
   position?: { x: number; y: number };
   title: string;
   data: ProtocolDataMap;
-  field: 'size' | 'pnl' | 'funding';
+  field: 'size' | 'pnl' | 'funding' | 'margin';
 }) {
   if (!isVisible) return null;
 
@@ -52,7 +52,10 @@ function ProtocolTooltip({
   if (protocolsWithData.length === 0) return null;
 
   // Get the value based on the field
-  const getFieldValue = (data: ProtocolPositionData, field: 'size' | 'pnl' | 'funding'): string => {
+  const getFieldValue = (
+    data: ProtocolPositionData,
+    field: 'size' | 'pnl' | 'funding' | 'margin'
+  ): string => {
     switch (field) {
       case 'size':
         return data.size;
@@ -60,6 +63,8 @@ function ProtocolTooltip({
         return data.pnl;
       case 'funding':
         return data.funding;
+      case 'margin':
+        return data.margin;
       default:
         return '';
     }
@@ -180,7 +185,9 @@ function ProtocolBadge({
 
 export function PositionRow({ position, onClose }: PositionRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
-  const [hoveredField, setHoveredField] = useState<'size' | 'pricePnl' | 'fundingPnl' | null>(null);
+  const [hoveredField, setHoveredField] = useState<
+    'size' | 'margin' | 'pricePnl' | 'fundingPnl' | null
+  >(null);
   const [tooltipPosition, setTooltipPosition] = useState<{
     x: number;
     y: number;
@@ -195,7 +202,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
     parseFloat(position.fundingPnl.current.replace(/[^0-9.-]/g, '')) > 0;
 
   const handleMouseEnter = (
-    field: 'size' | 'pricePnl' | 'fundingPnl',
+    field: 'size' | 'margin' | 'pricePnl' | 'fundingPnl',
     event: React.MouseEvent<HTMLDivElement>
   ) => {
     if (!position.protocolData) return;
@@ -224,7 +231,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
       className="relative border-b border-border-white-10/30 last:border-0 border-l-2 border-l-transparent hover:border-l-accent/50 hover:bg-card/20 hover:backdrop-blur-sm transition-all duration-200 group"
     >
       <div className="px-4 md:px-6 py-2.5">
-        <div className="grid grid-cols-[minmax(100px,1fr)_minmax(180px,1.5fr)_minmax(70px,0.8fr)_minmax(70px,0.8fr)_minmax(90px,1fr)_minmax(110px,1.2fr)_minmax(90px,1fr)_40px] gap-3 lg:gap-4 items-center max-w-full">
+        <div className="grid grid-cols-[minmax(80px,0.8fr)_minmax(140px,1.2fr)_minmax(65px,0.7fr)_minmax(80px,0.8fr)_minmax(80px,0.9fr)_minmax(90px,1fr)_minmax(80px,0.8fr)_minmax(140px,1.4fr)_36px] gap-2 lg:gap-3 items-center max-w-full">
           {/* ASSET */}
           <div className="flex items-center gap-2">
             <Image
@@ -270,10 +277,14 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
             </span>
           </div>
 
-          {/* APR */}
-          <div className="min-w-0">
-            <span className="text-xs font-medium text-green-400 tabular-nums truncate block">
-              {position.apr}
+          {/* MARGIN */}
+          <div
+            className="min-w-0 cursor-help"
+            onMouseEnter={(e) => handleMouseEnter('margin', e)}
+            onMouseLeave={handleMouseLeave}
+          >
+            <span className="text-xs font-medium text-text-primary tabular-nums truncate block">
+              {position.margin}
             </span>
           </div>
 
@@ -324,11 +335,52 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
             </span>
           </div>
 
+          {/* LIQ PRICE — ordered to match LONG / SHORT column */}
+          <div className="flex flex-col gap-1 min-w-0">
+            {(() => {
+              const longProtocolId = position.long.platform.toLowerCase();
+              const shortProtocolId = position.short.platform.toLowerCase();
+              const ordered = [
+                { protocolId: longProtocolId, type: 'long' as const },
+                { protocolId: shortProtocolId, type: 'short' as const },
+              ];
+
+              return ordered.map(({ protocolId, type }) => {
+                const data = position.protocolData?.[protocolId];
+                const config = getProtocolConfig(protocolId);
+                // liquidationPrice is already formatted as "$XX,XXX.XX" from the service
+                const liqPrice = data?.liquidationPrice || '—';
+
+                return (
+                  <div key={protocolId} className="flex items-center gap-1.5">
+                    {config && (
+                      <Image
+                        src={config.logo}
+                        alt={config.displayName}
+                        width={13}
+                        height={13}
+                        className="shrink-0 rounded-sm opacity-60"
+                      />
+                    )}
+                    <span
+                      className={cn(
+                        'text-[11px] tabular-nums whitespace-nowrap',
+                        type === 'long' ? 'text-text-primary' : 'text-text-muted-60'
+                      )}
+                    >
+                      {liqPrice}
+                    </span>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+
           {/* CLOSE BUTTON */}
           <div className="flex items-center justify-end">
             <button
               onClick={() => onClose?.(`${position.asset}-${position.leverage}`)}
-              className="p-1 rounded-md text-text-muted-60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200"
+              className="p-1 rounded-md cursor-pointer text-text-muted-60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -346,6 +398,15 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
               title="Position Size"
               data={position.protocolData}
               field="size"
+            />
+          )}
+          {hoveredField === 'margin' && (
+            <ProtocolTooltip
+              isVisible={true}
+              position={tooltipPosition || undefined}
+              title="Margin"
+              data={position.protocolData}
+              field="margin"
             />
           )}
           {hoveredField === 'pricePnl' && (

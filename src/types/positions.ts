@@ -27,6 +27,8 @@ export interface ProtocolPositionData {
   size: string;
   pnl: string;
   funding: string;
+  margin: string;
+  liquidationPrice: string;
 }
 
 /**
@@ -46,11 +48,11 @@ export interface ArbitragePosition {
   long: PlatformInfo;
   short: PlatformInfo;
   size: string;
-  apr: string;
+  margin: string;
   pricePnl: string;
   fundingPnl: FundingPnL;
   totalPnl: string;
-  // Protocol-specific data for tooltips
+  // Protocol-specific data for tooltips and inline display
   // Uses protocol ID as key for modularity (e.g., 'hyperliquid', 'pacifica', 'drift')
   protocolData?: ProtocolDataMap;
 }

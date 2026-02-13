@@ -15,10 +15,7 @@ import { getWalletContext } from '@/lib/wallet-context';
 import { getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { bridgeService } from './bridge.service';
 import { signPermitWithTurnkey } from './signing';
-import {
-  getUSDCBalanceOnBase,
-  formatUSDCBalance,
-} from './balance';
+import { getUSDCBalanceOnBase, formatUSDCBalance } from './balance';
 import { createDefaultDepositHandlerRegistry } from './deposit-handlers';
 import { pollBridgeStatus } from './poll-bridge-status';
 import type { BridgeSignResult } from './deposit-handlers';
@@ -94,11 +91,7 @@ async function signBridgeDefault(
     throw new Error('Permit data not found in signature step');
   }
 
-  const signature = await signPermitWithTurnkey(
-    permitData,
-    walletAddress,
-    organizationId
-  );
+  const signature = await signPermitWithTurnkey(permitData, walletAddress, organizationId);
 
   return { signature, executeKind, executeApi };
 }
@@ -147,9 +140,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
 
         // ── Step 2: Resolve deposit handler ───────────────────────
         const depositProtocol = protocol || options?.protocol;
-        const handler = depositProtocol
-          ? depositHandlerRegistry.get(depositProtocol)
-          : null;
+        const handler = depositProtocol ? depositHandlerRegistry.get(depositProtocol) : null;
 
         // ── Step 3: Resolve bridge destination & recipient ────────
         let destinationChainId: number;
@@ -188,9 +179,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
         const quoteResponse = await bridgeService.getQuote(quoteRequest);
 
         // ── Step 6: Find signature step ───────────────────────────
-        const signatureStep = quoteResponse.steps.find(
-          (step) => step.kind === 'signature'
-        );
+        const signatureStep = quoteResponse.steps.find((step) => step.kind === 'signature');
 
         if (!signatureStep) {
           throw new Error('No signature step found in quote response');
@@ -209,11 +198,7 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
             organizationId
           );
         } else {
-          signResult = await signBridgeDefault(
-            signatureStep,
-            evmAddress,
-            organizationId
-          );
+          signResult = await signBridgeDefault(signatureStep, evmAddress, organizationId);
         }
 
         // ── Step 8: Execute permit ────────────────────────────────

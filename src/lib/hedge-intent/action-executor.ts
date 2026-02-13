@@ -69,7 +69,9 @@ const BRIDGE_REQUEST_PREFIX = 'hedge_bridge_';
 function storeBridgeRequestId(legId: string, requestId: string): void {
   try {
     localStorage.setItem(`${BRIDGE_REQUEST_PREFIX}${legId}`, requestId);
-  } catch { /* localStorage not available */ }
+  } catch {
+    /* localStorage not available */
+  }
 }
 
 function loadBridgeRequestId(legId: string): string | null {
@@ -83,7 +85,9 @@ function loadBridgeRequestId(legId: string): string | null {
 function clearBridgeRequestId(legId: string): void {
   try {
     localStorage.removeItem(`${BRIDGE_REQUEST_PREFIX}${legId}`);
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 // ─── Executor ────────────────────────────────────────────────────────────────
@@ -117,10 +121,7 @@ export class HedgeActionExecutor {
    * Execute a single action.
    * Dispatches to the correct handler based on action type.
    */
-  async execute(
-    action: NextActionResponse,
-    context: ExecutorContext
-  ): Promise<ActionResult> {
+  async execute(action: NextActionResponse, context: ExecutorContext): Promise<ActionResult> {
     switch (action.action) {
       case 'BRIDGE_BASE_TO_ARB':
         return this.executeBridge(action, context, 'hyperliquid');
@@ -170,9 +171,9 @@ export class HedgeActionExecutor {
   ): Promise<ActionResult> {
     const params = action.params as unknown as BridgeActionParams;
     const legId = params.leg_id;
-    const handler = exchange === 'hyperliquid'
-      ? this.hlDepositHandler
-      : this.pacificaDepositHandler;
+    const handler =
+      exchange === 'hyperliquid' ? this.hlDepositHandler : this.pacificaDepositHandler;
+    const chainLabel = exchange === 'hyperliquid' ? 'Arbitrum' : 'Solana';
 
     // ── Check for an in-flight bridge from a previous session ──
     const existingRequestId = loadBridgeRequestId(legId);
@@ -188,9 +189,20 @@ export class HedgeActionExecutor {
           // Fall through to retry bridge from scratch
         } else {
           // Still in progress — wait for it
-          await pollBridgeStatus(existingRequestId);
-          clearBridgeRequestId(legId);
-          return { success: true, txHash: existingRequestId, error: null, legResults: null };
+          try {
+            await pollBridgeStatus(existingRequestId);
+            clearBridgeRequestId(legId);
+            return { success: true, txHash: existingRequestId, error: null, legResults: null };
+          } catch (pollErr) {
+            clearBridgeRequestId(legId);
+            const errMsg = pollErr instanceof Error ? pollErr.message : String(pollErr);
+            return {
+              success: false,
+              txHash: existingRequestId,
+              error: `Bridge to ${chainLabel} failed while waiting for confirmation: ${errMsg}`,
+              legResults: null,
+            };
+          }
         }
       } catch {
         // Can't check — try from scratch
@@ -199,67 +211,123 @@ export class HedgeActionExecutor {
     }
 
     // ── Fresh bridge execution ──
+    try {
+      // Convert USD amount to USDC smallest unit (6 decimals)
+      const amountUsd = action.amount_usd!;
+      const amountSmallestUnit = Math.floor(amountUsd * 1_000_000).toString();
 
-    // Convert USD amount to USDC smallest unit (6 decimals)
-    const amountUsd = action.amount_usd!;
-    const amountSmallestUnit = Math.floor(amountUsd * 1_000_000).toString();
+      // Recipient: EVM address for Arb, Solana address for Sol
+      const recipient =
+        params.recipient || (exchange === 'hyperliquid' ? context.evmAddress : context.solanaAddress);
 
-    // Recipient: EVM address for Arb, Solana address for Sol
-    const recipient = params.recipient || (
-      exchange === 'hyperliquid' ? context.evmAddress : context.solanaAddress
-    );
+      // 1. Get bridge quote
+      const quoteRequest: QuoteRequest = {
+        user: context.evmAddress,
+        destinationChainId: params.destination_chain_id,
+        amount: amountSmallestUnit,
+        tradeType: 'EXACT_INPUT',
+        usePermit: true,
+        recipient,
+      };
 
-    // 1. Get bridge quote
-    const quoteRequest: QuoteRequest = {
-      user: context.evmAddress,
-      destinationChainId: params.destination_chain_id,
-      amount: amountSmallestUnit,
-      tradeType: 'EXACT_INPUT',
-      usePermit: true,
-      recipient,
-    };
+      let quoteResponse;
+      try {
+        quoteResponse = await bridgeService.getQuote(quoteRequest);
+      } catch (quoteErr) {
+        const errMsg = quoteErr instanceof Error ? quoteErr.message : String(quoteErr);
+        return {
+          success: false,
+          txHash: null,
+          error: `Failed to get bridge quote for ${chainLabel}: ${errMsg}`,
+          legResults: null,
+        };
+      }
 
-    const quoteResponse = await bridgeService.getQuote(quoteRequest);
+      // 2. Find signature step
+      const signatureStep = quoteResponse.steps.find((step) => step.kind === 'signature');
+      if (!signatureStep) {
+        return {
+          success: false,
+          txHash: null,
+          error: `Bridge to ${chainLabel}: no signature step found in quote response`,
+          legResults: null,
+        };
+      }
 
-    // 2. Find signature step
-    const signatureStep = quoteResponse.steps.find(
-      (step) => step.kind === 'signature'
-    );
-    if (!signatureStep) {
-      throw new Error('No signature step found in bridge quote response');
+      const requestId = signatureStep.requestId;
+
+      // Store for resumability
+      storeBridgeRequestId(legId, requestId);
+
+      // 3. Sign (protocol-specific via existing DepositHandler)
+      let signResult;
+      try {
+        signResult = await handler.signBridgeTransaction(
+          signatureStep,
+          context.evmAddress,
+          context.organizationId
+        );
+      } catch (signErr) {
+        clearBridgeRequestId(legId);
+        const errMsg = signErr instanceof Error ? signErr.message : String(signErr);
+        return {
+          success: false,
+          txHash: null,
+          error: `Failed to sign bridge transaction for ${chainLabel}: ${errMsg}`,
+          legResults: null,
+        };
+      }
+
+      // 4. Execute permit via Relay
+      try {
+        await bridgeService.executePermit({
+          signature: signResult.signature,
+          kind: signResult.executeKind,
+          requestId,
+          api: signResult.executeApi,
+        });
+      } catch (permitErr) {
+        clearBridgeRequestId(legId);
+        const errMsg = permitErr instanceof Error ? permitErr.message : String(permitErr);
+        return {
+          success: false,
+          txHash: requestId,
+          error: `Bridge to ${chainLabel} permit execution failed: ${errMsg}`,
+          legResults: null,
+        };
+      }
+
+      // 5. Poll until bridge completes
+      try {
+        await pollBridgeStatus(requestId);
+      } catch (pollErr) {
+        clearBridgeRequestId(legId);
+        const errMsg = pollErr instanceof Error ? pollErr.message : String(pollErr);
+        return {
+          success: false,
+          txHash: requestId,
+          error: `Bridge to ${chainLabel} failed during confirmation: ${errMsg}`,
+          legResults: null,
+        };
+      }
+
+      clearBridgeRequestId(legId);
+
+      return {
+        success: true,
+        txHash: requestId,
+        error: null,
+        legResults: null,
+      };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        txHash: null,
+        error: `Bridge to ${chainLabel} failed: ${errMsg}`,
+        legResults: null,
+      };
     }
-
-    const requestId = signatureStep.requestId;
-
-    // Store for resumability
-    storeBridgeRequestId(legId, requestId);
-
-    // 3. Sign (protocol-specific via existing DepositHandler)
-    const signResult = await handler.signBridgeTransaction(
-      signatureStep,
-      context.evmAddress,
-      context.organizationId
-    );
-
-    // 4. Execute permit via Relay
-    await bridgeService.executePermit({
-      signature: signResult.signature,
-      kind: signResult.executeKind,
-      requestId,
-      api: signResult.executeApi,
-    });
-
-    // 5. Poll until bridge completes
-    await pollBridgeStatus(requestId);
-
-    clearBridgeRequestId(legId);
-
-    return {
-      success: true,
-      txHash: requestId,
-      error: null,
-      legResults: null,
-    };
   }
 
   // ─── Deposit ─────────────────────────────────────────────────────────────
@@ -267,31 +335,54 @@ export class HedgeActionExecutor {
   /**
    * Execute a deposit action (USDC → protocol margin account).
    * Delegates entirely to the existing DepositHandler.
+   *
+   * Deposits are NOT retried on failure — each attempt costs a signature,
+   * and the user should be shown the error immediately.
    */
   private async executeDeposit(
     context: ExecutorContext,
     exchange: Exchange,
     action: NextActionResponse
   ): Promise<ActionResult> {
-    const handler = exchange === 'hyperliquid'
-      ? this.hlDepositHandler
-      : this.pacificaDepositHandler;
+    const handler =
+      exchange === 'hyperliquid' ? this.hlDepositHandler : this.pacificaDepositHandler;
+    const exchangeLabel = exchange === 'hyperliquid' ? 'Hyperliquid' : 'Pacifica';
 
-    const legId = (action.params as Record<string, unknown>)?.leg_id as string || '';
+    const legId = ((action.params as Record<string, unknown>)?.leg_id as string) || '';
 
-    const depositResult = await handler.executeDeposit({
-      walletAddress: context.evmAddress,
-      organizationId: context.organizationId,
-      bridgeRequestId: legId,
-      solanaRecipientAddress: context.solanaAddress,
-    });
+    try {
+      const depositResult = await handler.executeDeposit({
+        walletAddress: context.evmAddress,
+        organizationId: context.organizationId,
+        bridgeRequestId: legId,
+        solanaRecipientAddress: context.solanaAddress,
+      });
 
-    return {
-      success: true,
-      txHash: depositResult.txHash,
-      error: null,
-      legResults: null,
-    };
+      if (!depositResult || !depositResult.txHash) {
+        return {
+          success: false,
+          txHash: null,
+          error: `Deposit to ${exchangeLabel} returned no transaction hash — deposit may not have completed`,
+          legResults: null,
+        };
+      }
+
+      return {
+        success: true,
+        txHash: depositResult.txHash,
+        error: null,
+        legResults: null,
+      };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[HedgeExecutor] Deposit to ${exchangeLabel} failed:`, err);
+      return {
+        success: false,
+        txHash: null,
+        error: `Deposit to ${exchangeLabel} failed: ${errMsg}`,
+        legResults: null,
+      };
+    }
   }
 
   // ─── Open Hedge Position ─────────────────────────────────────────────────
@@ -301,15 +392,19 @@ export class HedgeActionExecutor {
    *
    * Flow:
    * 1. Determine long/short direction from spread APR data
-   * 2. Update leverage on both exchanges (parallel)
-   * 3. Fetch market price
-   * 4. Open positions on both exchanges (parallel)
+   * 2. Whitelist address on Pacifica (claim access code)
+   * 3. Fetch current leverage on both exchanges — only update if different
+   * 4. Fetch market price
+   * 5. Open positions on both exchanges (parallel)
    *
    * Uses effective_margin_usd (min of funded amounts) to ensure
    * both legs are equally sized → delta-neutral.
    *
    * Reports per-leg results so the backend can activate Safety Mode
    * if one leg fails.
+   *
+   * Every sub-step has explicit error handling — a failure at any point
+   * returns immediately with a descriptive error. No further steps run.
    */
   private async executeOpenPosition(
     action: NextActionResponse,
@@ -327,71 +422,135 @@ export class HedgeActionExecutor {
         exchange === spreadData.longPlatform ? 'long' : 'short';
     } else {
       // Fallback: hyperliquid long, pacifica short
-      console.warn(`[HedgeExecutor] No spread APR data for ${asset}, defaulting HL=long, Pacifica=short`);
-      getDirection = (exchange: Exchange) =>
-        exchange === 'hyperliquid' ? 'long' : 'short';
+      console.warn(
+        `[HedgeExecutor] No spread APR data for ${asset}, defaulting HL=long, Pacifica=short`
+      );
+      getDirection = (exchange: Exchange) => (exchange === 'hyperliquid' ? 'long' : 'short');
     }
 
-    // ── Step 2: Update leverage on both exchanges ──
-    console.log(`[HedgeExecutor] Setting leverage to ${leverage}x on both exchanges...`);
+    // ── Step 2: Whitelist address on Pacifica ──
+    // try {
+    //   console.log('[HedgeExecutor] Whitelisting Pacifica address...');
+    //   const whitelistResult = await this.pacificaService.whitelistAddress(
+    //     context.organizationId,
+    //     context.solanaAddress,
+    //     Date.now()
+    //   );
+    //   // Check explicit API-level failure (e.g., invalid claim code, not eligible)
+    //   if (!whitelistResult || whitelistResult.success === false) {
+    //     return {
+    //       success: false,
+    //       txHash: null,
+    //       error: 'Pacifica address whitelisting failed. Your address may not be eligible or the claim code is invalid.',
+    //       legResults: null,
+    //     };
+    //   }
+    //   console.log('[HedgeExecutor] Pacifica address whitelisted ✓');
+    // } catch (err) {
+    //   const errMsg = err instanceof Error ? err.message : String(err);
+    //   console.error('[HedgeExecutor] Pacifica whitelist failed:', err);
+    //   return {
+    //     success: false,
+    //     txHash: null,
+    //     error: `Pacifica address whitelisting failed: ${errMsg}`,
+    //     legResults: null,
+    //   };
+    // }
 
-    const [hlLeverageResult, pacificaLeverageResult] = await Promise.allSettled([
-      this.hlService.updateLeverage(
-        { assetTicker: asset.toUpperCase(), leverage },
-        context.evmAddress,
-        context.organizationId
-      ),
-      this.pacificaService.updateLeverage(
-        asset.toUpperCase(),
-        leverage,
-        context.solanaAddress,
-        context.organizationId
-      ),
+    // ── Step 3: Check current leverage and update only if different ──
+    console.log(`[HedgeExecutor] Checking leverage for ${asset} on both exchanges...`);
+
+    // Fetch current leverage from both exchanges in parallel
+    const [hlCurrentLeverage, pacCurrentLeverage] = await Promise.allSettled([
+      this.hlService.fetchUserLeverage(context.evmAddress, asset.toUpperCase()),
+      this.pacificaService.fetchLeverage(context.solanaAddress, asset.toUpperCase()),
     ]);
 
-    // Check HL leverage result
-    if (hlLeverageResult.status === 'rejected') {
-      console.error('[HedgeExecutor] HL leverage update rejected:', hlLeverageResult.reason);
-      return {
-        success: false,
-        txHash: null,
-        error: `Failed to set leverage on HyperLiquid: ${hlLeverageResult.reason?.message || 'Unknown error'}`,
-        legResults: null,
-      };
+    // Determine if HL leverage needs updating
+    let hlNeedsUpdate = true;
+    if (hlCurrentLeverage.status === 'fulfilled' && hlCurrentLeverage.value.success) {
+      const currentHlLev = hlCurrentLeverage.value.leverage;
+      if (currentHlLev !== undefined && currentHlLev !== null && currentHlLev === leverage) {
+        console.log(`[HedgeExecutor] HL leverage already ${leverage}x — skipping update`);
+        hlNeedsUpdate = false;
+      }
     }
-    if (!hlLeverageResult.value.success) {
-      console.error('[HedgeExecutor] HL leverage update failed:', hlLeverageResult.value.error);
-      return {
-        success: false,
-        txHash: null,
-        error: `Failed to set leverage on HyperLiquid: ${hlLeverageResult.value.error}`,
-        legResults: null,
-      };
+    // If fetch failed, we still try to update (better to attempt than skip)
+
+    // Determine if Pacifica leverage needs updating
+    let pacNeedsUpdate = true;
+    if (pacCurrentLeverage.status === 'fulfilled' && pacCurrentLeverage.value.success) {
+      const currentPacLev = pacCurrentLeverage.value.leverage;
+      // null means default (max leverage) — always update in that case
+      if (currentPacLev !== null && currentPacLev === leverage) {
+        console.log(`[HedgeExecutor] Pacifica leverage already ${leverage}x — skipping update`);
+        pacNeedsUpdate = false;
+      }
     }
 
-    // Check Pacifica leverage result
-    if (pacificaLeverageResult.status === 'rejected') {
-      console.error('[HedgeExecutor] Pacifica leverage update rejected:', pacificaLeverageResult.reason);
-      return {
-        success: false,
-        txHash: null,
-        error: `Failed to set leverage on Pacifica: ${pacificaLeverageResult.reason?.message || 'Unknown error'}`,
-        legResults: null,
-      };
-    }
-    if (!pacificaLeverageResult.value.success) {
-      console.error('[HedgeExecutor] Pacifica leverage update failed:', pacificaLeverageResult.value.error);
-      return {
-        success: false,
-        txHash: null,
-        error: `Failed to set leverage on Pacifica: ${pacificaLeverageResult.value.error}`,
-        legResults: null,
-      };
+    // Update leverage where needed
+    if (hlNeedsUpdate || pacNeedsUpdate) {
+      console.log(
+        `[HedgeExecutor] Updating leverage to ${leverage}x —`,
+        `HL: ${hlNeedsUpdate ? 'yes' : 'skip'}, Pacifica: ${pacNeedsUpdate ? 'yes' : 'skip'}`
+      );
+
+      const leveragePromises: Promise<{ exchange: string; result: { success: boolean; error?: string } }>[] = [];
+
+      if (hlNeedsUpdate) {
+        leveragePromises.push(
+          this.hlService
+            .updateLeverage(
+              { assetTicker: asset.toUpperCase(), leverage },
+              context.evmAddress,
+              context.organizationId
+            )
+            .then((result) => ({ exchange: 'HyperLiquid', result }))
+            .catch((err) => ({
+              exchange: 'HyperLiquid',
+              result: { success: false, error: err instanceof Error ? err.message : String(err) },
+            }))
+        );
+      }
+
+      if (pacNeedsUpdate) {
+        leveragePromises.push(
+          this.pacificaService
+            .updateLeverage(
+              asset.toUpperCase(),
+              leverage,
+              context.solanaAddress,
+              context.organizationId
+            )
+            .then((result) => ({ exchange: 'Pacifica', result }))
+            .catch((err) => ({
+              exchange: 'Pacifica',
+              result: { success: false, error: err instanceof Error ? err.message : String(err) },
+            }))
+        );
+      }
+
+      const leverageResults = await Promise.all(leveragePromises);
+
+      // Check all leverage results — any failure is fatal
+      for (const { exchange, result } of leverageResults) {
+        if (!result.success) {
+          console.error(`[HedgeExecutor] ${exchange} leverage update failed:`, result.error);
+          return {
+            success: false,
+            txHash: null,
+            error: `Failed to set leverage on ${exchange}: ${result.error || 'Unknown error'}`,
+            legResults: null,
+          };
+        }
+      }
+
+      console.log(`[HedgeExecutor] Leverage set to ${leverage}x on both exchanges ✓`);
+    } else {
+      console.log(`[HedgeExecutor] Leverage already ${leverage}x on both exchanges — no update needed ✓`);
     }
 
-    console.log(`[HedgeExecutor] Leverage set to ${leverage}x on both exchanges ✓`);
-
-    // ── Step 3: Fetch market price for position sizing (Pacifica requires it) ──
+    // ── Step 4: Fetch market price for position sizing (Pacifica requires it) ──
     let marketPrice: string | undefined;
     try {
       const priceData = await this.priceHelper.getMarketPriceForTrading(
@@ -401,10 +560,10 @@ export class HedgeActionExecutor {
       );
       marketPrice = priceData.price.toString();
     } catch (err) {
-      console.warn('Could not fetch market price, adapters will attempt internally:', err);
+      console.warn('[HedgeExecutor] Could not fetch market price, adapters will attempt internally:', err);
     }
 
-    // ── Step 4: Open both legs in parallel ──
+    // ── Step 5: Open both legs in parallel ──
     const results = await Promise.allSettled(
       legs.map(async (leg) => {
         const direction = getDirection(leg.exchange);
@@ -458,11 +617,21 @@ export class HedgeActionExecutor {
     });
 
     const allSucceeded = legResults.every((lr) => lr.success);
+    const failedLegs = legResults.filter((lr) => !lr.success);
+
+    // Build a descriptive error message listing which leg(s) failed
+    let errorMsg: string | null = null;
+    if (!allSucceeded) {
+      const failedNames = failedLegs
+        .map((lr) => `${lr.exchange === 'hyperliquid' ? 'HyperLiquid' : 'Pacifica'}: ${lr.error || 'unknown'}`)
+        .join('; ');
+      errorMsg = `Position opening failed — ${failedNames}`;
+    }
 
     return {
       success: allSucceeded,
       txHash: null,
-      error: allSucceeded ? null : 'One or more legs failed to open',
+      error: errorMsg,
       legResults,
     };
   }
@@ -495,9 +664,7 @@ export class HedgeActionExecutor {
       );
 
       // Step 2: Find the position for this asset
-      const position = rawPositions.find(
-        (p) => p.symbol.toUpperCase() === asset.toUpperCase()
-      );
+      const position = rawPositions.find((p) => p.symbol.toUpperCase() === asset.toUpperCase());
 
       if (!position) {
         return {
@@ -552,7 +719,7 @@ export class HedgeActionExecutor {
     return {
       success: result.success,
       txHash: null,
-      error: result.success ? null : (result.error || 'Failed to close HL position'),
+      error: result.success ? null : result.error || 'Failed to close HL position',
       legResults: null,
     };
   }
@@ -578,12 +745,16 @@ export class HedgeActionExecutor {
       `[HedgeExecutor] Closing Pacifica position: ${pacPosition.symbol} ${pacPosition.side} size=${pacPosition.size}`
     );
 
-    const result = await closePacificaPosition(pacPosition, context.solanaAddress, context.organizationId);
+    const result = await closePacificaPosition(
+      pacPosition,
+      context.solanaAddress,
+      context.organizationId
+    );
 
     return {
       success: result.success,
       txHash: null,
-      error: result.success ? null : (result.error || 'Failed to close Pacifica position'),
+      error: result.success ? null : result.error || 'Failed to close Pacifica position',
       legResults: null,
     };
   }

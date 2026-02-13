@@ -11,7 +11,7 @@
  */
 
 import { useAtomValue, useAtom } from 'jotai';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { PositionControlsSection } from './trading-dashboard';
 import { cn } from '@/lib/utils';
 import { ConnectWalletButton } from '@/components/ui/connect-wallet-button';
@@ -28,8 +28,10 @@ import {
   marginAtom,
   leverageAtom,
   selectedAssetAtom,
+  marginValidationAtom,
 } from './position-controls/store';
 import { useHedgeIntent } from '@/lib/hedge-intent';
+import { useExchangeBalances } from '@/hooks/use-exchange-balances';
 import { marketFeedDataAtom } from '@/lib/stores/market-feed.store';
 import { PositionControlsSkeleton } from '@/components/ui/skeletons';
 
@@ -49,6 +51,10 @@ export function PositionControlsSectionContent({
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const [selectedAsset] = useAtom(selectedAssetAtom);
+  const marginValidation = useAtomValue(marginValidationAtom);
+
+  // ── Exchange Balances (syncs to atoms for child components) ──
+  useExchangeBalances();
 
   // ── Hedge Intent Hook ──────────────────────────────────────
   const {
@@ -58,7 +64,6 @@ export function PositionControlsSectionContent({
     statusMessage,
     currentAction,
     detail,
-    error,
   } = useHedgeIntent();
 
   // ── Handlers ───────────────────────────────────────────────
@@ -77,17 +82,17 @@ export function PositionControlsSectionContent({
 
     // Validate inputs
     if (!selectedAsset) {
-      alert('Please select an asset');
+      toast.error('Please select an asset');
       return;
     }
 
     if (!margin || parseFloat(margin) <= 0) {
-      alert('Please enter a valid margin amount');
+      toast.error('Please enter a valid margin amount');
       return;
     }
 
     if (!isLoggedIn) {
-      alert('Please connect your wallet first');
+      toast.error('Please connect your wallet first');
       return;
     }
 
@@ -105,6 +110,7 @@ export function PositionControlsSectionContent({
     selectedAsset &&
     margin &&
     parseFloat(margin) > 0 &&
+    marginValidation.isValid &&
     !isExecuting;
 
   const isComplete = phase === 'complete';
@@ -115,6 +121,7 @@ export function PositionControlsSectionContent({
   const getButtonText = (): string => {
     if (!isExecuting) {
       if (isComplete) return 'HEDGE LIVE ✓';
+      if (isFailed) return 'OPEN HEDGED POSITION';
       return 'OPEN HEDGED POSITION';
     }
     switch (phase) {
@@ -174,33 +181,10 @@ export function PositionControlsSectionContent({
               phase={phase}
               statusMessage={statusMessage}
               currentAction={currentAction}
-              error={error}
             />
           )}
 
-          {/* Error (only shown when not in progress — progress has its own error) */}
-          {error && !showProgress && (
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-900/20 border border-red-500/30">
-              <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-xs font-medium text-red-400">Error</p>
-                <p className="text-xs text-red-300 mt-0.5">{error}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {isComplete && (
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-green-900/20 border border-green-500/30">
-              <CheckCircle2 className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-xs font-medium text-green-400">Hedge Active</p>
-                <p className="text-xs text-green-300 mt-0.5">
-                  Your delta-neutral hedge is live on both protocols.
-                </p>
-              </div>
-            </div>
-          )}
+          {/* Success/error notifications are handled via sonner toasts */}
         </div>
 
         {/* Footer - Wallet Connection / Open Position */}

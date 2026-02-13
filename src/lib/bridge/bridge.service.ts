@@ -23,11 +23,12 @@ export const bridgeService = {
    */
   async getQuote(request: QuoteRequest): Promise<QuoteResponse> {
     try {
-      const response = await apiClient.post<string>('/bridge/quote', request);
+      const response = await apiClient.post<QuoteResponse>('/bridge/quote', request);
 
+      console.log('response is', response);
       // Response is a JSON string, need to parse it
-      const quoteData: QuoteResponse = JSON.parse(response);
-      return quoteData;
+
+      return response;
     } catch (error) {
       console.error('Error getting bridge quote:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to get bridge quote');

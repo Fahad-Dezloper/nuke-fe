@@ -1,6 +1,6 @@
 import { BACKEND_URL } from '@/constants';
 
-interface PerpAssetMeta {
+export interface PerpAssetMeta {
   name: string;
   szDecimals: number;
   maxLeverage: number;
@@ -25,39 +25,95 @@ interface SpotMarket {
   isCanonical: boolean;
 }
 
-interface SpotMeta {
+export interface SpotMeta {
   tokens: SpotToken[];
   universe: SpotMarket[];
 }
 
+// ─── In-memory caches (loaded once, reused for the session) ─────────────────
+
+let cachedPerpMeta: PerpAssetMeta[] | null = null;
+let perpMetaPromise: Promise<PerpAssetMeta[]> | null = null;
+
+let cachedSpotMeta: SpotMeta | null = null;
+let spotMetaPromise: Promise<SpotMeta> | null = null;
+
+/**
+ * Fetches Hyperliquid perp metadata.
+ * Cached in memory for the entire session — this data is static.
+ * Deduplicates concurrent requests via a shared promise.
+ */
 export async function getPerpMeta(): Promise<PerpAssetMeta[]> {
-  const response = await fetch(`${BACKEND_URL}hyperliquid/perp-metadata`);
+  if (cachedPerpMeta) return cachedPerpMeta;
 
-  const data = await response.json();
+  // Deduplicate: if a fetch is already in-flight, reuse it
+  if (!perpMetaPromise) {
+    perpMetaPromise = (async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/hyperliquid/perp-metadata`);
+        const data = await response.json();
 
-  if (!data) return [];
+        if (!data) return [];
 
-  // response.json() already parses the JSON — no need for JSON.parse.
-  // The API returns [{ universe: [...] }, ...ctx], extract the universe array.
-  if (Array.isArray(data) && data[0]?.universe) {
-    return data[0].universe as PerpAssetMeta[];
+        let result: PerpAssetMeta[];
+        if (Array.isArray(data) && data[0]?.universe) {
+          result = data[0].universe as PerpAssetMeta[];
+        } else {
+          result = data as PerpAssetMeta[];
+        }
+
+        cachedPerpMeta = result;
+        return result;
+      } catch (err) {
+        // Allow retry on next call
+        perpMetaPromise = null;
+        throw err;
+      }
+    })();
   }
 
-  return data as PerpAssetMeta[];
+  return perpMetaPromise;
 }
 
+/**
+ * Fetches Hyperliquid spot metadata.
+ * Cached in memory for the entire session — this data is static.
+ * Deduplicates concurrent requests via a shared promise.
+ */
 export async function getSpotMeta(): Promise<SpotMeta> {
-  const response = await fetch(`${BACKEND_URL}hyperliquid/spot-metadata`);
+  if (cachedSpotMeta) return cachedSpotMeta;
 
-  const data = await response.json();
+  if (!spotMetaPromise) {
+    spotMetaPromise = (async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/hyperliquid/spot-metadata`);
+        const data = await response.json();
 
-  if (!data) return { tokens: [], universe: [] };
+        if (!data) return { tokens: [], universe: [] };
 
-  // response.json() already parses the JSON — no need for JSON.parse.
-  // The API returns [{ tokens: [...], universe: [...] }, ...ctx].
-  if (Array.isArray(data) && data[0]?.tokens) {
-    return data[0] as SpotMeta;
+        let result: SpotMeta;
+        if (Array.isArray(data) && data[0]?.tokens) {
+          result = data[0] as SpotMeta;
+        } else {
+          result = data as SpotMeta;
+        }
+
+        cachedSpotMeta = result;
+        return result;
+      } catch (err) {
+        spotMetaPromise = null;
+        throw err;
+      }
+    })();
   }
 
-  return data as SpotMeta;
+  return spotMetaPromise;
+}
+
+/**
+ * Pre-warm both HL metadata caches.
+ * Call once on app load so all subsequent usage is instant.
+ */
+export async function preloadHyperliquidMeta(): Promise<void> {
+  await Promise.all([getPerpMeta(), getSpotMeta()]);
 }

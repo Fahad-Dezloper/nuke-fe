@@ -37,5 +37,7 @@ export const queryKeys = {
   balance: {
     all: ['balance'] as const,
     usdcBase: (address: string) => ['balance', 'usdc-base', address] as const,
+    exchangeBalances: (evmAddress: string, solanaAddress: string) =>
+      ['balance', 'exchange', evmAddress, solanaAddress] as const,
   },
 } as const;

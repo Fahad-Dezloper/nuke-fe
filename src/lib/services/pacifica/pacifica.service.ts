@@ -10,13 +10,16 @@ import type {
 import { prepareSigningData, messageToBytes } from './utils/signing';
 import { signPacificaMessageWithTurnkey } from './utils/turnkey-signing';
 import { roundAmount, roundPrice } from '@/dex/pacifica/utils/rounding';
+import axios from 'axios';
+
+export const ACCESS_CODE = 'HV6X60D82C3SDGAS';
+export const EXPIRY_WINDOW = 300000;
 
 export class PacificaService {
   private baseUrl: string;
   private timeout: number;
 
   private expiryWindow = 30_000;
-
 
   constructor(baseUrl: string = PACIFICA_HTTP_URL) {
     this.baseUrl = baseUrl;
@@ -77,6 +80,32 @@ export class PacificaService {
       console.error('Error signing Pacifica order request:', error);
       throw toAppError(error, ErrorCode.WALLET_SIGNING_FAILED);
     }
+  }
+
+
+  async whitelistAddress(organizationId: string, account: string, timestamp: number) {
+    const message = new TextEncoder().encode(
+      JSON.stringify({
+        data: { code: ACCESS_CODE },
+        expiry_window: EXPIRY_WINDOW,
+        timestamp,
+        type: 'claim_access_code',
+      })
+    );
+    const signature = await signPacificaMessageWithTurnkey(message, account, organizationId);
+
+    const { data } = await axios.post(`${PACIFICA_HTTP_URL}/whitelist/claim`, {
+      account,
+      code: ACCESS_CODE,
+      signature: {
+        type: 'raw',
+        value: signature,
+      },
+      timestamp,
+      expiry_window: EXPIRY_WINDOW,
+    });
+
+    return data;
   }
 
   /**
@@ -177,7 +206,6 @@ export class PacificaService {
         });
       }
 
-
       // Prepare operation data for signing
       const operationData: Record<string, unknown> = {
         symbol: symbol.toUpperCase(),
@@ -271,7 +299,7 @@ export class PacificaService {
       if (request.client_order_id) {
         operationData.client_order_id = request.client_order_id;
       }
-      
+
       if (request.take_profit) {
         operationData.take_profit = {
           stop_price: await roundPrice(request.take_profit.stop_price, symbol),
@@ -283,7 +311,7 @@ export class PacificaService {
           }),
         };
       }
-      
+
       if (request.stop_loss) {
         operationData.stop_loss = {
           stop_price: await roundPrice(request.stop_loss.stop_price, symbol),
@@ -348,7 +376,6 @@ export class PacificaService {
       };
     }
   }
-
 
   /**
    * Creates a limit order on Pacifica
@@ -466,6 +493,150 @@ export class PacificaService {
    * @param organizationId - Turnkey organization ID
    * @returns Success/failure response
    */
+  /**
+   * Fetch account settings from Pacifica (leverage, margin mode, etc.)
+   *
+   * GET /account/settings?account=<address>
+   *
+   * Returns settings for all symbols that have been changed from default.
+   * Symbols not in the response use default settings (cross margin, max leverage).
+   *
+   * @param account - Solana wallet address
+   * @returns Array of account settings per symbol
+   */
+  async getAccountSettings(
+    account: string
+  ): Promise<{ success: boolean; data?: Array<{ symbol: string; isolated: boolean; leverage: number }>; error?: string }> {
+    try {
+      if (!account) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+
+      const response = await fetch(`${this.baseUrl}/account/settings?account=${account}`, {
+        method: 'GET',
+        headers: { Accept: '*/*' },
+      });
+
+      if (!response.ok) {
+        throw createError(ErrorCode.API_BAD_REQUEST, {
+          status: response.status,
+          statusText: response.statusText,
+          endpoint: '/account/settings',
+        });
+      }
+
+      const json = await response.json();
+
+      if (!json.success) {
+        return {
+          success: false,
+          error: json.error || 'Failed to fetch Pacifica account settings',
+        };
+      }
+
+      return {
+        success: true,
+        data: json.data || [],
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.API_BAD_REQUEST);
+      console.error('Error fetching Pacifica account settings:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+      };
+    }
+  }
+
+  /**
+   * Fetch the current leverage for a specific symbol on Pacifica.
+   *
+   * @param account - Solana wallet address
+   * @param symbol - Asset symbol (e.g. "BTC")
+   * @returns Current leverage value, or null if using default (max leverage)
+   */
+  async fetchLeverage(
+    account: string,
+    symbol: string
+  ): Promise<{ success: boolean; leverage: number | null; error?: string }> {
+    const settingsResult = await this.getAccountSettings(account);
+
+    if (!settingsResult.success || !settingsResult.data) {
+      return {
+        success: false,
+        leverage: null,
+        error: settingsResult.error || 'Failed to fetch account settings',
+      };
+    }
+
+    const entry = settingsResult.data.find(
+      (s) => s.symbol.toUpperCase() === symbol.toUpperCase()
+    );
+
+    return {
+      success: true,
+      // null means default (max leverage) — symbol not customized
+      leverage: entry ? entry.leverage : null,
+    };
+  }
+
+  /**
+   * Fetch the user's account balance from Pacifica.
+   *
+   * GET /account?account=<address>
+   * Returns `available_to_spend` — free margin not locked in positions/orders.
+   *
+   * @param account - Solana wallet address
+   * @returns Available balance in USD
+   */
+  async fetchAccountBalance(
+    account: string
+  ): Promise<{ success: boolean; availableToSpend: number; error?: string }> {
+    try {
+      if (!account) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+
+      const response = await fetch(`${this.baseUrl}/account?account=${account}`, {
+        method: 'GET',
+        headers: { Accept: '*/*' },
+      });
+
+      if (!response.ok) {
+        throw createError(ErrorCode.API_BAD_REQUEST, {
+          status: response.status,
+          statusText: response.statusText,
+          endpoint: '/account',
+        });
+      }
+
+      const json = await response.json();
+
+      if (!json.success || !json.data) {
+        return {
+          success: false,
+          availableToSpend: 0,
+          error: json.error || 'Failed to fetch Pacifica account balance',
+        };
+      }
+
+      const availableToSpend = parseFloat(json.data.available_to_spend ?? '0');
+
+      return {
+        success: true,
+        availableToSpend: isNaN(availableToSpend) ? 0 : availableToSpend,
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.API_BAD_REQUEST);
+      console.error('Error fetching Pacifica account balance:', appError);
+      return {
+        success: false,
+        availableToSpend: 0,
+        error: getUserMessage(appError),
+      };
+    }
+  }
+
   async cancelOrder(
     request: CancelOrderRequest,
     walletAddress: string,

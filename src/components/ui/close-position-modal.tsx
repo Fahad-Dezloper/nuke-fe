@@ -8,13 +8,7 @@
 
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Loader2,
-  Check,
-  AlertTriangle,
-  X,
-  ArrowDownRight,
-} from 'lucide-react';
+import { Loader2, Check, AlertTriangle, X, ArrowDownRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import Image from 'next/image';
@@ -86,10 +80,7 @@ function LegStatusRow({
           <div className="flex flex-col">
             <span className="text-xs font-semibold text-text-primary">{displayName}</span>
             <span
-              className={cn(
-                'text-[10px] font-medium',
-                isLong ? 'text-green-400' : 'text-red-400'
-              )}
+              className={cn('text-[10px] font-medium', isLong ? 'text-green-400' : 'text-red-400')}
             >
               {side.toUpperCase()}
             </span>
@@ -103,7 +94,7 @@ function LegStatusRow({
         </div>
 
         {/* Right: Status */}
-        <div className="flex items-center justify-center w-8 h-8">
+        {/* <div className="flex items-center justify-center w-8 h-8">
           <AnimatePresence mode="wait">
             {status === 'pending' && (
               <motion.div
@@ -145,7 +136,7 @@ function LegStatusRow({
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </div> */}
       </div>
     </div>
   );
@@ -160,7 +151,9 @@ export function ClosePositionModal({
   onConfirmClose,
 }: ClosePositionModalProps) {
   const [phase, setPhase] = useState<ModalPhase>('confirm');
-  const [legStatuses, setLegStatuses] = useState<Record<string, 'pending' | 'closing' | 'success' | 'error'>>({});
+  const [legStatuses, setLegStatuses] = useState<
+    Record<string, 'pending' | 'closing' | 'success' | 'error'>
+  >({});
   const [result, setResult] = useState<ClosePositionResult | null>(null);
 
   const handleClose = useCallback(() => {
@@ -234,7 +227,8 @@ export function ClosePositionModal({
           </div>
         </div>
         <p className="text-xs text-text-muted-60 mt-2">
-          {phase === 'confirm' && 'This will close both legs of your hedged position simultaneously.'}
+          {phase === 'confirm' &&
+            'This will close both legs of your hedged position simultaneously.'}
           {phase === 'closing' && 'Signing and submitting close orders...'}
           {phase === 'result' && isAllSuccess && 'Both legs have been closed successfully.'}
           {phase === 'result' && isPartial && 'One leg failed to close. Please retry manually.'}
@@ -299,7 +293,8 @@ export function ClosePositionModal({
                 .filter((l) => !l.success)
                 .map((leg) => (
                   <p key={leg.protocol} className="text-xs text-red-400 leading-relaxed">
-                    <span className="font-medium capitalize">{leg.protocol}</span>: {leg.error || 'Unknown error'}
+                    <span className="font-medium capitalize">{leg.protocol}</span>:{' '}
+                    {leg.error || 'Unknown error'}
                   </p>
                 ))}
             </div>
@@ -430,7 +425,8 @@ export function ClosePositionModal({
           className="mt-4 p-3 rounded-lg text-yellow-600 bg-yellow-700/10 border border-accent/20"
         >
           <p className="text-xs text-text-muted-60 leading-relaxed">
-            Both positions will be closed as market orders. Slippage may occur during high volatility.
+            Both positions will be closed as market orders. Slippage may occur during high
+            volatility.
           </p>
         </motion.div>
       )}

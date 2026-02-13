@@ -17,10 +17,14 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { marginAtom } from '@/components/features/position-controls/store';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getWalletContext } from '@/lib/wallet-context';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
+import { queryKeys } from '@/lib/query-keys';
 import { hedgeIntentApi } from './api';
 import { HedgeIntentEngine, type EngineCallbacks } from './engine';
 import type { ExecutorContext } from './action-executor';
@@ -123,6 +127,8 @@ const IN_PROGRESS_STATUSES: HedgeIntentStatus[] = [
 export function useHedgeIntent(): UseHedgeIntentReturn {
   const { state: turnkeyState } = useTurnkey();
   const spreadAprData = useAtomValue(spreadAprDataAtom);
+  const queryClient = useQueryClient();
+  const setMargin = useSetAtom(marginAtom);
 
   // ── State ───────────────────────────────────────────────────
   const [isExecuting, setIsExecuting] = useState(false);
@@ -158,7 +164,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
 
       onActionComplete: (action, success) => {
         if (!success) {
-          console.warn(`[useHedgeIntent] Action ${action} failed — backend will decide next step`);
+          console.warn(`[useHedgeIntent] Action ${action} failed — engine will stop and show error`);
         }
         // Refresh detail after each action completes
         hedgeIntentApi.getDetail(hedgeIntentId)
@@ -178,15 +184,45 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         isRunningRef.current = false;
         setCurrentAction(null);
         setCurrentLeg(null);
+        toast.error('Hedge Failed', {
+          description: errorMsg || 'An unexpected error occurred.',
+          duration: 8000,
+        });
       },
 
       onComplete: (id, finalStatus) => {
-        setPhase('complete');
-        setStatusMessage(
-          finalStatus === 'ACTIVE'
-            ? 'Hedge is live!'
-            : `Hedge ${finalStatus.toLowerCase()}`
-        );
+        // Only treat ACTIVE as true success
+        if (finalStatus === 'ACTIVE') {
+          setPhase('complete');
+          setStatusMessage('Hedge is live!');
+          // Refresh the positions table so the new hedge appears immediately
+          queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+          // Also refresh exchange balances since they changed
+          queryClient.invalidateQueries({ queryKey: queryKeys.balance.all });
+
+          toast.success('Hedge Position Live', {
+            description: 'Delta-neutral hedge is live on both legs.',
+            closeButton: true,
+            duration: 6000,
+          });
+
+          // Reset UI after a few seconds so user can open a new position
+          setTimeout(() => {
+            setPhase('idle');
+            setStatusMessage('');
+            setDetail(null);
+            setIntentId(null);
+            setMargin('');
+          }, 5_000);
+        } else {
+          // CANCELLED, FAILED, or unexpected — show as failed
+          setPhase('failed');
+          setStatusMessage(`Hedge ${finalStatus.toLowerCase()}`);
+          toast.error('Hedge Failed', {
+            description: `Hedge intent ${finalStatus.toLowerCase()}.`,
+            duration: 8000,
+          });
+        }
         setIsExecuting(false);
         isRunningRef.current = false;
         setCurrentAction(null);
@@ -199,7 +235,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
           .catch(() => { /* non-critical */ });
       },
     }),
-    []
+    [queryClient, setMargin]
   );
 
   // ── Run the engine ─────────────────────────────────────────
@@ -239,6 +275,10 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         setPhase('failed');
         setIsExecuting(false);
         isRunningRef.current = false;
+        toast.error('Hedge Execution Error', {
+          description: errorMessage,
+          duration: 8000,
+        });
       }
     },
     [buildContext, buildCallbacks]
@@ -277,6 +317,10 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         setError(errorMessage);
         setPhase('failed');
         setIsExecuting(false);
+        toast.error('Failed to Create Hedge', {
+          description: errorMessage,
+          duration: 8000,
+        });
       }
     },
     [buildContext, runEngine]
