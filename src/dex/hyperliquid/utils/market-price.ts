@@ -28,17 +28,14 @@ export class MarketPriceHelper {
 
   async getCurrentPrice(assetIndex: number): Promise<number> {
     try {
-      // First get asset info to get the coin name
-      const metaResponse = await axios.post(`${this.baseUrl}/info`, {
-        type: 'meta',
-      });
+      // Use cached perp metadata instead of a fresh API call
+      const perpMeta = await getPerpMeta();
 
-      const meta = metaResponse.data;
-      if (!meta?.universe?.[assetIndex]) {
+      if (!perpMeta[assetIndex]) {
         throw new Error(`Asset index ${assetIndex} not found`);
       }
 
-      const asset = meta.universe[assetIndex] as AssetInfo;
+      const asset = perpMeta[assetIndex] as AssetInfo;
       if (asset.isDelisted) {
         throw new Error(`Asset ${asset.name} is delisted`);
       }
@@ -143,17 +140,15 @@ export class MarketPriceHelper {
 
   async listAvailableAssets(): Promise<{ index: number; name: string; price: string }[]> {
     try {
-      const metaResponse = await axios.post(`${this.baseUrl}/info`, {
-        type: 'meta',
-      });
+      // Use cached perp metadata instead of a fresh API call
+      const perpMeta = await getPerpMeta();
 
-      const meta = metaResponse.data;
-      if (!meta?.universe || !Array.isArray(meta.universe)) {
-        throw new Error('Invalid API response structure');
+      if (!perpMeta || !Array.isArray(perpMeta)) {
+        throw new Error('Invalid metadata structure');
       }
 
       // Get prices for non-delisted assets
-      const assets = meta.universe
+      const assets = perpMeta
         .map(async (asset: AssetInfo, index: number) => {
           if (asset.isDelisted) return null;
 
@@ -169,7 +164,7 @@ export class MarketPriceHelper {
             return null;
           }
         })
-        .filter(Boolean); // Remove null entries
+        .filter((a): a is Promise<{ index: number; name: string; price: string }> => Boolean(a));
 
       return Promise.all(assets);
     } catch (error) {

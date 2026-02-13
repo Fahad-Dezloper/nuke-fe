@@ -42,10 +42,10 @@ export function usePositions(options: UsePositionsOptions = {}): UsePositionsRet
     },
     enabled: enabled && !!evmAddress && !!solanaAddress,
     staleTime: 2_000,
-    // Poll every 3s when there are open positions, otherwise every 30s
+    // Poll every 10s when there are open positions, otherwise every 30s
     refetchInterval: (query) => {
       const data = query.state.data;
-      return data && data.length > 0 ? 3_000 : 30_000;
+      return data && data.length > 0 ? 10_000 : 30_000;
     },
   });
 

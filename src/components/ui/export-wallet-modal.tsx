@@ -2,21 +2,25 @@
 
 /**
  * Export Wallet Modal Component
- * Allows users to securely export their EVM wallet private key
+ * Allows users to securely export their EVM or Solana wallet private key
  * via Turnkey's iframe-based export flow
  */
 
 import { motion } from 'framer-motion';
-import { Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
+import { Copy, Check, ExternalLink, Loader2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import { useState, useRef, useCallback } from 'react';
 import { turnkeyClient } from '@/lib/turnkey/client';
+import { KeyFormat } from '@turnkey/iframe-stamper';
+
+type WalletType = 'evm' | 'solana';
 
 interface ExportWalletModalProps {
   isOpen: boolean;
   onClose: () => void;
-  walletAddress: string;
+  evmAddress: string;
+  solanaAddress: string;
 }
 
 type ExportState = 'idle' | 'exporting' | 'success' | 'error';
@@ -24,23 +28,40 @@ type ExportState = 'idle' | 'exporting' | 'success' | 'error';
 export function ExportWalletModal({
   isOpen,
   onClose,
-  walletAddress,
+  evmAddress,
+  solanaAddress,
 }: ExportWalletModalProps) {
   const [exportState, setExportState] = useState<ExportState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const [selectedWallet, setSelectedWallet] = useState<WalletType>('evm');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
 
+  const activeAddress = selectedWallet === 'evm' ? evmAddress : solanaAddress;
+  const activeKeyFormat = selectedWallet === 'evm' ? KeyFormat.Hexadecimal : KeyFormat.Solana;
+
+  // Remove any existing Turnkey iframe so a fresh one can be created
+  const clearIframe = useCallback(() => {
+    if (iframeContainerRef.current) {
+      iframeContainerRef.current.innerHTML = '';
+    }
+  }, []);
+
   const handleExport = useCallback(async () => {
-    if (!iframeContainerRef.current || !walletAddress) return;
+    if (!iframeContainerRef.current || !activeAddress) return;
+
+    // Clear stale iframe from a previous export
+    clearIframe();
 
     setExportState('exporting');
     setErrorMessage('');
 
     try {
       const result = await turnkeyClient.exportWalletAccount(
-        walletAddress,
-        iframeContainerRef.current
+        activeAddress,
+        iframeContainerRef.current,
+        activeKeyFormat
       );
 
       if (result.success) {
@@ -51,22 +72,23 @@ export function ExportWalletModal({
       }
     } catch (error) {
       setExportState('error');
-      setErrorMessage(
-        error instanceof Error ? error.message : 'An unexpected error occurred'
-      );
+      setErrorMessage(error instanceof Error ? error.message : 'An unexpected error occurred');
     }
-  }, [walletAddress]);
+  }, [activeAddress, activeKeyFormat, clearIframe]);
 
   const handleClose = () => {
+    clearIframe();
     setExportState('idle');
     setErrorMessage('');
     setCopied(false);
+    setSelectedWallet('evm');
+    setDropdownOpen(false);
     onClose();
   };
 
   const handleCopyAddress = async () => {
     try {
-      await navigator.clipboard.writeText(walletAddress);
+      await navigator.clipboard.writeText(activeAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -75,8 +97,26 @@ export function ExportWalletModal({
   };
 
   const handleViewOnExplorer = () => {
-    const explorerUrl = `https://basescan.org/address/${walletAddress}`;
+    const explorerUrl =
+      selectedWallet === 'evm'
+        ? `https://basescan.org/address/${activeAddress}`
+        : `https://solscan.io/account/${activeAddress}`;
     window.open(explorerUrl, '_blank');
+  };
+
+  const handleWalletSwitch = (type: WalletType) => {
+    if (type === selectedWallet) {
+      setDropdownOpen(false);
+      return;
+    }
+    // Clear the old iframe before switching
+    clearIframe();
+    setSelectedWallet(type);
+    setDropdownOpen(false);
+    // Reset export state when switching wallets
+    setExportState('idle');
+    setErrorMessage('');
+    setCopied(false);
   };
 
   const isSuccess = exportState === 'success';
@@ -93,9 +133,72 @@ export function ExportWalletModal({
         <h2 className="text-lg font-semibold text-text-primary mb-1 tracking-tight">
           EXPORT PRIVATE KEY
         </h2>
-        <p className="text-xs text-text-muted-60">
-          Securely export your EVM wallet private key
-        </p>
+        <p className="text-xs text-text-muted-60">Securely export your wallet private key</p>
+      </motion.div>
+
+      {/* Wallet Type Selector */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.12 }}
+        className="mb-4"
+      >
+        <label className="text-xs text-text-muted-60 font-medium mb-2 block">WALLET TYPE</label>
+        <div className="relative">
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            disabled={exportState === 'exporting'}
+            className={cn(
+              'w-full flex items-center justify-between',
+              'rounded-xl px-3.5 py-2.5',
+              'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
+              'backdrop-blur-lg border border-border-white-15/60',
+              'text-xs font-medium text-text-primary',
+              'hover:border-border-white-30 transition-all duration-200',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+          >
+            <span>{selectedWallet === 'evm' ? 'EVM (Hyperliquid)' : 'Solana'}</span>
+            <ChevronDown
+              className={cn(
+                'w-3.5 h-3.5 text-text-muted-60 transition-transform',
+                dropdownOpen && 'rotate-180'
+              )}
+            />
+          </button>
+          {dropdownOpen && (
+            <div
+              className={cn(
+                'absolute z-20 mt-1 w-full rounded-xl overflow-hidden',
+                'bg-card/95 backdrop-blur-lg border border-border-white-15/60',
+                'shadow-xl shadow-black/40'
+              )}
+            >
+              <button
+                onClick={() => handleWalletSwitch('evm')}
+                className={cn(
+                  'w-full text-left px-3.5 py-2.5 text-xs',
+                  'hover:bg-white/5 transition-colors',
+                  selectedWallet === 'evm' ? 'text-text-primary font-medium' : 'text-text-muted-60'
+                )}
+              >
+                EVM (Hyperliquid)
+              </button>
+              <button
+                onClick={() => handleWalletSwitch('solana')}
+                className={cn(
+                  'w-full text-left px-3.5 py-2.5 text-xs',
+                  'hover:bg-white/5 transition-colors',
+                  selectedWallet === 'solana'
+                    ? 'text-text-primary font-medium'
+                    : 'text-text-muted-60'
+                )}
+              >
+                Solana
+              </button>
+            </div>
+          )}
+        </div>
       </motion.div>
 
       {/* Wallet Address Display */}
@@ -128,7 +231,7 @@ export function ExportWalletModal({
           <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
           <div className="relative z-10">
             <p className="text-xs font-mono text-text-primary break-all leading-relaxed">
-              {walletAddress}
+              {activeAddress}
             </p>
           </div>
           <motion.button
@@ -157,9 +260,7 @@ export function ExportWalletModal({
       {/* Private Key — iframe container always mounted, visibility toggled */}
       <div className={cn(isSuccess ? 'mb-5' : '')}>
         {isSuccess && (
-          <label className="text-xs text-text-muted-60 font-medium mb-2 block">
-            PRIVATE KEY
-          </label>
+          <label className="text-xs text-text-muted-60 font-medium mb-2 block">PRIVATE KEY</label>
         )}
         <div
           className={cn(
@@ -217,7 +318,7 @@ export function ExportWalletModal({
         >
           <motion.button
             onClick={handleExport}
-            disabled={exportState === 'exporting' || !walletAddress}
+            disabled={exportState === 'exporting' || !activeAddress}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className={cn(

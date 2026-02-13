@@ -20,7 +20,7 @@ export const mockArbitragePositions: ArbitragePosition[] = [
       platform: 'Pacifica',
     },
     size: '893.23',
-    apr: '21.9%',
+    margin: '$500.00',
     pricePnl: '$0.00',
     fundingPnl: {
       current: '-$0.00',
@@ -39,7 +39,7 @@ export const mockArbitragePositions: ArbitragePosition[] = [
       platform: 'Hyperliquid',
     },
     size: '100.00',
-    apr: '21.9%',
+    margin: '$250.00',
     pricePnl: '+$120.00',
     fundingPnl: {
       current: '-$0.00',

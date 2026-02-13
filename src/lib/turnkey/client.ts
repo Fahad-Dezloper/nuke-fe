@@ -12,6 +12,7 @@ import { OAuthHandler } from './oauth-handler';
 import { WalletManager } from './wallet-manager';
 import { isOAuthRedirectInProgress, calculateSha256 } from './utils';
 import { ErrorCode, createError, toAppError, getUserMessage } from '@/lib/errors';
+import { KeyFormat } from '@turnkey/iframe-stamper';
 
 /**
  * TurnkeyClient is the main client for interacting with Turnkey wallet services.
@@ -580,6 +581,7 @@ export class TurnkeyClient {
   public async exportWalletAccount(
     address: string,
     iframeContainer: HTMLElement,
+    keyFormat: KeyFormat = KeyFormat.Hexadecimal,
     iframeUrl?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
@@ -605,7 +607,7 @@ export class TurnkeyClient {
 
       // Export the wallet account
       const exportResponse = await indexedDbClient.exportWalletAccount({
-        address: "3v8sLhz4KfVeBroMVBUzHfYFE8g9E6pgrnUKXZnwgqEZ",
+        address,
         targetPublicKey: `${iframeClient?.iframePublicKey}`,
       });
 
@@ -614,7 +616,7 @@ export class TurnkeyClient {
         await iframeClient?.injectKeyExportBundle(
           exportResponse.exportBundle,
           session.organizationId,
-          'SOLANA' as any
+          keyFormat
         );
         return { success: true };
       }

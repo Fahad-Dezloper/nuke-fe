@@ -41,12 +41,6 @@ export function PositionDetailsCard({
         <span className="text-xs text-text-muted-60">{platform}</span>
       </div>
       <div className="flex flex-col gap-2">
-        {existingBalance !== undefined && (
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-text-muted-60/70">BALANCE</span>
-            <span className="text-[10px] text-text-muted-60">{existingBalance}</span>
-          </div>
-        )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-text-muted-60">MARGIN</span>
           <span className="text-xs text-text-primary">{margin}</span>
@@ -55,6 +49,13 @@ export function PositionDetailsCard({
           <span className="text-xs text-text-muted-60">SIZE</span>
           <span className="text-xs text-text-primary">{size}</span>
         </div>
+
+        {existingBalance !== undefined && (
+          <div className="flex items-center justify-between border-t-[0.5px] border-white/15 pt-2">
+            <span className="text-xs text-text-muted-60 uppercase">Existing Mar.</span>
+            <span className="text-xs text-text-muted-60">{existingBalance}</span>
+          </div>
+        )}
       </div>
     </div>
   );

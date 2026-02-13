@@ -199,13 +199,30 @@ export class HedgeIntentEngine {
         }
       }
 
-      // ── 5. If action failed, stop the engine and surface error ──
+      // ── 5. If action failed, decide whether to halt or keep polling ──
       if (!actionResult.success) {
-        // Use the executor's error directly — it already contains descriptive context.
-        // Only add a generic fallback if no error message was provided.
         const errorMsg = actionResult.error
           || `${this.actionToPhaseLabel(nextAction.action)} failed unexpectedly`;
 
+        // For OPEN_HEDGE_POSITION: if one leg succeeded the backend will issue
+        // a CLOSE_POSITION (safety mode). The engine must keep polling for it.
+        // For all other actions: halt immediately.
+        if (nextAction.action === 'OPEN_HEDGE_POSITION') {
+          const hasSuccessfulLeg = actionResult.legResults?.some((lr) => lr.success) ?? false;
+
+          if (hasSuccessfulLeg) {
+            console.warn(
+              `[HedgeEngine] OPEN_HEDGE_POSITION partially failed — continuing for safety mode close.`,
+              errorMsg
+            );
+            callbacks.onStatusChange?.('closing', errorMsg);
+            // Don't halt — continue the loop so the backend can issue CLOSE_POSITION
+            await this.sleep(POLL_INTERVAL_FAST);
+            continue;
+          }
+        }
+
+        // All other failures: halt the engine
         console.error(`[HedgeEngine] Action ${nextAction.action} failed — stopping execution.`, errorMsg);
         callbacks.onError?.(errorMsg);
         return;

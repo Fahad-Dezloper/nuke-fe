@@ -38,18 +38,7 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <div className="flex items-center justify-between">
-        <label className="text-xs text-text-muted-60 uppercase tracking-wide">MARGIN</label>
-        {validation.maxMargin > 0 && (
-          <button
-            type="button"
-            onClick={handleMax}
-            className="text-[10px] font-medium text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wider"
-          >
-            MAX ${validation.maxMargin.toFixed(2)}
-          </button>
-        )}
-      </div>
+      <label className="text-xs text-text-muted-60 uppercase tracking-wide">MARGIN</label>
       <div className="flex gap-2">
         <div className="flex-1 relative">
           <Input
@@ -58,10 +47,22 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
             value={positionSize}
             onChange={(e) => setPositionSize(e.target.value)}
             className={cn(
-              'w-full bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-xl text-text-primary placeholder:text-text-muted-40 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20',
+              'w-full pr-28 bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-xl text-text-primary placeholder:text-text-muted-40 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20',
               validation.error && 'border-red-500/40 focus:border-red-500/60'
             )}
           />
+          {validation.maxMargin > 0 && (
+            <button
+              type="button"
+              onClick={handleMax}
+              className="absolute cursor-pointer right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-[10px] font-semibold text-text-muted-60 hover:text-text-primary uppercase tracking-wider transition-colors"
+            >
+              MAX{' '}
+              <span className="text-text-muted-60/60 font-normal">
+                ${validation.maxMargin.toFixed(2)}
+              </span>
+            </button>
+          )}
         </div>
         <div className="relative">
           <select

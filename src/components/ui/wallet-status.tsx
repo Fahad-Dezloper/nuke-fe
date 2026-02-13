@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useTurnkey, getEVMAddress } from '@/lib/turnkey';
+import { useTurnkey, getEVMAddress, getSolanaAddress } from '@/lib/turnkey';
 import { motion } from 'framer-motion';
 import { LogOut, Wallet, Key, ArrowDownToLine, ChevronDown, ArrowUpToLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -43,8 +43,9 @@ export function WalletStatus() {
     setIsExportModalOpen(true);
   };
 
-  // Get first wallet address for display
+  // Get wallet addresses
   const walletAddress = getEVMAddress(state.userWallets) || 'Connected';
+  const solanaAddress = getSolanaAddress(state.userWallets) || '';
 
   // Truncate address for display
   const displayAddress =
@@ -162,7 +163,8 @@ export function WalletStatus() {
     <ExportWalletModal
       isOpen={isExportModalOpen}
       onClose={() => setIsExportModalOpen(false)}
-      walletAddress={walletAddress}
+      evmAddress={walletAddress}
+      solanaAddress={solanaAddress}
     />
     </>
   );

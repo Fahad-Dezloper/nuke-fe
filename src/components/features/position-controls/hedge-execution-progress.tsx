@@ -162,7 +162,6 @@ interface HedgeExecutionProgressProps {
   phase: ExecutionPhase;
   statusMessage: string;
   currentAction: HedgeAction | null;
-  error: string | null;
   className?: string;
 }
 
@@ -171,7 +170,6 @@ export function HedgeExecutionProgress({
   phase,
   statusMessage,
   currentAction: _currentAction,
-  error,
   className,
 }: HedgeExecutionProgressProps) {
   const hlLeg = detail?.legs.find((l) => l.exchange === 'hyperliquid');
@@ -283,16 +281,7 @@ export function HedgeExecutionProgress({
         </p>
       )}
 
-      {/* Error */}
-      {error && (
-        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-900/20 border border-red-500/20">
-          <XCircle className="h-3.5 w-3.5 text-red-400 mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-[10px] font-medium text-red-400">Error</p>
-            <p className="text-[10px] text-red-300/80 mt-0.5 break-words">{error}</p>
-          </div>
-        </div>
-      )}
+      {/* Error — displayed via sonner toast from use-hedge-intent.ts */}
 
       {/* Refresh-safe notice */}
       {phase !== 'idle' && phase !== 'complete' && phase !== 'failed' && (
