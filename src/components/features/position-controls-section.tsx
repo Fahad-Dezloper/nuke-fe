@@ -67,13 +67,6 @@ export function PositionControlsSectionContent({
   } = useHedgeIntent();
 
   // ── Handlers ───────────────────────────────────────────────
-  const handleConnectWallet = async () => {
-    if (onConnectWallet) {
-      onConnectWallet();
-      return;
-    }
-  };
-
   const handleOpenPosition = async () => {
     if (onOpenPosition) {
       onOpenPosition();
@@ -201,7 +194,7 @@ export function PositionControlsSectionContent({
             </>
           ) : (
             <>
-              <ConnectWalletButton onClick={handleConnectWallet} size="md" fullWidth />
+              <ConnectWalletButton onClick={onConnectWallet} size="md" fullWidth />
             </>
           )}
         </div>

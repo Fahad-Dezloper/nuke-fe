@@ -67,7 +67,7 @@ export function ConnectWalletButton({
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         className={cn(
-          'relative overflow-hidden rounded-xl',
+          'relative overflow-hidden rounded-xl cursor-pointer',
           'bg-gradient-to-br from-card/60 via-card/50 to-card/40',
           'backdrop-blur-xl border border-border-white-10/50',
           'text-text-primary',

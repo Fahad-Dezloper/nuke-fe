@@ -283,17 +283,20 @@ export function PnLChart({ fundingData, duration }: PnLChartProps) {
           >
             {data.map((entry, index) => {
               const isProjected = entry.projected !== null;
+              const isPositive = entry.value >= 0;
               return (
                 <Cell
                   key={`cell-${index}`}
                   fill={
                     isProjected
-                      ? 'rgba(34, 197, 94, 0.35)'
-                      : entry.value >= 0
+                      ? isPositive
+                        ? 'rgba(34, 197, 94, 0.35)'
+                        : 'rgba(239, 68, 68, 0.35)'
+                      : isPositive
                         ? '#22c55e'
                         : '#ef4444'
                   }
-                  stroke={isProjected ? '#22c55e' : undefined}
+                  stroke={isProjected ? (isPositive ? '#22c55e' : '#ef4444') : undefined}
                   strokeWidth={isProjected ? 1.5 : 0}
                   strokeDasharray={isProjected ? '4 3' : undefined}
                 />

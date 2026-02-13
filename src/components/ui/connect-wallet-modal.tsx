@@ -85,7 +85,7 @@ export function ConnectWalletModal({
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        // transition={{ delay: 0.1 }}
         className="flex flex-col items-center mb-8"
       >
         <h2 className="text-xl font-semibold text-text-primary mb-2 tracking-tight">
@@ -117,9 +117,9 @@ export function ConnectWalletModal({
           whileTap={loading === null ? { scale: 0.99 } : {}}
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2, type: 'spring', stiffness: 300 }}
+          // transition={{ type: 'spring', stiffness: 300 }}
           className={cn(
-            'w-full relative overflow-hidden',
+            'w-full relative overflow-hidden cursor-pointer',
             'px-5 py-4 rounded-xl',
             'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
             'backdrop-blur-lg border border-border-white-15/60',
@@ -147,23 +147,24 @@ export function ConnectWalletModal({
                 <span className="text-sm font-medium text-text-primary">Signing in...</span>
               </>
             ) : (
-              <span className="text-sm font-medium text-text-primary">Sign in with Google</span>
+              <div className="text-sm flex items-center gap-2 font-medium text-text-primary">
+                <Image src="/google.png" alt="Google" width={20} height={20} />
+                <span>Sign in with Google</span>
+              </div>
             )}
           </div>
         </motion.button>
 
-        {/* Divider */}
-        <div className="relative my-4">
+        {/* <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-border-white-10"></div>
           </div>
           <div className="relative flex justify-center text-sm">
             <span className="px-2 bg-card text-text-muted-40">Or connect with</span>
           </div>
-        </div>
+        </div> */}
 
-        {/* EVM Wallet Button */}
-        <motion.button
+        {/* <motion.button
           onClick={handleEVMConnect}
           disabled={loading !== null || state.isLoading}
           whileHover={loading === null ? { scale: 1.01, y: -1 } : {}}
@@ -184,10 +185,8 @@ export function ConnectWalletModal({
             (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
           )}
         >
-          {/* Glassmorphism overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
 
-          {/* Hover glow effect */}
           <motion.div
             className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             initial={false}
@@ -206,10 +205,10 @@ export function ConnectWalletModal({
               </>
             )}
           </div>
-        </motion.button>
+        </motion.button> */}
 
         {/* Solana Wallet Button */}
-        <motion.button
+        {/* <motion.button
           onClick={handleSolanaConnect}
           disabled={loading !== null || state.isLoading}
           whileHover={loading === null ? { scale: 1.01, y: -1 } : {}}
@@ -230,10 +229,8 @@ export function ConnectWalletModal({
             (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
           )}
         >
-          {/* Glassmorphism overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
 
-          {/* Hover glow effect */}
           <motion.div
             className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             initial={false}
@@ -247,13 +244,11 @@ export function ConnectWalletModal({
               </>
             ) : (
               <>
-                {/* <span className='text-lg mr-1'>👻</span> */}
-
                 <span className="text-sm font-medium text-text-primary">Connect Phantom</span>
               </>
             )}
           </div>
-        </motion.button>
+        </motion.button> */}
       </div>
 
       {/* Footer text */}
