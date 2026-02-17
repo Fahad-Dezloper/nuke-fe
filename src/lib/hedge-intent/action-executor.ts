@@ -428,34 +428,42 @@ export class HedgeActionExecutor {
       getDirection = (exchange: Exchange) => (exchange === 'hyperliquid' ? 'long' : 'short');
     }
 
-    // ── Step 2: Whitelist address on Pacifica ──
-    // try {
-    //   console.log('[HedgeExecutor] Whitelisting Pacifica address...');
-    //   const whitelistResult = await this.pacificaService.whitelistAddress(
-    //     context.organizationId,
-    //     context.solanaAddress,
-    //     Date.now()
-    //   );
-    //   // Check explicit API-level failure (e.g., invalid claim code, not eligible)
-    //   if (!whitelistResult || whitelistResult.success === false) {
-    //     return {
-    //       success: false,
-    //       txHash: null,
-    //       error: 'Pacifica address whitelisting failed. Your address may not be eligible or the claim code is invalid.',
-    //       legResults: null,
-    //     };
-    //   }
-    //   console.log('[HedgeExecutor] Pacifica address whitelisted ✓');
-    // } catch (err) {
-    //   const errMsg = err instanceof Error ? err.message : String(err);
-    //   console.error('[HedgeExecutor] Pacifica whitelist failed:', err);
-    //   return {
-    //     success: false,
-    //     txHash: null,
-    //     error: `Pacifica address whitelisting failed: ${errMsg}`,
-    //     legResults: null,
-    //   };
-    // }
+    // ── Step 2: Approve builder code on Pacifica (one-time) ──
+    try {
+      console.log('[HedgeExecutor] Checking builder code approval on Pacifica...');
+      const isApproved = await this.pacificaService.checkBuilderCodeApproval(
+        context.solanaAddress
+      );
+
+      if (!isApproved) {
+        console.log('[HedgeExecutor] Builder code not yet approved — submitting approval...');
+        const approvalResult = await this.pacificaService.approveBuilderCode(
+          context.solanaAddress,
+          context.organizationId
+        );
+
+        if (!approvalResult.success) {
+          return {
+            success: false,
+            txHash: null,
+            error: approvalResult.error || 'Pacifica builder code approval failed.',
+            legResults: null,
+          };
+        }
+        console.log('[HedgeExecutor] Builder code NUKETRADE approved ✓');
+      } else {
+        console.log('[HedgeExecutor] Builder code NUKETRADE already approved ✓');
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[HedgeExecutor] Builder code approval failed:', err);
+      return {
+        success: false,
+        txHash: null,
+        error: `Pacifica builder code approval failed: ${errMsg}`,
+        legResults: null,
+      };
+    }
 
     // ── Step 3: Check current leverage and update only if different ──
     console.log(`[HedgeExecutor] Checking leverage for ${asset} on both exchanges...`);

@@ -8,7 +8,7 @@
  * without modifying the existing PacificaService.
  */
 
-import { PacificaService } from '@/lib/services/pacifica';
+import { PacificaService, BUILDER_CODE } from '@/lib/services/pacifica';
 import { positionsService } from '@/lib/api/services/positions.service';
 import type { CreateMarketOrderRequest } from '@/lib/services/pacifica/types';
 import type { ProtocolAdapter } from './protocol-adapter.interface';
@@ -102,6 +102,7 @@ export class PacificaAdapter implements ProtocolAdapter {
         side: side,
         slippage_percent: slippagePercent,
         reduce_only: false,
+        builder_code: BUILDER_CODE,
       };
 
       // Call Pacifica service
@@ -195,6 +196,7 @@ export class PacificaAdapter implements ProtocolAdapter {
         side: closeSide,
         slippage_percent: '3', // 3% slippage tolerance
         reduce_only: true,
+        builder_code: BUILDER_CODE,
       };
 
       const result = await this.service.createMarketOrder(

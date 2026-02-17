@@ -14,6 +14,8 @@ import axios from 'axios';
 
 export const ACCESS_CODE = 'HV6X60D82C3SDGAS';
 export const EXPIRY_WINDOW = 300000;
+export const BUILDER_CODE = 'NUKETRADE';
+export const BUILDER_MAX_FEE_RATE = '0.001';
 
 export class PacificaService {
   private baseUrl: string;
@@ -106,6 +108,84 @@ export class PacificaService {
     });
 
     return data;
+  }
+
+  /**
+   * Checks whether the user has already approved the NUKETRADE builder code.
+   *
+   * GET /account/builder_codes/approvals?account=<address>
+   *
+   * @returns true if approved, false otherwise
+   */
+  async checkBuilderCodeApproval(account: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/account/builder_codes/approvals?account=${account}`,
+        { method: 'GET', headers: { Accept: '*/*' } }
+      );
+
+      if (!response.ok) {
+        console.warn('[Pacifica] Failed to check builder code approvals:', response.status);
+        return false;
+      }
+
+      const approvals: Array<{ builder_code: string }> = await response.json();
+      return Array.isArray(approvals) && approvals.some((a) => a.builder_code === BUILDER_CODE);
+    } catch (err) {
+      console.warn('[Pacifica] Error checking builder code approvals:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Prompts the user to approve the NUKETRADE builder code.
+   *
+   * Signs an `approve_builder_code` payload and POSTs to
+   * /account/builder_codes/approve
+   *
+   * @param account - Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   */
+  async approveBuilderCode(
+    account: string,
+    organizationId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const operationData: Record<string, unknown> = {
+        builder_code: BUILDER_CODE,
+        max_fee_rate: BUILDER_MAX_FEE_RATE,
+      };
+
+      const { timestamp, signature } = await this.signOrderRequest(
+        'approve_builder_code',
+        operationData,
+        account,
+        organizationId,
+        5000 // 5s expiry window per docs
+      );
+
+      const finalRequest = {
+        account,
+        agent_wallet: null,
+        signature,
+        timestamp,
+        expiry_window: 5000,
+        builder_code: BUILDER_CODE,
+        max_fee_rate: BUILDER_MAX_FEE_RATE,
+      };
+
+      const apiResponse = await this.submitToPacifica('/account/builder_codes/approve', finalRequest);
+
+      if (apiResponse.error) {
+        return { success: false, error: `Builder code approval failed: ${apiResponse.error}` };
+      }
+
+      return { success: true };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[Pacifica] Builder code approval failed:', err);
+      return { success: false, error: `Builder code approval failed: ${errMsg}` };
+    }
   }
 
   /**
@@ -293,6 +373,7 @@ export class PacificaService {
         side: request.side,
         slippage_percent: String(request.slippage_percent),
         reduce_only: request.reduce_only,
+        builder_code: request.builder_code ?? BUILDER_CODE,
       };
 
       // Add optional fields
@@ -423,6 +504,7 @@ export class PacificaService {
         tif: request.tif,
         slippage_percent: request.slippage_percent,
         reduce_only: request.reduce_only,
+        builder_code: request.builder_code ?? BUILDER_CODE,
       };
 
       // Add optional fields

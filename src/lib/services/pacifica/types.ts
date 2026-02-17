@@ -19,6 +19,7 @@ export interface CreateMarketOrderRequest {
   };
   agent_wallet?: string;
   expiry_window?: number;
+  builder_code?: string;
 }
 
 export interface CreateLimitOrderRequest {
@@ -32,6 +33,7 @@ export interface CreateLimitOrderRequest {
   client_order_id?: string;
   agent_wallet?: string;
   expiry_window?: number;
+  builder_code?: string;
 }
 
 export interface CancelOrderRequest {

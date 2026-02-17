@@ -1,4 +1,4 @@
-export { PacificaService, pacificaService } from './pacifica.service';
+export { PacificaService, pacificaService, BUILDER_CODE } from './pacifica.service';
 export type {
   CreateMarketOrderRequest,
   CreateLimitOrderRequest,
