@@ -4,8 +4,9 @@
  */
 
 export const API_ENDPOINTS = {
-  // Example endpoints - replace with your actual API endpoints
-  auth: {},
+  auth: {
+    login: '/auth/login',
+  },
   arbitrage: {
     openPositions: (evmAddress: string, solanaAddress: string) =>
       `/aggregated/open-positions/${evmAddress}/${solanaAddress}`,
