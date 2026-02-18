@@ -21,6 +21,20 @@ import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
 import { MarketPriceHelper } from '@/dex/hyperliquid/utils/market-price';
 import { positionsService } from '@/lib/api/services/positions.service';
 import { closeHLPosition, closePacificaPosition } from '@/lib/trading/close-position';
+import {
+  trackBridgeStarted,
+  trackBridgeCompleted,
+  trackBridgeFailed,
+  trackDepositStarted,
+  trackDepositCompleted,
+  trackDepositFailed,
+  trackPositionOpened,
+  trackPositionOpenFailed,
+  trackPositionClosed,
+  trackPositionCloseFailed,
+  trackReferralCodeClaimed,
+  trackBuilderCodeApproved,
+} from '@/lib/analytics';
 import type { QuoteRequest } from '@/lib/bridge/types';
 import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 import type {
@@ -248,6 +262,7 @@ export class HedgeActionExecutor {
     }
 
     // ── Fresh bridge execution ──
+    trackBridgeStarted(exchange, String(action.amount_usd));
     try {
       // Convert USD amount to USDC smallest unit (6 decimals)
       const amountUsd = action.amount_usd!;
@@ -350,6 +365,7 @@ export class HedgeActionExecutor {
 
       clearBridgeRequestId(legId);
 
+      trackBridgeCompleted(exchange, requestId);
       return {
         success: true,
         txHash: requestId,
@@ -358,6 +374,7 @@ export class HedgeActionExecutor {
       };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      trackBridgeFailed(exchange, errMsg);
       return {
         success: false,
         txHash: null,
@@ -393,6 +410,7 @@ export class HedgeActionExecutor {
       if (accessError) return accessError;
     }
 
+    trackDepositStarted(exchange);
     try {
       const depositResult = await handler.executeDeposit({
         walletAddress: context.evmAddress,
@@ -402,6 +420,7 @@ export class HedgeActionExecutor {
       });
 
       if (!depositResult || !depositResult.txHash) {
+        trackDepositFailed(exchange, 'No transaction hash returned');
         return {
           success: false,
           txHash: null,
@@ -410,6 +429,7 @@ export class HedgeActionExecutor {
         };
       }
 
+      trackDepositCompleted(exchange, depositResult.txHash);
       return {
         success: true,
         txHash: depositResult.txHash,
@@ -419,6 +439,7 @@ export class HedgeActionExecutor {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error(`[HedgeExecutor] Deposit to ${exchangeLabel} failed:`, err);
+      trackDepositFailed(exchange, errMsg);
       return {
         success: false,
         txHash: null,
@@ -467,6 +488,7 @@ export class HedgeActionExecutor {
             };
           }
           console.log('[HedgeExecutor] Referral code NUKETRADE claimed ✓');
+          trackReferralCodeClaimed();
         } else {
           console.log('[HedgeExecutor] Pacifica beta access already active ✓');
         }
@@ -508,6 +530,7 @@ export class HedgeActionExecutor {
             };
           }
           console.log('[HedgeExecutor] Builder code NUKETRADE approved ✓');
+          trackBuilderCodeApproved();
         } else {
           console.log('[HedgeExecutor] Builder code NUKETRADE already approved ✓');
         }
@@ -757,6 +780,9 @@ export class HedgeActionExecutor {
         .map((lr) => `${lr.exchange === 'hyperliquid' ? 'HyperLiquid' : 'Pacifica'}: ${lr.error || 'unknown'}`)
         .join('; ');
       errorMsg = `Position opening failed — ${failedNames}`;
+      trackPositionOpenFailed(asset, errorMsg);
+    } else {
+      trackPositionOpened(asset, leverage, marginForLegs.toString());
     }
 
     return {
@@ -807,14 +833,20 @@ export class HedgeActionExecutor {
       }
 
       // Step 3: Close the specific exchange's leg
-      if (exchange === 'hyperliquid') {
-        return this.closeHLPositionAction(position.hyperliquid, asset, context);
+      const closeResult = exchange === 'hyperliquid'
+        ? await this.closeHLPositionAction(position.hyperliquid, asset, context)
+        : await this.closePacificaPositionAction(position.pacifica, asset, context);
+
+      if (closeResult.success) {
+        trackPositionClosed(asset);
       } else {
-        return this.closePacificaPositionAction(position.pacifica, asset, context);
+        trackPositionCloseFailed(asset, closeResult.error || 'Unknown error');
       }
+      return closeResult;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[HedgeExecutor] Close position failed for ${asset} on ${exchange}:`, error);
+      trackPositionCloseFailed(asset, errorMessage);
       return {
         success: false,
         txHash: null,

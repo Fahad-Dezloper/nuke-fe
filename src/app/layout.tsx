@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Roboto_Mono } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import { Navbar } from '@/components/layout/navbar';
 import { TurnkeyProvider } from '@/lib/turnkey';
@@ -9,6 +10,7 @@ import { QueryProvider } from '@/components/providers/query-provider';
 import { MarketFeedProvider } from '@/components/providers/market-feed-provider';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/sonner';
+import { GA_MEASUREMENT_ID } from '@/lib/analytics';
 
 const robotoMono = Roboto_Mono({
   variable: '--font-roboto-mono',
@@ -40,6 +42,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
+      </head>
       <body className={`${robotoMono.variable} antialiased overflow-hidden`}>
         <ErrorBoundary>
           <QueryProvider>

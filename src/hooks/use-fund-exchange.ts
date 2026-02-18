@@ -22,6 +22,14 @@ import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.h
 import { CHAIN_IDS } from '@/lib/bridge/types';
 import type { QuoteRequest } from '@/lib/bridge/types';
 import { queryKeys } from '@/lib/query-keys';
+import {
+  trackBridgeStarted,
+  trackBridgeCompleted,
+  trackDepositStarted,
+  trackDepositCompleted,
+  trackDepositFailed,
+  trackBridgeFailed,
+} from '@/lib/analytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -114,6 +122,7 @@ export function useFundExchange(): UseFundExchangeReturn {
           exchange === 'hyperliquid' ? wallet.evmAddress : wallet.solanaAddress;
 
         // ── Step 1: Get bridge quote ──────────────────────────────
+        trackBridgeStarted(exchange, String(amountUsd));
         setStep('getting-quote');
         setStatusMessage(`Getting bridge quote to ${chainLabel}...`);
 
@@ -165,6 +174,8 @@ export function useFundExchange(): UseFundExchangeReturn {
         await pollBridgeStatus(requestId);
 
         // ── Step 5: Deposit into exchange ─────────────────────────
+        trackBridgeCompleted(exchange, requestId);
+        trackDepositStarted(exchange);
         setStep('depositing');
         setStatusMessage(`Depositing USDC into ${label}...`);
 
@@ -176,6 +187,7 @@ export function useFundExchange(): UseFundExchangeReturn {
         });
 
         // ── Done ──────────────────────────────────────────────────
+        trackDepositCompleted(exchange);
         setStep('success');
         setStatusMessage(`Successfully funded ${label}!`);
 
@@ -188,6 +200,7 @@ export function useFundExchange(): UseFundExchangeReturn {
         });
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
+        trackDepositFailed(exchange, errMsg);
         setStep('error');
         setError(errMsg);
         setStatusMessage(`Failed to fund ${label}`);
