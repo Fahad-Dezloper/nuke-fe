@@ -21,9 +21,7 @@ interface PositionsTableSectionContentProps {
   className?: string;
 }
 
-export function PositionsTableSectionContent({
-  className,
-}: PositionsTableSectionContentProps) {
+export function PositionsTableSectionContent({ className }: PositionsTableSectionContentProps) {
   const [activeTab, setActiveTab] = useState<'positions' | 'closed'>('positions');
 
   // Close modal state
@@ -96,7 +94,7 @@ export function PositionsTableSectionContent({
               <button
                 onClick={() => setActiveTab('positions')}
                 className={cn(
-                  'pb-3 text-sm font-medium transition-colors relative',
+                  'pb-3 text-sm font-medium transition-colors relative cursor-pointer',
                   activeTab === 'positions'
                     ? 'text-text-primary'
                     : 'text-text-muted-60 hover:text-text-primary'
@@ -110,7 +108,7 @@ export function PositionsTableSectionContent({
               <button
                 onClick={() => setActiveTab('closed')}
                 className={cn(
-                  'pb-3 text-sm font-medium transition-colors relative',
+                  'pb-3 text-sm font-medium transition-colors relative cursor-pointer',
                   activeTab === 'closed'
                     ? 'text-text-primary'
                     : 'text-text-muted-60 hover:text-text-primary'
@@ -134,10 +132,7 @@ export function PositionsTableSectionContent({
                   </div>
                 )}
                 {!error && (
-                  <PositionsTable
-                    positions={positions}
-                    onClosePosition={handleClosePosition}
-                  />
+                  <PositionsTable positions={positions} onClosePosition={handleClosePosition} />
                 )}
               </>
             ) : (

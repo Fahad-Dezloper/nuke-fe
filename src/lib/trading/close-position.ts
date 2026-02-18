@@ -7,8 +7,9 @@
  */
 
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
-import { PacificaService, BUILDER_CODE } from '@/lib/services/pacifica/pacifica.service';
+import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
 import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
+import { BUILDER_CODE } from '@/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

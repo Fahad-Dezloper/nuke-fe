@@ -315,7 +315,7 @@ export function ClosePositionModal({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                'flex-1 relative overflow-hidden rounded-xl',
+                'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
                 'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
                 'backdrop-blur-lg border border-border-white-15/60',
                 'py-2.5 text-xs font-medium text-text-muted-60',
@@ -330,7 +330,7 @@ export function ClosePositionModal({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                'flex-1 relative overflow-hidden rounded-xl',
+                'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
                 'bg-red-500/15 border border-red-500/30',
                 'py-2.5 text-xs font-semibold text-red-400',
                 'hover:bg-red-500/25 hover:border-red-500/50',
@@ -361,7 +361,7 @@ export function ClosePositionModal({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className={cn(
-              'w-full relative overflow-hidden rounded-xl',
+              'w-full relative overflow-hidden rounded-xl cursor-pointer',
               'bg-green-500/15 border border-green-500/30',
               'py-2.5 text-xs font-semibold text-green-400',
               'hover:bg-green-500/25 hover:border-green-500/50',
@@ -383,7 +383,7 @@ export function ClosePositionModal({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                'flex-1 relative overflow-hidden rounded-xl',
+                'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
                 'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
                 'backdrop-blur-lg border border-border-white-15/60',
                 'py-2.5 text-xs font-medium text-text-muted-60',
@@ -402,7 +402,7 @@ export function ClosePositionModal({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                'flex-1 relative overflow-hidden rounded-xl',
+                'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
                 'bg-red-500/15 border border-red-500/30',
                 'py-2.5 text-xs font-semibold text-red-400',
                 'hover:bg-red-500/25 hover:border-red-500/50',

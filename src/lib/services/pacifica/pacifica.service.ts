@@ -11,11 +11,9 @@ import { prepareSigningData, messageToBytes } from './utils/signing';
 import { signPacificaMessageWithTurnkey } from './utils/turnkey-signing';
 import { roundAmount, roundPrice } from '@/dex/pacifica/utils/rounding';
 import axios from 'axios';
+import { BUILDER_CODE, BUILDER_MAX_FEE_RATE, EXPIRY_WINDOW } from '@/constants';
 
-export const ACCESS_CODE = 'HV6X60D82C3SDGAS';
-export const EXPIRY_WINDOW = 300000;
-export const BUILDER_CODE = 'NUKETRADE';
-export const BUILDER_MAX_FEE_RATE = '0.1';
+
 
 export class PacificaService {
   private baseUrl: string;
@@ -83,34 +81,6 @@ export class PacificaService {
       throw toAppError(error, ErrorCode.WALLET_SIGNING_FAILED);
     }
   }
-
-
-  async whitelistAddress(organizationId: string, account: string, timestamp: number) {
-    const message = new TextEncoder().encode(
-      JSON.stringify({
-        data: { code: ACCESS_CODE },
-        expiry_window: EXPIRY_WINDOW,
-        timestamp,
-        type: 'claim_access_code',
-      })
-    );
-    const signature = await signPacificaMessageWithTurnkey(message, account, organizationId);
-
-    const { data } = await axios.post(`${PACIFICA_HTTP_URL}/whitelist/claim`, {
-      account,
-      code: ACCESS_CODE,
-      signature: {
-        type: 'raw',
-        value: signature,
-      },
-      timestamp,
-      expiry_window: EXPIRY_WINDOW,
-    });
-
-    return data;
-  }
-
-  // ─── Referral Code (Beta Access) ─────────────────────────────────────────
 
   /**
    * Check if the user has already claimed the NUKETRADE referral code

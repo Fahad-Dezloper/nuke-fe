@@ -306,7 +306,6 @@ export class HyperLiquidService {
         throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
       }
 
-      debugger
       // Validate request
       if (!request.assetName || !request.size || !request.userAddress) {
         throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {

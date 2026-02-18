@@ -8,7 +8,7 @@
  * without modifying the existing PacificaService.
  */
 
-import { PacificaService, BUILDER_CODE } from '@/lib/services/pacifica';
+import { PacificaService } from '@/lib/services/pacifica';
 import { positionsService } from '@/lib/api/services/positions.service';
 import type { CreateMarketOrderRequest } from '@/lib/services/pacifica/types';
 import type { ProtocolAdapter } from './protocol-adapter.interface';
@@ -18,6 +18,7 @@ import type {
   UnifiedPosition,
   ProtocolMetadata,
 } from '../types';
+import { BUILDER_CODE } from '@/constants';
 
 /**
  * Pacifica Protocol Adapter

@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import { getProtocolConfig } from '@/lib/protocols/config';
 import type { FundStep } from '@/hooks/use-fund-exchange';
+import { MIN_FUND_AMOUNT } from '@/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,9 +78,7 @@ function getStepState(
   allSteps: ProgressStep[]
 ): 'pending' | 'in_progress' | 'done' | 'error' {
   if (currentFundStep === 'error') {
-    const currentIdx = allSteps.findIndex((s) =>
-      s.fundSteps.includes(currentFundStep)
-    );
+    const currentIdx = allSteps.findIndex((s) => s.fundSteps.includes(currentFundStep));
     const thisIdx = allSteps.indexOf(progressStep);
     if (thisIdx < currentIdx || currentIdx === -1) return 'done';
     return 'error';
@@ -121,8 +120,6 @@ function StepIcon({ state }: { state: 'pending' | 'in_progress' | 'done' | 'erro
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const MIN_FUND_AMOUNT = 11;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -262,9 +259,7 @@ export function AddMarginModal({
               </div>
             )}
           </div>
-          <h2 className="text-lg font-semibold text-text-primary tracking-tight">
-            ADD MARGIN
-          </h2>
+          <h2 className="text-lg font-semibold text-text-primary tracking-tight">ADD MARGIN</h2>
         </div>
         <p className="text-xs text-text-muted-60">
           Bridge &amp; deposit USDC from Base to {exchangeLabel}
@@ -295,9 +290,7 @@ export function AddMarginModal({
             className="mb-4"
           >
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-text-muted-60 font-medium uppercase">
-                Amount
-              </label>
+              <label className="text-xs text-text-muted-60 font-medium uppercase">Amount</label>
               <span className="text-[10px] text-text-muted-60 tabular-nums">
                 Base Balance: ${baseBalance.toFixed(2)}
               </span>
@@ -307,9 +300,7 @@ export function AddMarginModal({
                 'relative overflow-hidden rounded-xl',
                 'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
                 'backdrop-blur-lg border',
-                inputError
-                  ? 'border-red-500/40'
-                  : 'border-border-white-15/60',
+                inputError ? 'border-red-500/40' : 'border-border-white-15/60',
                 'p-3.5'
               )}
             >
@@ -345,9 +336,7 @@ export function AddMarginModal({
                 </button>
               </div>
             </div>
-            {inputError && (
-              <p className="text-[10px] text-red-400 mt-1.5 px-1">{inputError}</p>
-            )}
+            {inputError && <p className="text-[10px] text-red-400 mt-1.5 px-1">{inputError}</p>}
           </motion.div>
 
           {/* Match Suggestion */}
@@ -386,7 +375,8 @@ export function AddMarginModal({
           >
             <div className="p-2.5 rounded-lg bg-yellow-700/10 border border-accent/20">
               <p className="text-[10px] text-text-muted-60 leading-relaxed">
-                This will bridge USDC from Base and deposit it into your {exchangeLabel} margin account. The process takes 1–3 minutes.
+                This will bridge USDC from Base and deposit it into your {exchangeLabel} margin
+                account. The process takes 1–3 minutes.
               </p>
             </div>
           </motion.div>
@@ -470,9 +460,7 @@ export function AddMarginModal({
 
           {/* Status Message */}
           {statusMessage && !isError && !isSuccess && (
-            <p className="text-[10px] text-text-muted-60 text-center mb-4">
-              {statusMessage}
-            </p>
+            <p className="text-[10px] text-text-muted-60 text-center mb-4">{statusMessage}</p>
           )}
 
           {/* Error Display */}
@@ -493,9 +481,7 @@ export function AddMarginModal({
               animate={{ opacity: 1, y: 0 }}
               className="mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30"
             >
-              <p className="text-xs text-green-400">
-                Successfully deposited to {exchangeLabel}!
-              </p>
+              <p className="text-xs text-green-400">Successfully deposited to {exchangeLabel}!</p>
             </motion.div>
           )}
 
