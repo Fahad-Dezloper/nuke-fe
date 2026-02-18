@@ -3,6 +3,7 @@
  * Reusable card component for displaying position details (LONG/SHORT)
  */
 
+import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PositionDetailsCard as PositionDetailsCardType } from '@/types/positions';
 
@@ -10,6 +11,10 @@ export interface PositionDetailsCardProps extends PositionDetailsCardType {
   className?: string;
   /** Optional existing exchange balance to show */
   existingBalance?: string;
+  /** Show the "Add Margin" button */
+  showAddMargin?: boolean;
+  /** Called when user clicks "Add Margin" */
+  onAddMargin?: () => void;
 }
 
 export function PositionDetailsCard({
@@ -19,12 +24,14 @@ export function PositionDetailsCard({
   margin,
   size,
   existingBalance,
+  showAddMargin,
+  onAddMargin,
   className,
 }: PositionDetailsCardProps) {
   const gradientClass =
     gradientColor === 'long'
       ? 'bg-gradient-to-br from-[var(--chart-hyperliquid)]/15 via-[var(--chart-hyperliquid)]/8 to-[var(--chart-hyperliquid)]/5'
-      : 'bg-gradient-to-br from-[var(--chart-pink)]/15 via-[var(--chart-pink)]/8 to-[var(--chart-pink)]/5'; // pacifica uses pink color
+      : 'bg-gradient-to-br from-[var(--chart-pink)]/15 via-[var(--chart-pink)]/8 to-[var(--chart-pink)]/5';
 
   return (
     <div
@@ -55,6 +62,24 @@ export function PositionDetailsCard({
             <span className="text-xs text-text-muted-60 uppercase">Existing Mar.</span>
             <span className="text-xs text-text-muted-60">{existingBalance}</span>
           </div>
+        )}
+
+        {showAddMargin && onAddMargin && (
+          <button
+            onClick={onAddMargin}
+            className={cn(
+              'flex items-center justify-center gap-1.5 mt-1 cursor-pointer',
+              'w-full py-1.5 rounded-lg',
+              'text-[10px] font-medium tracking-wide',
+              'bg-white/5 border border-border-white-10/40',
+              'text-text-muted-60 hover:text-text-primary',
+              'hover:bg-white/10 hover:border-border-white-20/50',
+              'transition-all duration-150'
+            )}
+          >
+            <Plus className="w-3 h-3" />
+            ADD MARGIN
+          </button>
         )}
       </div>
     </div>

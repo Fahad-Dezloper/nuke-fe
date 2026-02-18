@@ -1,9 +1,11 @@
 /**
  * API Client Configuration
- * Centralized API client with timeout, retry, and proper error handling.
+ * Centralized API client with timeout, retry, proper error handling,
+ * and automatic JWT authentication for POST requests.
  */
 
 import { API_CONFIG } from '@/lib/constants';
+import { getJWT, clearAuth } from '@/lib/auth/auth.service';
 
 type RequestConfig = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -16,6 +18,8 @@ type RequestConfig = {
   retries?: number;
   /** AbortSignal for external cancellation */
   signal?: AbortSignal;
+  /** Skip automatic auth header injection (e.g. for /auth/* endpoints) */
+  skipAuth?: boolean;
 };
 
 type ApiError = {
@@ -47,6 +51,7 @@ class ApiClient {
       timeout = API_CONFIG.timeout,
       retries = method === 'GET' ? API_CONFIG.retryAttempts : 0, // Only retry reads by default
       signal: externalSignal,
+      skipAuth = false,
     } = config;
 
     // Build URL with query parameters
@@ -57,13 +62,24 @@ class ApiClient {
       });
     }
 
+    // Automatically attach JWT for non-GET requests (unless skipped or auth endpoint)
+    const resolvedHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...headers,
+    };
+
+    const isAuthEndpoint = endpoint.startsWith('/auth/') || endpoint.startsWith('/auth');
+    if (!skipAuth && method !== 'GET' && !isAuthEndpoint) {
+      const jwt = getJWT();
+      if (jwt) {
+        resolvedHeaders['Authorization'] = `Bearer ${jwt}`;
+      }
+    }
+
     // Prepare request options
     const requestOptions: RequestInit = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
+      headers: resolvedHeaders,
     };
 
     // Add body for non-GET requests
@@ -101,6 +117,11 @@ class ApiClient {
             status: response.status,
             data: errorData,
           };
+
+          // On 401, clear auth state so the app can trigger re-login
+          if (response.status === 401 && !isAuthEndpoint) {
+            clearAuth();
+          }
 
           // Don't retry client errors (4xx) — they won't succeed on retry
           if (response.status >= 400 && response.status < 500) {

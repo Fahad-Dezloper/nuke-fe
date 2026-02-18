@@ -349,10 +349,13 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
                 const data = position.protocolData?.[protocolId];
                 const config = getProtocolConfig(protocolId);
                 // liquidationPrice is already formatted as "$XX,XXX.XX" from the service
-                const liqPrice = data?.liquidationPrice || '—';
+                const liqPrice =
+                  data?.liquidationPrice && data?.liquidationPrice !== ''
+                    ? data?.liquidationPrice
+                    : '—';
 
                 return (
-                  <div key={protocolId} className="flex items-center gap-1.5">
+                  <div key={type} className="flex items-center gap-1.5">
                     {config && (
                       <Image
                         src={config.logo}

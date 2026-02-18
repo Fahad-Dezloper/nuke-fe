@@ -128,7 +128,7 @@ export function Modal({
                 whileTap={{ scale: 0.9 }}
                 className={cn(
                   'absolute top-4 right-4 z-20',
-                  'w-8 h-8 flex items-center justify-center',
+                  'w-8 h-8 flex items-center justify-center cursor-pointer',
                   'rounded-lg bg-card/50 border border-border-white-10/50',
                   'text-text-muted-60 hover:text-text-primary',
                   'backdrop-blur-sm transition-colors duration-200',

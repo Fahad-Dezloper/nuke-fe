@@ -149,7 +149,7 @@ export function ExportWalletModal({
             onClick={() => setDropdownOpen(!dropdownOpen)}
             disabled={exportState === 'exporting'}
             className={cn(
-              'w-full flex items-center justify-between',
+              'w-full flex items-center justify-between cursor-pointer',
               'rounded-xl px-3.5 py-2.5',
               'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
               'backdrop-blur-lg border border-border-white-15/60',
@@ -177,7 +177,7 @@ export function ExportWalletModal({
               <button
                 onClick={() => handleWalletSwitch('evm')}
                 className={cn(
-                  'w-full text-left px-3.5 py-2.5 text-xs',
+                  'w-full text-left px-3.5 py-2.5 text-xs cursor-pointer',
                   'hover:bg-white/5 transition-colors',
                   selectedWallet === 'evm' ? 'text-text-primary font-medium' : 'text-text-muted-60'
                 )}
@@ -187,7 +187,7 @@ export function ExportWalletModal({
               <button
                 onClick={() => handleWalletSwitch('solana')}
                 className={cn(
-                  'w-full text-left px-3.5 py-2.5 text-xs',
+                  'w-full text-left px-3.5 py-2.5 text-xs cursor-pointer',
                   'hover:bg-white/5 transition-colors',
                   selectedWallet === 'solana'
                     ? 'text-text-primary font-medium'

@@ -11,9 +11,9 @@ import { prepareSigningData, messageToBytes } from './utils/signing';
 import { signPacificaMessageWithTurnkey } from './utils/turnkey-signing';
 import { roundAmount, roundPrice } from '@/dex/pacifica/utils/rounding';
 import axios from 'axios';
+import { BUILDER_CODE, BUILDER_MAX_FEE_RATE, EXPIRY_WINDOW } from '@/constants';
 
-export const ACCESS_CODE = 'HV6X60D82C3SDGAS';
-export const EXPIRY_WINDOW = 300000;
+
 
 export class PacificaService {
   private baseUrl: string;
@@ -82,30 +82,169 @@ export class PacificaService {
     }
   }
 
+  /**
+   * Check if the user has already claimed the NUKETRADE referral code
+   * (which also grants beta/whitelist access).
+   *
+   * We check the account settings endpoint — if the account can fetch
+   * settings without a 403, it has beta access.
+   * If the GET returns 403, the account still needs to claim.
+   */
+  async checkReferralCodeClaimed(account: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/account/settings?account=${account}`,
+        { method: 'GET', headers: { Accept: '*/*' } }
+      );
 
-  async whitelistAddress(organizationId: string, account: string, timestamp: number) {
-    const message = new TextEncoder().encode(
-      JSON.stringify({
-        data: { code: ACCESS_CODE },
-        expiry_window: EXPIRY_WINDOW,
+      if (response.status === 403) {
+        return false;
+      }
+
+      if (!response.ok) {
+        console.warn('[Pacifica] Account settings check returned:', response.status);
+        return false;
+      }
+
+      const json = await response.json();
+      return json?.success === true;
+    } catch (err) {
+      console.warn('[Pacifica] Error checking referral code status:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Claim the NUKETRADE referral code for the user.
+   *
+   * Signs a `claim_referral_code` payload and POSTs to
+   * /referral/user/code/claim
+   *
+   * This grants beta/whitelist access + referral tracking in one step.
+   *
+   * @param account - Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   */
+  async claimReferralCode(
+    account: string,
+    organizationId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      
+      const timestamp = Date.now();
+
+      const message = new TextEncoder().encode(
+        JSON.stringify({
+          data: { code: BUILDER_CODE },
+          expiry_window: 5000,
+          timestamp,
+          type: 'claim_referral_code',
+        })
+      );
+      const signature = await signPacificaMessageWithTurnkey(message, account, organizationId);
+
+      const finalRequest = {
+        account,
+        agent_wallet: null,
+        signature,
         timestamp,
-        type: 'claim_access_code',
-      })
-    );
-    const signature = await signPacificaMessageWithTurnkey(message, account, organizationId);
+        expiry_window: 5000,
+        code: BUILDER_CODE,
+      };
 
-    const { data } = await axios.post(`${PACIFICA_HTTP_URL}/whitelist/claim`, {
-      account,
-      code: ACCESS_CODE,
-      signature: {
-        type: 'raw',
-        value: signature,
-      },
-      timestamp,
-      expiry_window: EXPIRY_WINDOW,
-    });
+      const apiResponse = await this.submitToPacifica('/referral/user/code/claim', finalRequest);
 
-    return data;
+      if (apiResponse.error) {
+        return { success: false, error: `Referral code claim failed: ${apiResponse.error}` };
+      }
+
+      return { success: true };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[Pacifica] Referral code claim failed:', err);
+      return { success: false, error: `Referral code claim failed: ${errMsg}` };
+    }
+  }
+
+  // ─── Builder Code Approval ─────────────────────────────────────────────
+
+  /**
+   * Checks whether the user has already approved the NUKETRADE builder code.
+   *
+   * GET /account/builder_codes/approvals?account=<address>
+   *
+   * @returns true if approved, false otherwise
+   */
+  async checkBuilderCodeApproval(account: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/account/builder_codes/approvals?account=${account}`,
+        { method: 'GET', headers: { Accept: '*/*' } }
+      );
+
+      if (!response.ok) {
+        console.warn('[Pacifica] Failed to check builder code approvals:', response.status);
+        return false;
+      }
+
+      const json = await response.json();
+      const approvals: Array<{ builder_code: string }> = json?.data ?? [];
+      return Array.isArray(approvals) && approvals.some((a) => a.builder_code === BUILDER_CODE);
+    } catch (err) {
+      console.warn('[Pacifica] Error checking builder code approvals:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Prompts the user to approve the NUKETRADE builder code.
+   *
+   * Signs an `approve_builder_code` payload and POSTs to
+   * /account/builder_codes/approve
+   *
+   * @param account - Solana wallet address
+   * @param organizationId - Turnkey organization ID
+   */
+  async approveBuilderCode(
+    account: string,
+    organizationId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const operationData: Record<string, unknown> = {
+        builder_code: BUILDER_CODE,
+        max_fee_rate: BUILDER_MAX_FEE_RATE,
+      };
+
+      const { timestamp, signature } = await this.signOrderRequest(
+        'approve_builder_code',
+        operationData,
+        account,
+        organizationId,
+        5000 // 5s expiry window per docs
+      );
+
+      const finalRequest = {
+        account,
+        agent_wallet: null,
+        signature,
+        timestamp,
+        expiry_window: 5000,
+        builder_code: BUILDER_CODE,
+        max_fee_rate: BUILDER_MAX_FEE_RATE,
+      };
+
+      const apiResponse = await this.submitToPacifica('/account/builder_codes/approve', finalRequest);
+
+      if (apiResponse.error) {
+        return { success: false, error: `Builder code approval failed: ${apiResponse.error}` };
+      }
+
+      return { success: true };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[Pacifica] Builder code approval failed:', err);
+      return { success: false, error: `Builder code approval failed: ${errMsg}` };
+    }
   }
 
   /**
@@ -206,7 +345,7 @@ export class PacificaService {
         });
       }
 
-      // Prepare operation data for signing
+      // Prepare operation data for signing (no builder_code — not supported on this endpoint)
       const operationData: Record<string, unknown> = {
         symbol: symbol.toUpperCase(),
         leverage,
@@ -293,6 +432,7 @@ export class PacificaService {
         side: request.side,
         slippage_percent: String(request.slippage_percent),
         reduce_only: request.reduce_only,
+        builder_code: request.builder_code ?? BUILDER_CODE,
       };
 
       // Add optional fields
@@ -423,6 +563,7 @@ export class PacificaService {
         tif: request.tif,
         slippage_percent: request.slippage_percent,
         reduce_only: request.reduce_only,
+        builder_code: request.builder_code ?? BUILDER_CODE,
       };
 
       // Add optional fields

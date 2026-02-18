@@ -66,6 +66,43 @@ export interface ActionResult {
 
 const BRIDGE_REQUEST_PREFIX = 'hedge_bridge_';
 
+// ─── LocalStorage Keys for Pacifica Access ───────────────────────────────────
+
+const PACIFICA_REFERRAL_PREFIX = 'pacifica_referral_claimed_';
+const PACIFICA_BUILDER_PREFIX = 'pacifica_builder_approved_';
+
+function isPacificaReferralCached(account: string): boolean {
+  try {
+    return localStorage.getItem(`${PACIFICA_REFERRAL_PREFIX}${account}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function cachePacificaReferral(account: string): void {
+  try {
+    localStorage.setItem(`${PACIFICA_REFERRAL_PREFIX}${account}`, '1');
+  } catch {
+    /* localStorage not available */
+  }
+}
+
+function isPacificaBuilderCached(account: string): boolean {
+  try {
+    return localStorage.getItem(`${PACIFICA_BUILDER_PREFIX}${account}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function cachePacificaBuilder(account: string): void {
+  try {
+    localStorage.setItem(`${PACIFICA_BUILDER_PREFIX}${account}`, '1');
+  } catch {
+    /* localStorage not available */
+  }
+}
+
 function storeBridgeRequestId(legId: string, requestId: string): void {
   try {
     localStorage.setItem(`${BRIDGE_REQUEST_PREFIX}${legId}`, requestId);
@@ -350,6 +387,12 @@ export class HedgeActionExecutor {
 
     const legId = ((action.params as Record<string, unknown>)?.leg_id as string) || '';
 
+    // Ensure referral code claimed + builder code approved before depositing to Pacifica
+    if (exchange === 'pacifica') {
+      const accessError = await this.ensurePacificaAccess(context);
+      if (accessError) return accessError;
+    }
+
     try {
       const depositResult = await handler.executeDeposit({
         walletAddress: context.evmAddress,
@@ -385,6 +428,106 @@ export class HedgeActionExecutor {
     }
   }
 
+  // ─── Pacifica Access Setup ──────────────────────────────────────────────
+
+  /**
+   * Ensure the user has full Pacifica access:
+   *  1. Referral code claimed (grants beta/whitelist access)
+   *  2. Builder code approved (allows builder_code in orders)
+   *
+   * Results are cached in localStorage per account — subsequent deposits
+   * skip the API check entirely. Only signs if needed on first encounter.
+   */
+  private async ensurePacificaAccess(
+    context: ExecutorContext
+  ): Promise<ActionResult | null> {
+    const account = context.solanaAddress;
+
+    // ── 1. Referral code claim (beta access) ──
+    if (isPacificaReferralCached(account)) {
+      console.log('[HedgeExecutor] Pacifica beta access already confirmed (cached) ✓');
+    } else {
+      try {
+        console.log('[HedgeExecutor] Checking Pacifica beta access (referral code)...');
+        const hasBetaAccess = await this.pacificaService.checkReferralCodeClaimed(account);
+
+        if (!hasBetaAccess) {
+          console.log('[HedgeExecutor] No beta access — claiming referral code NUKETRADE...');
+          const claimResult = await this.pacificaService.claimReferralCode(
+            account,
+            context.organizationId
+          );
+
+          if (!claimResult.success) {
+            return {
+              success: false,
+              txHash: null,
+              error: claimResult.error || 'Pacifica referral code claim failed.',
+              legResults: null,
+            };
+          }
+          console.log('[HedgeExecutor] Referral code NUKETRADE claimed ✓');
+        } else {
+          console.log('[HedgeExecutor] Pacifica beta access already active ✓');
+        }
+
+        cachePacificaReferral(account);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error('[HedgeExecutor] Referral code claim failed:', err);
+        return {
+          success: false,
+          txHash: null,
+          error: `Pacifica referral code claim failed: ${errMsg}`,
+          legResults: null,
+        };
+      }
+    }
+
+    // ── 2. Builder code approval (fee sharing on orders) ──
+    if (isPacificaBuilderCached(account)) {
+      console.log('[HedgeExecutor] Builder code NUKETRADE already approved (cached) ✓');
+    } else {
+      try {
+        console.log('[HedgeExecutor] Checking builder code approval on Pacifica...');
+        const isApproved = await this.pacificaService.checkBuilderCodeApproval(account);
+
+        if (!isApproved) {
+          console.log('[HedgeExecutor] Builder code not yet approved — submitting approval...');
+          const approvalResult = await this.pacificaService.approveBuilderCode(
+            account,
+            context.organizationId
+          );
+
+          if (!approvalResult.success) {
+            return {
+              success: false,
+              txHash: null,
+              error: approvalResult.error || 'Pacifica builder code approval failed.',
+              legResults: null,
+            };
+          }
+          console.log('[HedgeExecutor] Builder code NUKETRADE approved ✓');
+        } else {
+          console.log('[HedgeExecutor] Builder code NUKETRADE already approved ✓');
+        }
+
+        cachePacificaBuilder(account);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error('[HedgeExecutor] Builder code approval failed:', err);
+        return {
+          success: false,
+          txHash: null,
+          error: `Pacifica builder code approval failed: ${errMsg}`,
+          legResults: null,
+        };
+      }
+    }
+
+    return null; // success — no error
+  }
+
   // ─── Open Hedge Position ─────────────────────────────────────────────────
 
   /**
@@ -392,9 +535,9 @@ export class HedgeActionExecutor {
    *
    * Flow:
    * 1. Determine long/short direction from spread APR data
-   * 2. Whitelist address on Pacifica (claim access code)
-   * 3. Fetch current leverage on both exchanges — only update if different
-   * 4. Fetch market price
+   * 2. Fetch current leverage on both exchanges — only update if different
+   * 3. Fetch market price
+   * 4. Cap margin to actual Pacifica balance (both legs equally, stays delta-neutral)
    * 5. Open positions on both exchanges (parallel)
    *
    * Uses effective_margin_usd (min of funded amounts) to ensure
@@ -428,36 +571,7 @@ export class HedgeActionExecutor {
       getDirection = (exchange: Exchange) => (exchange === 'hyperliquid' ? 'long' : 'short');
     }
 
-    // ── Step 2: Whitelist address on Pacifica ──
-    // try {
-    //   console.log('[HedgeExecutor] Whitelisting Pacifica address...');
-    //   const whitelistResult = await this.pacificaService.whitelistAddress(
-    //     context.organizationId,
-    //     context.solanaAddress,
-    //     Date.now()
-    //   );
-    //   // Check explicit API-level failure (e.g., invalid claim code, not eligible)
-    //   if (!whitelistResult || whitelistResult.success === false) {
-    //     return {
-    //       success: false,
-    //       txHash: null,
-    //       error: 'Pacifica address whitelisting failed. Your address may not be eligible or the claim code is invalid.',
-    //       legResults: null,
-    //     };
-    //   }
-    //   console.log('[HedgeExecutor] Pacifica address whitelisted ✓');
-    // } catch (err) {
-    //   const errMsg = err instanceof Error ? err.message : String(err);
-    //   console.error('[HedgeExecutor] Pacifica whitelist failed:', err);
-    //   return {
-    //     success: false,
-    //     txHash: null,
-    //     error: `Pacifica address whitelisting failed: ${errMsg}`,
-    //     legResults: null,
-    //   };
-    // }
-
-    // ── Step 3: Check current leverage and update only if different ──
+    // ── Step 2: Check current leverage and update only if different ──
     console.log(`[HedgeExecutor] Checking leverage for ${asset} on both exchanges...`);
 
     // Fetch current leverage from both exchanges in parallel
@@ -550,7 +664,7 @@ export class HedgeActionExecutor {
       console.log(`[HedgeExecutor] Leverage already ${leverage}x on both exchanges — no update needed ✓`);
     }
 
-    // ── Step 4: Fetch market price for position sizing (Pacifica requires it) ──
+    // ── Step 3: Fetch market price for position sizing (Pacifica requires it) ──
     let marketPrice: string | undefined;
     try {
       const priceData = await this.priceHelper.getMarketPriceForTrading(
@@ -563,6 +677,23 @@ export class HedgeActionExecutor {
       console.warn('[HedgeExecutor] Could not fetch market price, adapters will attempt internally:', err);
     }
 
+    // ── Step 4: Cap margin to actual Pacifica balance so both legs stay equal ──
+    let marginForLegs = effective_margin_usd;
+    try {
+      const balanceResult = await this.pacificaService.fetchAccountBalance(context.solanaAddress);
+      if (balanceResult.success && balanceResult.availableToSpend > 0) {
+        const available = balanceResult.availableToSpend * 0.995;
+        if (available < marginForLegs) {
+          console.log(
+            `[HedgeExecutor] Pacifica available ($${available.toFixed(2)}) < effective_margin ($${marginForLegs.toFixed(2)}) — capping both legs`
+          );
+          marginForLegs = available;
+        }
+      }
+    } catch (err) {
+      console.warn('[HedgeExecutor] Could not fetch Pacifica balance, using effective_margin_usd:', err);
+    }
+
     // ── Step 5: Open both legs in parallel ──
     const results = await Promise.allSettled(
       legs.map(async (leg) => {
@@ -572,7 +703,7 @@ export class HedgeActionExecutor {
           const result = await this.hlAdapter.openPosition({
             asset,
             direction,
-            margin: effective_margin_usd.toString(),
+            margin: marginForLegs.toString(),
             leverage,
             walletAddress: context.evmAddress,
             organizationId: context.organizationId,
@@ -584,7 +715,7 @@ export class HedgeActionExecutor {
           const result = await this.pacificaAdapter.openPosition({
             asset,
             direction,
-            margin: effective_margin_usd.toString(),
+            margin: marginForLegs.toString(),
             leverage,
             walletAddress: context.solanaAddress,
             organizationId: context.organizationId,

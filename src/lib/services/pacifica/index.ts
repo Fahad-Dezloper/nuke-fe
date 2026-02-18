@@ -1,4 +1,6 @@
 export { PacificaService, pacificaService } from './pacifica.service';
+export { BUILDER_CODE, BUILDER_MAX_FEE_RATE, EXPIRY_WINDOW } from '@/constants';
+
 export type {
   CreateMarketOrderRequest,
   CreateLimitOrderRequest,

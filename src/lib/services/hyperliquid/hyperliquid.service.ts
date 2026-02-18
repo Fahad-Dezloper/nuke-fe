@@ -368,6 +368,7 @@ export class HyperLiquidService {
         data: hyperLiquidResponse,
         message: 'Position closed successfully',
       };
+
     } catch (error) {
       const appError = toAppError(error, ErrorCode.TRADE_POSITION_CLOSE_FAILED);
       console.error('Error closing position:', appError);

@@ -22,6 +22,7 @@ export interface CreateMarketOrderReq {
   limit_price?: string;
   agent_wallet?: string;
   expiry_window?: number;
+  builder_code?: string;
 }
 
 export interface CreateLimitOrderReq {
@@ -38,6 +39,7 @@ export interface CreateLimitOrderReq {
   limit_price?: string;
   agent_wallet?: string;
   expiry_window?: number;
+  builder_code?: string;
 }
 
 export interface CancelOrderReq {

@@ -3,6 +3,7 @@ import { Roboto_Mono } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/layout/navbar';
 import { TurnkeyProvider } from '@/lib/turnkey';
+import { AuthProvider } from '@/lib/auth';
 import { LoadingOverlay } from '@/components/layout/loading-overlay';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { MarketFeedProvider } from '@/components/providers/market-feed-provider';
@@ -43,6 +44,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <QueryProvider>
             <TurnkeyProvider>
+              <AuthProvider>
               <MarketFeedProvider>
                 <LoadingOverlay />
                 <div className="flex h-screen flex-col">
@@ -51,6 +53,7 @@ export default function RootLayout({
                 </div>
                 <Toaster position="bottom-right" theme="dark" richColors closeButton />
               </MarketFeedProvider>
+              </AuthProvider>
             </TurnkeyProvider>
           </QueryProvider>
         </ErrorBoundary>

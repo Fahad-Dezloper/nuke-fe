@@ -11,6 +11,7 @@
  */
 
 import { useAtomValue, useAtom } from 'jotai';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { PositionControlsSection } from './trading-dashboard';
 import { cn } from '@/lib/utils';
@@ -108,7 +109,23 @@ export function PositionControlsSectionContent({
 
   const isComplete = phase === 'complete';
   const isFailed = phase === 'failed';
-  const showProgress = isExecuting || isComplete || isFailed;
+
+  // Auto-dismiss the floating progress 2s after terminal states
+  const [progressDismissed, setProgressDismissed] = useState(false);
+
+  // Reset on new execution
+  if (isExecuting && progressDismissed) {
+    setProgressDismissed(false);
+  }
+
+  // Dismiss after terminal state
+  useEffect(() => {
+    if (!isComplete && !isFailed) return;
+    const timer = setTimeout(() => setProgressDismissed(true), 2000);
+    return () => clearTimeout(timer);
+  }, [isComplete, isFailed]);
+
+  const showProgress = (isExecuting || isComplete || isFailed) && !progressDismissed;
 
   // Button text based on phase
   const getButtonText = (): string => {
@@ -166,19 +183,17 @@ export function PositionControlsSectionContent({
 
           {/* Trade Details Section */}
           <TradeDetailsSection />
-
-          {/* ── Hedge Execution Progress ──────────────────────── */}
-          {showProgress && (
-            <HedgeExecutionProgress
-              detail={detail}
-              phase={phase}
-              statusMessage={statusMessage}
-              currentAction={currentAction}
-            />
-          )}
-
-          {/* Success/error notifications are handled via sonner toasts */}
         </div>
+
+        {/* Floating progress indicator (renders via portal to top-right) */}
+        {showProgress && (
+          <HedgeExecutionProgress
+            detail={detail}
+            phase={phase}
+            statusMessage={statusMessage}
+            currentAction={currentAction}
+          />
+        )}
 
         {/* Footer - Wallet Connection / Open Position */}
         <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-xl">

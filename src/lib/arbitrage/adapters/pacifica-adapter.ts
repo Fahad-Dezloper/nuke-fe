@@ -18,6 +18,7 @@ import type {
   UnifiedPosition,
   ProtocolMetadata,
 } from '../types';
+import { BUILDER_CODE } from '@/constants';
 
 /**
  * Pacifica Protocol Adapter
@@ -102,6 +103,7 @@ export class PacificaAdapter implements ProtocolAdapter {
         side: side,
         slippage_percent: slippagePercent,
         reduce_only: false,
+        builder_code: BUILDER_CODE,
       };
 
       // Call Pacifica service
@@ -195,6 +197,7 @@ export class PacificaAdapter implements ProtocolAdapter {
         side: closeSide,
         slippage_percent: '3', // 3% slippage tolerance
         reduce_only: true,
+        builder_code: BUILDER_CODE,
       };
 
       const result = await this.service.createMarketOrder(

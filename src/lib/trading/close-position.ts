@@ -9,6 +9,7 @@
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
 import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
+import { BUILDER_CODE } from '@/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,6 +99,7 @@ export async function closePacificaPosition(
         side: closeSide,
         slippage_percent: '3', // 3% slippage tolerance
         reduce_only: true,
+        builder_code: BUILDER_CODE,
       },
       solanaAddress,
       organizationId
