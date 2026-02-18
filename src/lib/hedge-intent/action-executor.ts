@@ -526,8 +526,8 @@ export class HedgeActionExecutor {
     }
 
     // ── Step 2: Ensure Pacifica access (referral + builder code; no-op if already done) ──
-    const accessError = await this.ensurePacificaAccess(context);
-    if (accessError) return accessError;
+    // const accessError = await this.ensurePacificaAccess(context);
+    // if (accessError) return accessError;
 
     // ── Step 3: Check current leverage and update only if different ──
     console.log(`[HedgeExecutor] Checking leverage for ${asset} on both exchanges...`);
