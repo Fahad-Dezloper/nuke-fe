@@ -168,7 +168,9 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
             pnl: formatCurrency(hyperliquidPnl),
             funding: formatCurrency(hyperliquidFunding),
             margin: `$${hyperliquidMargin.toFixed(2)}`,
-            liquidationPrice: `$${parseFloat(hyperliquid.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+            liquidationPrice: hyperliquid.liquidationPrice
+              ? `$${parseFloat(hyperliquid.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+              : '',
           } as ProtocolPositionData)
         : null,
       pacifica: pacifica
@@ -177,7 +179,9 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
             pnl: formatCurrency(pacificaPnl),
             funding: formatCurrency(pacificaFunding),
             margin: `$${pacificaMargin.toFixed(2)}`,
-            liquidationPrice: `$${parseFloat(pacifica.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+            liquidationPrice: pacifica.liquidationPrice
+              ? `$${parseFloat(pacifica.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+              : '',
           } as ProtocolPositionData)
         : null,
     } as Record<string, ProtocolPositionData | null>,
