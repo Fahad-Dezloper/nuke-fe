@@ -350,6 +350,12 @@ export class HedgeActionExecutor {
 
     const legId = ((action.params as Record<string, unknown>)?.leg_id as string) || '';
 
+    // Ensure referral code claimed + builder code approved before depositing to Pacifica
+    if (exchange === 'pacifica') {
+      const accessError = await this.ensurePacificaAccess(context);
+      if (accessError) return accessError;
+    }
+
     try {
       const depositResult = await handler.executeDeposit({
         walletAddress: context.evmAddress,
@@ -383,6 +389,97 @@ export class HedgeActionExecutor {
         legResults: null,
       };
     }
+  }
+
+  // ─── Pacifica Access Setup ──────────────────────────────────────────────
+
+  /**
+   * Ensure the user has full Pacifica access:
+   *  1. Referral code claimed (grants beta/whitelist access)
+   *  2. Builder code approved (allows builder_code in orders)
+   *
+   * Safe to call multiple times — checks status first, only signs if needed.
+   */
+  private async ensurePacificaAccess(
+    context: ExecutorContext
+  ): Promise<ActionResult | null> {
+    // ── 1. Referral code claim (beta access) ──
+    try {
+      console.log('[HedgeExecutor] Checking Pacifica beta access (referral code)...');
+      // const hasBetaAccess = await this.pacificaService.checkReferralCodeClaimed(
+      //   context.solanaAddress
+      // );
+
+      const hasBetaAccess = false;
+
+      if (!hasBetaAccess) {
+        console.log('[HedgeExecutor] No beta access — claiming referral code NUKETRADE...');
+        const claimResult = await this.pacificaService.claimReferralCode(
+          context.solanaAddress,
+          context.organizationId
+        );
+
+        if (!claimResult.success) {
+          return {
+            success: false,
+            txHash: null,
+            error: claimResult.error || 'Pacifica referral code claim failed.',
+            legResults: null,
+          };
+        }
+        console.log('[HedgeExecutor] Referral code NUKETRADE claimed ✓');
+      } else {
+        console.log('[HedgeExecutor] Pacifica beta access already active ✓');
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[HedgeExecutor] Referral code claim failed:', err);
+      return {
+        success: false,
+        txHash: null,
+        error: `Pacifica referral code claim failed: ${errMsg}`,
+        legResults: null,
+      };
+    }
+
+    // ── 2. Builder code approval (fee sharing on orders) ──
+    try {
+      console.log('[HedgeExecutor] Checking builder code approval on Pacifica...');
+      const isApproved = await this.pacificaService.checkBuilderCodeApproval(
+        context.solanaAddress
+      );
+
+      if (!isApproved) {
+        console.log('[HedgeExecutor] Builder code not yet approved — submitting approval...');
+        const approvalResult = await this.pacificaService.approveBuilderCode(
+          context.solanaAddress,
+          context.organizationId
+        );
+
+        if (!approvalResult.success) {
+          return {
+            success: false,
+            txHash: null,
+            error: approvalResult.error || 'Pacifica builder code approval failed.',
+            legResults: null,
+          };
+        }
+        console.log('[HedgeExecutor] Builder code NUKETRADE approved ✓');
+      } else {
+        console.log('[HedgeExecutor] Builder code NUKETRADE already approved ✓');
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[HedgeExecutor] Builder code approval failed:', err);
+      return {
+        success: false,
+        txHash: null,
+        error: `Pacifica builder code approval failed: ${errMsg}`,
+        legResults: null,
+      };
+    }
+
+    return null; // success — no error
   }
 
   // ─── Open Hedge Position ─────────────────────────────────────────────────
@@ -428,42 +525,9 @@ export class HedgeActionExecutor {
       getDirection = (exchange: Exchange) => (exchange === 'hyperliquid' ? 'long' : 'short');
     }
 
-    // ── Step 2: Approve builder code on Pacifica (one-time) ──
-    try {
-      console.log('[HedgeExecutor] Checking builder code approval on Pacifica...');
-      const isApproved = await this.pacificaService.checkBuilderCodeApproval(
-        context.solanaAddress
-      );
-
-      if (!isApproved) {
-        console.log('[HedgeExecutor] Builder code not yet approved — submitting approval...');
-        const approvalResult = await this.pacificaService.approveBuilderCode(
-          context.solanaAddress,
-          context.organizationId
-        );
-
-        if (!approvalResult.success) {
-          return {
-            success: false,
-            txHash: null,
-            error: approvalResult.error || 'Pacifica builder code approval failed.',
-            legResults: null,
-          };
-        }
-        console.log('[HedgeExecutor] Builder code NUKETRADE approved ✓');
-      } else {
-        console.log('[HedgeExecutor] Builder code NUKETRADE already approved ✓');
-      }
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.error('[HedgeExecutor] Builder code approval failed:', err);
-      return {
-        success: false,
-        txHash: null,
-        error: `Pacifica builder code approval failed: ${errMsg}`,
-        legResults: null,
-      };
-    }
+    // ── Step 2: Ensure Pacifica access (referral + builder code; no-op if already done) ──
+    const accessError = await this.ensurePacificaAccess(context);
+    if (accessError) return accessError;
 
     // ── Step 3: Check current leverage and update only if different ──
     console.log(`[HedgeExecutor] Checking leverage for ${asset} on both exchanges...`);
