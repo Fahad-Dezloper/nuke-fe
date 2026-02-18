@@ -17,6 +17,7 @@ import {
   clearAuth,
   isTokenValid,
 } from './auth.service';
+import { trackLogin, trackLogout } from '@/lib/analytics';
 
 // ─── Base Atom ─────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ export const loginAtom = atom(
         error: null,
       });
 
+      trackLogin('turnkey');
       return response;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Authentication failed';
@@ -106,6 +108,7 @@ export const loginAtom = atom(
 export const logoutAuthAtom = atom(null, (_get, set) => {
   clearAuth();
   set(authStateAtom, { token: null, isAuthenticating: false, error: null });
+  trackLogout();
 });
 
 /**
