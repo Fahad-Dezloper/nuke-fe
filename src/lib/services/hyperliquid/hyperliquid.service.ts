@@ -306,6 +306,7 @@ export class HyperLiquidService {
         throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
       }
 
+      debugger
       // Validate request
       if (!request.assetName || !request.size || !request.userAddress) {
         throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
@@ -368,6 +369,7 @@ export class HyperLiquidService {
         data: hyperLiquidResponse,
         message: 'Position closed successfully',
       };
+
     } catch (error) {
       const appError = toAppError(error, ErrorCode.TRADE_POSITION_CLOSE_FAILED);
       console.error('Error closing position:', appError);

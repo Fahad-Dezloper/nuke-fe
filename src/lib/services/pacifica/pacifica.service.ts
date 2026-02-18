@@ -160,17 +160,18 @@ export class PacificaService {
     organizationId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const operationData: Record<string, unknown> = {
-        code: BUILDER_CODE,
-      };
+      
+      const timestamp = Date.now();
 
-      const { timestamp, signature } = await this.signOrderRequest(
-        'claim_referral_code',
-        operationData,
-        account,
-        organizationId,
-        5000
+      const message = new TextEncoder().encode(
+        JSON.stringify({
+          data: { code: BUILDER_CODE },
+          expiry_window: 5000,
+          timestamp,
+          type: 'claim_referral_code',
+        })
       );
+      const signature = await signPacificaMessageWithTurnkey(message, account, organizationId);
 
       const finalRequest = {
         account,

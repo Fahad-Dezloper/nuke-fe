@@ -2,22 +2,22 @@
 
 /**
  * Position Details Section Component
- * Cards showing LONG and SHORT position details
- * Calculates values based on user input (margin, leverage, price)
+ * Cards showing LONG and SHORT position details with "Add Margin" buttons.
+ * Calculates values based on user input (margin, leverage, price).
  */
 
 import { useAtom, useAtomValue } from 'jotai';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { PositionDetailsCard } from '@/components/ui/position-details-card';
-import { BridgeStatusModal } from '@/components/ui/bridge-status-modal';
-import { useBridge } from '@/lib/bridge';
-import { useTurnkey } from '@/lib/turnkey/hooks';
-import { getSolanaAddress } from '@/lib/turnkey/wallet-utils';
-import { marginAtom, leverageAtom, hlBalanceAtom, pacBalanceAtom } from './store';
+import { AddMarginModal } from '@/components/ui/add-margin-modal';
+import { isLoggedInAtom } from '@/lib/turnkey/store';
+import { useFundExchange } from '@/hooks/use-fund-exchange';
+import { marginAtom, leverageAtom, hlBalanceAtom, pacBalanceAtom, baseBalanceAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { useBestPair } from '@/hooks/use-best-pair';
 import { formatPrice } from '@/lib/utils';
+import type { FundExchange } from '@/hooks/use-fund-exchange';
 
 interface PositionDetailsSectionProps {
   className?: string;
@@ -27,33 +27,34 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const isLoggedIn = useAtomValue(isLoggedInAtom);
   const hlBalance = useAtomValue(hlBalanceAtom);
   const pacBalance = useAtomValue(pacBalanceAtom);
+  const baseBalance = useAtomValue(baseBalanceAtom);
   const { getBestPairForAsset } = useBestPair();
-  const { state: turnkeyState } = useTurnkey();
-  const [isBridging, setIsBridging] = useState(false);
-  const [selectedProtocol, setSelectedProtocol] = useState<'hyperliquid' | 'pacifica'>(
-    'hyperliquid'
-  );
-  const [bridgeError, setBridgeError] = useState<string | null>(null);
 
-  const {
-    status: bridgeStatus,
-    error: bridgeErrorState,
-    bridge,
-  } = useBridge({
-    onSuccess: () => {
-      // Auto-close after a short delay on success
-      setTimeout(() => {
-        setIsBridging(false);
-        setBridgeError(null);
-      }, 2000);
+  // ── Add Margin state ──────────────────────────────────────────
+  const [addMarginOpen, setAddMarginOpen] = useState(false);
+  const [addMarginExchange, setAddMarginExchange] = useState<FundExchange>('hyperliquid');
+
+  const { fund, reset, step, isExecuting, statusMessage, error } = useFundExchange();
+
+  const handleOpenAddMargin = useCallback((exchange: FundExchange) => {
+    setAddMarginExchange(exchange);
+    setAddMarginOpen(true);
+  }, []);
+
+  const handleCloseAddMargin = useCallback(() => {
+    if (isExecuting) return;
+    setAddMarginOpen(false);
+  }, [isExecuting]);
+
+  const handleSubmitAddMargin = useCallback(
+    (amountUsd: number) => {
+      fund(addMarginExchange, amountUsd);
     },
-    onError: (error) => {
-      setBridgeError(error.message);
-      // Keep modal open to show error, user can close manually
-    },
-  });
+    [fund, addMarginExchange]
+  );
 
   // Get price from selected asset (use hyperliquid mark price as primary)
   const price = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
@@ -81,67 +82,83 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
     const longProtocolName = bestPair.long.toUpperCase();
     const shortProtocolName = bestPair.short.toUpperCase();
 
-    function getExistingBalance(protocol: string): string {
-      const bal = protocol === 'HYPERLIQUID' ? hlBalance : pacBalance;
-      return bal > 0 ? `$${bal.toFixed(2)}` : '$0.00';
+    function getExistingBalance(protocol: string): number {
+      return protocol === 'HYPERLIQUID' ? hlBalance : pacBalance;
+    }
+
+    function getProtocolId(protocol: string): FundExchange {
+      return protocol === 'HYPERLIQUID' ? 'hyperliquid' : 'pacifica';
     }
 
     return [
       {
         label: 'LONG',
         platform: longProtocolName,
+        protocolId: getProtocolId(longProtocolName),
         gradientColor: 'long' as const,
         margin: formatMargin(halfMargin),
         size: calculateSize(halfMargin),
-        existingBalance: getExistingBalance(longProtocolName),
+        existingBalanceNum: getExistingBalance(longProtocolName),
+        existingBalance:
+          getExistingBalance(longProtocolName) > 0
+            ? `$${getExistingBalance(longProtocolName).toFixed(2)}`
+            : '$0.00',
       },
       {
         label: 'SHORT',
         platform: shortProtocolName,
+        protocolId: getProtocolId(shortProtocolName),
         gradientColor: 'short' as const,
         margin: formatMargin(halfMargin),
         size: calculateSize(halfMargin),
-        existingBalance: getExistingBalance(shortProtocolName),
+        existingBalanceNum: getExistingBalance(shortProtocolName),
+        existingBalance:
+          getExistingBalance(shortProtocolName) > 0
+            ? `$${getExistingBalance(shortProtocolName).toFixed(2)}`
+            : '$0.00',
       },
     ];
   }, [margin, leverage, price, selectedAsset, getBestPairForAsset, hlBalance, pacBalance]);
+
+  // Derive context for the currently-selected exchange's modal
+  const selectedCard = positionDetails.find((c) => c.protocolId === addMarginExchange);
+  const otherCard = positionDetails.find((c) => c.protocolId !== addMarginExchange);
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
       <label className="text-xs text-text-muted-60 uppercase tracking-wide">POSITION DETAILS</label>
       <div className="grid grid-cols-2 gap-3">
-        {positionDetails.map((card) => {
-          const buttonGradientClass =
-            card.gradientColor === 'long'
-              ? 'bg-gradient-to-br from-[var(--chart-hyperliquid)]/10 via-[var(--chart-hyperliquid)]/5 to-[var(--chart-hyperliquid)]/3'
-              : 'bg-gradient-to-br from-[var(--chart-pink)]/10 via-[var(--chart-pink)]/5 to-[var(--chart-pink)]/3';
-
-          // Determine protocol from platform name
-          const protocol =
-            card.platform.toLowerCase() === 'hyperliquid' ? 'hyperliquid' : 'pacifica';
-
-          // Calculate the margin amount for this leg (half of total margin)
-          const marginValue = Number(margin) || 0;
-          const legMargin = marginValue / 2;
-
-          return (
-            <div key={card.label} className="flex flex-col gap-2">
-              <PositionDetailsCard {...card} existingBalance={card.existingBalance} />
-            </div>
-          );
-        })}
+        {positionDetails.map((card) => (
+          <div key={card.label} className="flex flex-col gap-2">
+            <PositionDetailsCard
+              label={card.label}
+              platform={card.platform}
+              gradientColor={card.gradientColor}
+              margin={card.margin}
+              size={card.size}
+              existingBalance={card.existingBalance}
+              showAddMargin={isLoggedIn && baseBalance > 0}
+              onAddMargin={() => handleOpenAddMargin(card.protocolId)}
+            />
+          </div>
+        ))}
       </div>
 
-      {/* Bridge Status Modal */}
-      <BridgeStatusModal
-        isOpen={isBridging}
-        status={bridgeStatus}
-        protocol={selectedProtocol}
-        error={bridgeError || bridgeErrorState?.message || null}
-        onClose={() => {
-          setIsBridging(false);
-          setBridgeError(null);
-        }}
+      {/* Add Margin Modal */}
+      <AddMarginModal
+        isOpen={addMarginOpen}
+        onClose={handleCloseAddMargin}
+        exchange={addMarginExchange}
+        baseBalance={baseBalance}
+        existingMargin={selectedCard?.existingBalanceNum ?? 0}
+        otherExchangeMargin={otherCard?.existingBalanceNum ?? 0}
+        otherExchangeName={otherCard?.platform ?? ''}
+        fundStep={step}
+        isExecuting={isExecuting}
+        statusMessage={statusMessage}
+        error={error}
+        onSubmit={handleSubmitAddMargin}
+        onReset={reset}
       />
     </div>
   );

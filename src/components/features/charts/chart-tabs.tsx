@@ -34,7 +34,7 @@ export function ChartTabs({ activeTab, onTabChange, className }: ChartTabsProps)
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
           className={cn(
-            'pb-3 text-sm font-medium transition-colors relative',
+            'pb-3 text-sm cursor-pointer font-medium transition-colors relative',
             activeTab === tab.id
               ? 'text-text-primary'
               : 'text-text-muted-60 hover:text-text-primary'

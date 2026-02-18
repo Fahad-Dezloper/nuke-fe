@@ -140,7 +140,7 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
         {/* View More / View Less Button */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-center gap-1.5 py-2 border-t border-border-white-10 text-xs text-text-muted-60 hover:text-text-primary transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 py-2 border-t cursor-pointer border-border-white-10 text-xs text-text-muted-60 hover:text-text-primary transition-colors"
         >
           {isExpanded ? (
             <>

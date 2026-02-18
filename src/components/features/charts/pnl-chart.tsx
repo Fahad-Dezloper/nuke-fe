@@ -7,7 +7,7 @@
  */
 
 import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, Cell, Customized } from 'recharts';
 import {
   ChartContainer,
   ChartTooltip,
@@ -225,6 +225,9 @@ export function PnLChart({ fundingData, duration }: PnLChartProps) {
   const yMax = maxVal + padding;
   const yMin = minVal - padding;
 
+  // Index of the first projected bar (for the "now" divider)
+  const firstProjectedIdx = data.findIndex((d) => d.projected !== null);
+
   if (!data.length) {
     return (
       <div className="h-[260px] flex items-center justify-center text-text-muted-60 text-xs">
@@ -251,6 +254,32 @@ export function PnLChart({ fundingData, duration }: PnLChartProps) {
             vertical={false}
           />
           <ReferenceLine y={0} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} />
+          {firstProjectedIdx > 0 && (
+            <Customized
+              component={({ xAxisMap, yAxisMap }: any) => {
+                const xAxis = xAxisMap?.[Object.keys(xAxisMap)[0]];
+                const yAxis = yAxisMap?.[Object.keys(yAxisMap)[0]];
+                if (!xAxis || !yAxis) return null;
+
+                const bandWidth = xAxis.bandSize || 0;
+                const prevX = xAxis.scale(data[firstProjectedIdx - 1].time);
+                const currX = xAxis.scale(data[firstProjectedIdx].time);
+                const lineX = prevX + bandWidth + (currX - prevX - bandWidth) / 2;
+
+                return (
+                  <line
+                    x1={lineX}
+                    x2={lineX}
+                    y1={yAxis.y}
+                    y2={yAxis.y + yAxis.height}
+                    stroke="rgba(255, 255, 255, 0.4)"
+                    strokeWidth={1}
+                    strokeDasharray="4 3"
+                  />
+                );
+              }}
+            />
+          )}
           <XAxis
             dataKey="time"
             tick={{ fill: 'rgba(255, 255, 255, 0.5)', fontSize: 10 }}

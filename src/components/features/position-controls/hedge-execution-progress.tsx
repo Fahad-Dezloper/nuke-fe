@@ -1,51 +1,49 @@
 'use client';
 
 /**
- * Hedge Execution Progress Component
+ * Hedge Execution Progress — Floating Indicator
  *
- * Displays a step-by-step progress indicator while the hedge intent
- * saga is running. Maps backend leg statuses to user-friendly UI.
+ * A compact, animated floating card that appears top-right below the navbar
+ * when a hedge intent is executing. Renders via portal to document.body.
+ *
+ * Since bridge + deposit are now handled separately via "Add Margin",
+ * this typically shows: Setting leverage → Opening positions.
+ * But it still supports the full flow if the intent triggers bridge/deposit.
  */
 
-import { Loader2, CheckCircle2, XCircle, Clock, AlertTriangle, MinusCircle } from 'lucide-react';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type {
-  HedgeIntentDetail,
-  HedgeLeg,
-  ExecutionPhase,
-  HedgeAction,
-} from '@/lib/hedge-intent';
+import type { HedgeIntentDetail, HedgeLeg, ExecutionPhase } from '@/lib/hedge-intent';
 
-// ─── Step Helpers ────────────────────────────────────────────────────────────
+// ─── Step Logic ───────────────────────────────────────────────────────────────
 
-type StepState = 'pending' | 'in_progress' | 'done' | 'error' | 'skipped';
+type StepState = 'pending' | 'active' | 'done' | 'error' | 'skipped';
 
-/**
- * Determine if a leg's bridge step was skipped.
- * Bridge is skipped when funds were already on the destination chain
- * (existing_onchain_usd + existing_margin_usd covers the target amount).
- */
 function wasBridgeSkipped(leg: HedgeLeg): boolean {
-  const alreadyAvailable = (leg.existing_onchain_usd || 0) + (leg.existing_margin_usd || 0);
-  return alreadyAvailable >= leg.target_amount_usd;
+  const available = (leg.existing_onchain_usd || 0) + (leg.existing_margin_usd || 0);
+  return available >= leg.target_amount_usd;
 }
 
-/**
- * Determine if a leg's deposit step was skipped.
- * Deposit is skipped when funds were already in the exchange margin.
- */
 function wasDepositSkipped(leg: HedgeLeg): boolean {
   return (leg.existing_margin_usd || 0) >= leg.target_amount_usd;
 }
 
-function getLegBridgeState(leg: HedgeLeg | undefined): StepState {
+function legBridgeState(leg: HedgeLeg | undefined): StepState {
   if (!leg) return 'pending';
   if (wasBridgeSkipped(leg)) return 'skipped';
   switch (leg.status) {
-    case 'PENDING':
-      return 'pending';
     case 'BRIDGE_IN_PROGRESS':
-      return 'in_progress';
+      return 'active';
     case 'BRIDGE_CONFIRMED':
     case 'DEPOSIT_IN_PROGRESS':
     case 'FUNDED':
@@ -59,16 +57,12 @@ function getLegBridgeState(leg: HedgeLeg | undefined): StepState {
   }
 }
 
-function getLegDepositState(leg: HedgeLeg | undefined): StepState {
+function legDepositState(leg: HedgeLeg | undefined): StepState {
   if (!leg) return 'pending';
   if (wasDepositSkipped(leg)) return 'skipped';
   switch (leg.status) {
-    case 'PENDING':
-    case 'BRIDGE_IN_PROGRESS':
-    case 'BRIDGE_CONFIRMED':
-      return 'pending';
     case 'DEPOSIT_IN_PROGRESS':
-      return 'in_progress';
+      return 'active';
     case 'FUNDED':
     case 'OPENING_POSITION':
     case 'ACTIVE':
@@ -80,88 +74,69 @@ function getLegDepositState(leg: HedgeLeg | undefined): StepState {
   }
 }
 
-function getOpenPositionState(detail: HedgeIntentDetail | null): StepState {
+function openPositionState(detail: HedgeIntentDetail | null): StepState {
   if (!detail) return 'pending';
   const { status } = detail.intent;
-  if (status === 'OPENING') return 'in_progress';
+  if (status === 'OPENING') return 'active';
   if (status === 'ACTIVE') return 'done';
   if (status === 'FAILED') {
-    const hasActive = detail.legs.some((l) => l.status === 'ACTIVE');
-    return hasActive ? 'error' : 'pending';
+    return detail.legs.some((l) => l.status === 'ACTIVE') ? 'error' : 'pending';
   }
-  if (['CREATED', 'FUNDING', 'READY'].includes(status)) return 'pending';
   return 'pending';
 }
 
-function calculateProgress(detail: HedgeIntentDetail | null): number {
-  if (!detail) return 0;
-  const { status } = detail.intent;
-
-  switch (status) {
-    case 'CREATED':
-      return 5;
-    case 'FUNDING': {
-      let totalSteps = 0;
-      let stepsDone = 0;
-      for (const leg of detail.legs) {
-        // Count bridge step (only if not skipped)
-        if (!wasBridgeSkipped(leg)) {
-          totalSteps++;
-          if (['BRIDGE_CONFIRMED', 'DEPOSIT_IN_PROGRESS', 'FUNDED', 'OPENING_POSITION', 'ACTIVE'].includes(leg.status)) {
-            stepsDone++;
-          }
-        }
-        // Count deposit step (only if not skipped)
-        if (!wasDepositSkipped(leg)) {
-          totalSteps++;
-          if (['FUNDED', 'OPENING_POSITION', 'ACTIVE'].includes(leg.status)) {
-            stepsDone++;
-          }
-        }
-      }
-      if (totalSteps === 0) return 80; // All funding skipped
-      return 10 + Math.round((stepsDone / totalSteps) * 70);
-    }
-    case 'READY':
-      return 80;
-    case 'OPENING':
-      return 90;
-    case 'ACTIVE':
-      return 100;
-    case 'FAILED':
-    case 'CANCELLING':
-    case 'CANCELLED':
-      return -1;
-    default:
-      return 0;
-  }
+interface Step {
+  label: string;
+  state: StepState;
 }
 
-// ─── Step Icon Component ─────────────────────────────────────────────────────
+function buildSteps(detail: HedgeIntentDetail | null): Step[] {
+  const hl = detail?.legs.find((l) => l.exchange === 'hyperliquid');
+  const pac = detail?.legs.find((l) => l.exchange === 'pacifica');
 
-function StepIcon({ state }: { state: StepState }) {
-  switch (state) {
-    case 'done':
-      return <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />;
-    case 'in_progress':
-      return <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin" />;
-    case 'error':
-      return <XCircle className="h-3.5 w-3.5 text-red-400" />;
-    case 'skipped':
-      return <MinusCircle className="h-3.5 w-3.5 text-text-muted-60/30" />;
-    case 'pending':
-    default:
-      return <Clock className="h-3.5 w-3.5 text-text-muted-60/40" />;
-  }
+  return [
+    { label: 'Setting leverage', state: openPositionState(detail) },
+    { label: 'Opening positions', state: openPositionState(detail) },
+  ].filter((s) => s.state !== 'skipped');
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+function computeProgress(steps: Step[]): number {
+  if (steps.length === 0) return 0;
+  const done = steps.filter((s) => s.state === 'done').length;
+  return Math.round((done / steps.length) * 100);
+}
+
+// ─── Step Row ─────────────────────────────────────────────────────────────────
+
+function StepRow({ step }: { step: Step }) {
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2 py-1',
+        step.state === 'active' && 'text-white',
+        step.state === 'done' && 'text-green-400/80',
+        step.state === 'error' && 'text-red-400/80',
+        step.state === 'pending' && 'text-white/25'
+      )}
+    >
+      {step.state === 'active' && <Loader2 className="h-3 w-3 animate-spin shrink-0" />}
+      {step.state === 'done' && <CheckCircle2 className="h-3 w-3 shrink-0" />}
+      {step.state === 'error' && <XCircle className="h-3 w-3 shrink-0" />}
+      {step.state === 'pending' && (
+        <div className="h-3 w-3 rounded-full border border-current shrink-0" />
+      )}
+      <span className="text-[11px] truncate">{step.label}</span>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 interface HedgeExecutionProgressProps {
   detail: HedgeIntentDetail | null;
   phase: ExecutionPhase;
   statusMessage: string;
-  currentAction: HedgeAction | null;
+  currentAction: string | null;
   className?: string;
 }
 
@@ -169,126 +144,137 @@ export function HedgeExecutionProgress({
   detail,
   phase,
   statusMessage,
-  currentAction: _currentAction,
-  className,
 }: HedgeExecutionProgressProps) {
-  const hlLeg = detail?.legs.find((l) => l.exchange === 'hyperliquid');
-  const pacLeg = detail?.legs.find((l) => l.exchange === 'pacifica');
-  const progress = calculateProgress(detail);
+  const [expanded, setExpanded] = useState(false);
 
-  const steps = [
-    {
-      label: 'Bridge to Arbitrum (HL)',
-      sublabel: hlLeg ? `$${hlLeg.target_amount_usd} USDC` : '',
-      state: getLegBridgeState(hlLeg),
-    },
-    {
-      label: 'Bridge to Solana (Pacifica)',
-      sublabel: pacLeg ? `$${pacLeg.target_amount_usd} USDC` : '',
-      state: getLegBridgeState(pacLeg),
-    },
-    {
-      label: 'Deposit to Hyperliquid',
-      sublabel: hlLeg ? `$${hlLeg.target_amount_usd} USDC` : '',
-      state: getLegDepositState(hlLeg),
-    },
-    {
-      label: 'Deposit to Pacifica',
-      sublabel: pacLeg ? `$${pacLeg.target_amount_usd} USDC` : '',
-      state: getLegDepositState(pacLeg),
-    },
-    {
-      label: 'Open Hedge Positions',
-      sublabel: detail ? `${detail.intent.asset} ${detail.intent.leverage}x` : '',
-      state: getOpenPositionState(detail),
-    },
-  ];
+  const isRunning = !['idle', 'complete', 'failed'].includes(phase);
+  const isComplete = phase === 'complete';
+  const isFailed = phase === 'failed';
+  const isVisible = phase !== 'idle';
 
-  // Safety mode: show close action
-  const isSafetyMode = detail?.intent.status === 'FAILED' &&
+  const isSafetyMode =
+    detail?.intent.status === 'FAILED' &&
     detail.legs.some((l) => l.status === 'ACTIVE' || l.status === 'CLOSING');
 
-  return (
-    <div className={cn('space-y-3', className)}>
-      {/* Progress Bar */}
-      {progress >= 0 && (
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-wider text-text-muted-60">
-              Progress
-            </span>
-            <span className="text-[10px] font-mono text-text-muted-60">
-              {progress}%
-            </span>
-          </div>
-          <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 to-green-400 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
+  const steps = buildSteps(detail);
+  const progress = isComplete ? 100 : isFailed ? 0 : computeProgress(steps);
+  const activeStep = steps.find((s) => s.state === 'active');
 
-      {/* Step List — only show steps that aren't skipped */}
-      <div className="space-y-1.5">
-        {steps.filter((step) => step.state !== 'skipped').map((step, i) => (
-          <div
-            key={i}
-            className={cn(
-              'flex items-center gap-2 py-1 px-2 rounded-lg transition-colors',
-              step.state === 'in_progress' && 'bg-blue-500/5',
-              step.state === 'error' && 'bg-red-500/5'
-            )}
+  // Headline text
+  const headline = (() => {
+    if (isComplete) return 'Hedge Live';
+    if (isSafetyMode) return 'Safety Mode';
+    if (isFailed) return 'Hedge Failed';
+    if (activeStep) return activeStep.label;
+    if (phase === 'creating') return 'Creating intent...';
+    return 'Processing...';
+  })();
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0, y: -12, x: 12 }}
+          animate={{ opacity: 1, y: 0, x: 0 }}
+          exit={{ opacity: 0, y: -12, x: 12 }}
+          transition={{ type: 'spring', damping: 24, stiffness: 260 }}
+          className={cn(
+            'fixed top-16 right-4 z-[60] w-72',
+            'rounded-xl border',
+            'shadow-2xl shadow-black/40',
+            'backdrop-blur-xl',
+            isComplete
+              ? 'bg-green-950/80 border-green-500/20'
+              : isFailed
+                ? 'bg-red-950/80 border-red-500/20'
+                : 'bg-[#0c0c0f]/90 border-white/[0.08]'
+          )}
+        >
+          {/* Progress bar — thin line at the very top */}
+          {isRunning && (
+            <div className="h-[2px] w-full rounded-t-xl overflow-hidden bg-white/[0.04]">
+              <motion.div
+                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+              />
+            </div>
+          )}
+
+          {/* Header row — always visible */}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left"
           >
-            <StepIcon state={step.state} />
+            {/* Status icon */}
+            <div className="shrink-0">
+              {isRunning && <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />}
+              {isComplete && <CheckCircle2 className="h-4 w-4 text-green-400" />}
+              {isFailed && !isSafetyMode && <XCircle className="h-4 w-4 text-red-400" />}
+              {isSafetyMode && <AlertTriangle className="h-4 w-4 text-amber-400" />}
+            </div>
+
+            {/* Text */}
             <div className="flex-1 min-w-0">
-              <span
+              <p
                 className={cn(
-                  'text-xs',
-                  step.state === 'done' && 'text-green-400',
-                  step.state === 'in_progress' && 'text-blue-400',
-                  step.state === 'error' && 'text-red-400',
-                  step.state === 'pending' && 'text-text-muted-60/60'
+                  'text-xs font-medium truncate',
+                  isComplete && 'text-green-400',
+                  isFailed && !isSafetyMode && 'text-red-400',
+                  isSafetyMode && 'text-amber-400',
+                  isRunning && 'text-white'
                 )}
               >
-                {step.label}
-              </span>
+                {headline}
+              </p>
+              {isRunning && statusMessage && (
+                <p className="text-[10px] text-white/40 truncate mt-0.5">{statusMessage}</p>
+              )}
             </div>
-            {step.sublabel && (
-              <span className="text-[10px] text-text-muted-60/40 tabular-nums shrink-0">
-                {step.sublabel}
-              </span>
+
+            {/* Expand chevron */}
+            {steps.length > 0 && (
+              <div className="shrink-0 text-white/30">
+                {expanded ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+              </div>
             )}
-          </div>
-        ))}
+          </button>
 
-        {/* Safety Mode Step */}
-        {isSafetyMode && (
-          <div className="flex items-center gap-2 py-1 px-2 rounded-lg bg-amber-500/5">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-            <span className="text-xs text-amber-400">
-              Safety Mode: Closing exposed position...
-            </span>
-          </div>
-        )}
-      </div>
+          {/* Expanded step list */}
+          <AnimatePresence>
+            {expanded && steps.length > 0 && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                <div className="px-4 pb-3 pt-0.5 space-y-0.5 border-t border-white/[0.05]">
+                  {steps.map((step, i) => (
+                    <StepRow key={i} step={step} />
+                  ))}
 
-      {/* Status Message */}
-      {statusMessage && (
-        <p className="text-[10px] text-text-muted-60 text-center px-2">
-          {statusMessage}
-        </p>
+                  {isSafetyMode && (
+                    <div className="flex items-center gap-2 py-1 text-amber-400/80">
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      <span className="text-[11px]">Closing exposed position...</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       )}
-
-      {/* Error — displayed via sonner toast from use-hedge-intent.ts */}
-
-      {/* Refresh-safe notice */}
-      {phase !== 'idle' && phase !== 'complete' && phase !== 'failed' && (
-        <p className="text-[10px] text-text-muted-60/50 text-center italic">
-          You can safely close this window. Your hedge will resume when you return.
-        </p>
-      )}
-    </div>
+    </AnimatePresence>,
+    document.body
   );
 }

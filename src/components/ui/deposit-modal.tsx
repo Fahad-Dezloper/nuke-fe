@@ -155,7 +155,9 @@ export function DepositModal({
                 {isLoadingBalance ? (
                   <div className="w-20 h-6 rounded bg-white/10 animate-pulse" />
                 ) : (
-                  <span className="text-xl font-semibold text-text-primary tabular-nums">{Number(balance).toFixed(3)}</span>
+                  <span className="text-xl font-semibold text-text-primary tabular-nums">
+                    {Number(balance).toFixed(3)}
+                  </span>
                 )}
                 <span className="text-sm text-text-muted-60 font-medium">USDC</span>
               </div>
@@ -186,7 +188,7 @@ export function DepositModal({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className={cn(
-                  'w-7 h-7 flex items-center justify-center rounded-lg',
+                  'w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer',
                   'text-text-muted-60 hover:text-text-primary',
                   'hover:bg-card/50 transition-colors duration-200',
                   isRefreshing && 'opacity-50 cursor-not-allowed'
@@ -213,7 +215,7 @@ export function DepositModal({
             onClick={handleViewOnExplorer}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-1 text-xs text-text-muted-60 hover:text-text-primary transition-colors"
+            className="flex items-center gap-1 text-xs cursor-pointer text-text-muted-60 hover:text-text-primary transition-colors"
           >
             <span>Explorer</span>
             <ExternalLink className="w-3 h-3" />
@@ -243,7 +245,7 @@ export function DepositModal({
             whileTap={{ scale: 0.95 }}
             className={cn(
               'absolute top-1/2 right-2.5 -translate-y-1/2',
-              'w-7 h-7 flex items-center justify-center',
+              'w-7 h-7 flex items-center justify-center cursor-pointer',
               'rounded-lg bg-card/50 border border-border-white-10/50',
               'text-text-muted-60 hover:text-text-primary',
               'backdrop-blur-sm transition-colors duration-200',

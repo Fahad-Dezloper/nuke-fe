@@ -24,6 +24,7 @@ export { PositionDetailsCard, type PositionDetailsCardProps } from './position-d
 export { AssetDropdown, type AssetDropdownProps } from './asset-dropdown';
 export { DepositButton } from './deposit-button';
 export { DepositModal } from './deposit-modal';
+export { AddMarginModal } from './add-margin-modal';
 export { LoadingModal, type LoadingType } from './loading-modal';
 export { Skeleton } from './skeleton';
 export {

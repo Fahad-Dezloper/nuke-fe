@@ -352,7 +352,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
                 const liqPrice = data?.liquidationPrice || '—';
 
                 return (
-                  <div key={protocolId} className="flex items-center gap-1.5">
+                  <div key={type} className="flex items-center gap-1.5">
                     {config && (
                       <Image
                         src={config.logo}
