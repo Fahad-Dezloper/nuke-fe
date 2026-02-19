@@ -9,8 +9,8 @@
 
 import { signTransferWithAuthorizationWithTurnkey } from '../solana-signing';
 import { pacificaDepositService } from '../pacifica-deposit.service';
+import { getUSDCBalanceOnSolana } from '../balance-api';
 import {
-  getUSDCBalanceOnSolana,
   formatUSDCBalanceSolana,
   signAndSubmitPacificaDeposit,
 } from '../solana-utils';

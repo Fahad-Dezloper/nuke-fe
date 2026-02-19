@@ -13,7 +13,8 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
-import { getUSDCBalanceOnBase, formatUSDCBalance } from '@/lib/bridge/balance';
+import { getUSDCBalanceOnBase } from '@/lib/bridge/balance-api';
+import { formatUSDCBalance } from '@/lib/bridge/balance';
 import {
   usdcBalanceBaseAtom,
   usdcBalanceBaseLoadingAtom,
