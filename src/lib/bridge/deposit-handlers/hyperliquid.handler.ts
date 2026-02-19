@@ -9,7 +9,8 @@
 
 import { signPermitWithTurnkey } from '../signing';
 import { depositService } from '../deposit.service';
-import { getUSDCBalanceOnArbitrum, formatUSDCBalanceArbitrum } from '../balance';
+import { getUSDCBalanceOnArbitrum } from '../balance-api';
+import { formatUSDCBalanceArbitrum } from '../balance';
 import { createUsdcPermit, signUsdcPermit } from '../usdc-permit';
 import { CHAIN_IDS, MIN_DEPOSIT_AMOUNT } from '../types';
 import type { BridgeStep, PermitData } from '../types';

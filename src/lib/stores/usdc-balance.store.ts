@@ -6,7 +6,8 @@
 'use client';
 
 import { atom } from 'jotai';
-import { getUSDCBalanceOnBase, formatUSDCBalance } from '@/lib/bridge/balance';
+import { getUSDCBalanceOnBase } from '@/lib/bridge/balance-api';
+import { formatUSDCBalance } from '@/lib/bridge/balance';
 import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
 import type { Wallet } from '@/lib/turnkey/types';
 
