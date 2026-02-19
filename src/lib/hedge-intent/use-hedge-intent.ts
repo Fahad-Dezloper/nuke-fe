@@ -184,6 +184,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         isRunningRef.current = false;
         setCurrentAction(null);
         setCurrentLeg(null);
+        clearActiveIntentId();
         toast.error('Hedge Failed', {
           description: errorMsg || 'An unexpected error occurred.',
           duration: 8000,
