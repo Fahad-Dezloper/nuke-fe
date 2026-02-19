@@ -270,7 +270,8 @@ export function DepositModal({
         className="p-3 rounded-lg text-yellow-600 bg-yellow-700/10 border border-accent/20"
       >
         <p className="text-xs text-text-muted-60 leading-relaxed">
-          Only send USDC on Base network. Other tokens or networks may result in permanent loss.
+          Deposit at least <span className="text-text-primary font-medium">25 USDC</span> on BASE to
+          fund both Hyperliquid and Pacifica (~$12.50 each).
         </p>
       </motion.div>
     </Modal>

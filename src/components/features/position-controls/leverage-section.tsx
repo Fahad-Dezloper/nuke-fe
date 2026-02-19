@@ -7,6 +7,8 @@
 
 import { useAtom, useAtomValue } from 'jotai';
 import { useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AlertTriangle } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -93,6 +95,26 @@ export function LeverageSection({ className }: LeverageSectionProps) {
           <span className="text-sm text-text-muted-60">x</span>
         </div>
       </div>
+
+      <AnimatePresence>
+        {currentLeverage >= 10 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="p-2.5 rounded-lg bg-yellow-700/10 border border-yellow-600/20"
+          >
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 shrink-0 mt-px" />
+              <p className="text-[11px] text-text-muted-60 leading-relaxed">
+                High leverage increases liquidation risk on either or both legs of your position
+                when market is volatile.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

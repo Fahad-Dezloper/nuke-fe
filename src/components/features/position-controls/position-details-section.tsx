@@ -69,8 +69,8 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
       const usdSize = marginAmount * leverage;
       const assetSize = usdSize / price;
       if (assetSize >= 1) return assetSize.toFixed(4);
-      if (assetSize >= 0.01) return assetSize.toFixed(6);
-      return assetSize.toFixed(8);
+      if (assetSize >= 0.01) return assetSize.toFixed(4);
+      return assetSize.toFixed(4);
     }
 
     function formatMargin(amount: number): string {

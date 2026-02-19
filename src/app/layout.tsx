@@ -61,14 +61,14 @@ export default function RootLayout({
           <QueryProvider>
             <TurnkeyProvider>
               <AuthProvider>
-              <MarketFeedProvider>
-                <LoadingOverlay />
-                <div className="flex h-screen flex-col">
-                  <Navbar />
-                  <main className="flex-1 overflow-hidden">{children}</main>
-                </div>
-                <Toaster position="bottom-right" theme="dark" richColors closeButton />
-              </MarketFeedProvider>
+                <MarketFeedProvider>
+                  <LoadingOverlay />
+                  <div className="flex h-screen flex-col">
+                    <Navbar />
+                    <main className="flex-1 overflow-hidden">{children}</main>
+                  </div>
+                  <Toaster position="bottom-right" theme="dark" richColors closeButton />
+                </MarketFeedProvider>
               </AuthProvider>
             </TurnkeyProvider>
           </QueryProvider>
