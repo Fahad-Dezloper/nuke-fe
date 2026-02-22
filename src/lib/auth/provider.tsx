@@ -73,8 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Fire background login
     loginInFlight.current = true;
+    const idToken = turnkeyState.googleIdToken ?? undefined;
 
-    login({ suborgId, evmAddress, organizationId: suborgId })
+    login({ suborgId, evmAddress, organizationId: suborgId, idToken })
       .catch((err) => {
         console.error('[AuthProvider] Background login failed:', err);
       })
@@ -119,7 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const evmAddress = getEVMAddress(turnkeyState.userWallets);
 
       if (suborgId && evmAddress && turnkeyState.isLoggedIn) {
-        login({ suborgId, evmAddress, organizationId: suborgId }).catch((err) => {
+        const idToken = turnkeyState.googleIdToken ?? undefined;
+        login({ suborgId, evmAddress, organizationId: suborgId, idToken }).catch((err) => {
           console.error('[AuthProvider] Token refresh failed:', err);
         });
       }

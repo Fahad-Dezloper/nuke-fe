@@ -470,13 +470,15 @@ export class HedgeActionExecutor {
     } else {
       try {
         console.log('[HedgeExecutor] Checking Pacifica beta access (referral code)...');
-        const hasBetaAccess = await this.pacificaService.checkReferralCodeClaimed(account);
+        const userId = context.organizationId;
+        const hasBetaAccess = await this.pacificaService.checkReferralCodeClaimed(userId);
 
         if (!hasBetaAccess) {
           console.log('[HedgeExecutor] No beta access — claiming referral code NUKETRADE...');
           const claimResult = await this.pacificaService.claimReferralCode(
             account,
-            context.organizationId
+            context.organizationId,
+            userId
           );
 
           if (!claimResult.success) {

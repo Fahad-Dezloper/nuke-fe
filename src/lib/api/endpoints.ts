@@ -28,6 +28,19 @@ export const API_ENDPOINTS = {
     detail: (intentId: string) => `/hedge-intents/${intentId}`,
     userIntents: (userId: string) => `/hedge-intents/user/${userId}`,
   },
+  withdrawIntent: {
+    create: '/withdraw-intents/create-intent',
+    nextAction: (id: string) => `/withdraw-intents/${id}/next-action`,
+    transaction: '/withdraw-intents/transaction',
+    bridge: '/withdraw-intents/bridge',
+    actionResult: (id: string) => `/withdraw-intents/${id}/action-result`,
+    detail: (id: string) => `/withdraw-intents/${id}`,
+    userIntents: (userId: string) => `/withdraw-intents/user/${userId}`,
+  },
+  pacificaClaim: {
+    claim: '/user/claim/pacifica',
+    status: (userId: string) => `/user/claim-status/pacifica/${userId}`,
+  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;

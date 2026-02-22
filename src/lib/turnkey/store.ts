@@ -20,6 +20,7 @@ const initialState: TurnkeyState = {
   turnkeySubOrgId: null,
   publicKey: null,
   nonce: null,
+  googleIdToken: null,
 };
 
 // Main state atom

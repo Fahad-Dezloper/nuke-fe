@@ -40,4 +40,10 @@ export const queryKeys = {
     exchangeBalances: (evmAddress: string, solanaAddress: string) =>
       ['balance', 'exchange', evmAddress, solanaAddress] as const,
   },
+
+  withdrawal: {
+    all: ['withdrawal'] as const,
+    detail: (id: string) => ['withdrawal', id] as const,
+    user: (userId: string) => ['withdrawal', 'user', userId] as const,
+  },
 } as const;
