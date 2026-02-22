@@ -106,7 +106,8 @@ export async function login(
   suborgId: string,
   evmAddress: string,
   organizationId: string,
-  idToken: string = ''
+  idToken: string = '',
+  accessCode?: string
 ): Promise<LoginResponse> {
   // Deduplicate concurrent calls
   if (loginPromise) return loginPromise;
@@ -121,7 +122,7 @@ export async function login(
       const signature = await signMessageWithEVM(message, evmAddress, organizationId);
 
       // POST to backend
-      const body: LoginRequest = { idToken, suborgId, message, signature };
+      const body: LoginRequest = { idToken, suborgId, message, signature, accessCode };
 
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',

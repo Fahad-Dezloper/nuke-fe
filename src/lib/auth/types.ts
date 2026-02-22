@@ -11,6 +11,7 @@ export interface LoginRequest {
   suborgId: string;
   message: string;
   signature: string;
+  accessCode?: string;
 }
 
 export interface LoginResponse {

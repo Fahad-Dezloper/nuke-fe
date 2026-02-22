@@ -31,7 +31,7 @@ import type {
   WithdrawalExchange,
   WithdrawalPhase,
 } from './types';
-import { ACTIVE_WITHDRAWAL_INTENT_KEY } from './types';
+import { ACTIVE_WITHDRAWAL_INTENT_KEY, toExchangeName } from './types';
 
 // ─── LocalStorage helpers ────────────────────────────────────────────────────
 
@@ -252,7 +252,7 @@ export function useWithdrawal(): UseWithdrawalReturn {
 
         const newIntentId = await withdrawalApi.create({
           user_id: context.organizationId,
-          exchange: params.exchange,
+          exchange: toExchangeName(params.exchange),
           amount_usd: params.amountUsd,
           evm_address: context.evmAddress,
           recipient: params.recipient || context.evmAddress,

@@ -21,6 +21,9 @@ import { turnkeyStateAtom } from '@/lib/turnkey/store';
 import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
 import { hydrateAuthAtom, loginAtom, logoutAuthAtom, authStateAtom } from './store';
 import { isTokenValid } from './auth.service';
+import { getStoredAccessCode } from './access-code';
+
+const MAX_LOGIN_ATTEMPTS = 2;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const turnkeyState = useAtomValue(turnkeyStateAtom);
@@ -31,6 +34,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const hasHydrated = useRef(false);
   const loginInFlight = useRef(false);
+  const loginAttempts = useRef(0);
+  const lastTurnkeySubOrg = useRef<string | null>(null);
 
   // Step 1: Hydrate from localStorage on mount
   useEffect(() => {
@@ -40,42 +45,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [hydrate]);
 
+  // Reset attempt counter when Turnkey identity changes (fresh login)
+  useEffect(() => {
+    if (
+      turnkeyState.turnkeySubOrgId &&
+      turnkeyState.turnkeySubOrgId !== lastTurnkeySubOrg.current
+    ) {
+      lastTurnkeySubOrg.current = turnkeyState.turnkeySubOrgId;
+      loginAttempts.current = 0;
+    }
+  }, [turnkeyState.turnkeySubOrgId]);
+
   // Step 2: Auto-login when Turnkey session is active but JWT is missing/expired
   useEffect(() => {
     if (!turnkeyState.isLoggedIn) {
-      // User is not logged in via Turnkey — nothing to do
       return;
     }
 
     if (turnkeyState.isLoading || turnkeyState.isLoggingIn) {
-      // Turnkey is still initializing — wait
       return;
     }
 
     if (isTokenValid(authState.token)) {
-      // Already have a valid JWT — no action needed
       return;
     }
 
     if (authState.isAuthenticating || loginInFlight.current) {
-      // Login already in progress
       return;
     }
 
-    // Extract wallet data
+    if (authState.error) {
+      // Previous attempt failed — don't auto-retry (costs a Turnkey signature each time)
+      return;
+    }
+
+    if (loginAttempts.current >= MAX_LOGIN_ATTEMPTS) {
+      console.warn(
+        `[AuthProvider] Login failed ${MAX_LOGIN_ATTEMPTS} times — giving up to avoid burning Turnkey signatures.`
+      );
+      return;
+    }
+
     const suborgId = turnkeyState.turnkeySubOrgId;
     const evmAddress = getEVMAddress(turnkeyState.userWallets);
 
     if (!suborgId || !evmAddress) {
-      // Missing required data — can't login yet
       return;
     }
 
-    // Fire background login
     loginInFlight.current = true;
+    loginAttempts.current += 1;
     const idToken = turnkeyState.googleIdToken ?? undefined;
+    const accessCode = getStoredAccessCode() ?? undefined;
 
-    login({ suborgId, evmAddress, organizationId: suborgId, idToken })
+    login({ suborgId, evmAddress, organizationId: suborgId, idToken, accessCode })
       .catch((err) => {
         console.error('[AuthProvider] Background login failed:', err);
       })
@@ -90,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     turnkeyState.userWallets,
     authState.token,
     authState.isAuthenticating,
+    authState.error,
     login,
   ]);
 
@@ -121,7 +145,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (suborgId && evmAddress && turnkeyState.isLoggedIn) {
         const idToken = turnkeyState.googleIdToken ?? undefined;
-        login({ suborgId, evmAddress, organizationId: suborgId, idToken }).catch((err) => {
+        const refreshAccessCode = getStoredAccessCode() ?? undefined;
+        login({ suborgId, evmAddress, organizationId: suborgId, idToken, accessCode: refreshAccessCode }).catch((err) => {
           console.error('[AuthProvider] Token refresh failed:', err);
         });
       }

@@ -9,8 +9,21 @@
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
-/** Supported exchange identifiers for withdrawals */
+/** Supported exchange identifiers for withdrawals (lowercase, used internally) */
 export type WithdrawalExchange = 'hyperliquid' | 'pacifica' | 'lighter';
+
+/** PascalCase exchange names — the backend expects this casing in request bodies */
+export type WithdrawalExchangeName = 'Hyperliquid' | 'Pacifica' | 'Lighter';
+
+const EXCHANGE_NAME_MAP: Record<WithdrawalExchange, WithdrawalExchangeName> = {
+  hyperliquid: 'Hyperliquid',
+  pacifica: 'Pacifica',
+  lighter: 'Lighter',
+};
+
+export function toExchangeName(exchange: WithdrawalExchange): WithdrawalExchangeName {
+  return EXCHANGE_NAME_MAP[exchange];
+}
 
 /** Withdrawal intent lifecycle status (owned by backend) */
 export type WithdrawalStatus =
@@ -32,7 +45,7 @@ export type WithdrawalStepStatus = 'PENDING' | 'CONFIRMED' | 'FAILED';
 /** POST /withdraw-intents/create-intent — request body */
 export interface CreateWithdrawalIntentRequest {
   user_id: string;
-  exchange: WithdrawalExchange;
+  exchange: WithdrawalExchangeName;
   amount_usd: number;
   evm_address: string;
   recipient: string;
