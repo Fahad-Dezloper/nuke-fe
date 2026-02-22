@@ -18,6 +18,7 @@ export interface TurnkeyState {
   turnkeySubOrgId: string | null;
   publicKey: string | null;
   nonce: string | null;
+  googleIdToken: string | null;
 }
 
 export interface LoginResult {

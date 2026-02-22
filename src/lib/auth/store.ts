@@ -58,7 +58,7 @@ export const loginAtom = atom(
   async (
     _get,
     set,
-    params: { suborgId: string; evmAddress: string; organizationId: string }
+    params: { suborgId: string; evmAddress: string; organizationId: string; idToken?: string; accessCode?: string }
   ) => {
     set(authStateAtom, (prev) => ({
       ...prev,
@@ -70,7 +70,9 @@ export const loginAtom = atom(
       const response = await authLogin(
         params.suborgId,
         params.evmAddress,
-        params.organizationId
+        params.organizationId,
+        params.idToken ?? '',
+        params.accessCode
       );
 
       const token: AuthToken = {

@@ -7,9 +7,11 @@
 // ─── API Types ─────────────────────────────────────────────────────────────────
 
 export interface LoginRequest {
+  idToken: string;
   suborgId: string;
   message: string;
   signature: string;
+  accessCode?: string;
 }
 
 export interface LoginResponse {

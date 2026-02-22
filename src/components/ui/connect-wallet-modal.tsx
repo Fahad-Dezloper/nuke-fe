@@ -2,16 +2,18 @@
 
 /**
  * Connect Wallet Modal Component
- * Modal for wallet connection with Google Sign-in, EVM, and Solana wallet options
+ * Modal for wallet connection with Google Sign-in, EVM, and Solana wallet options.
+ * Gated behind an access code validated server-side before Turnkey is touched.
  */
 
 import { motion } from 'framer-motion';
-import { Wallet, Wallet2, WalletIcon } from 'lucide-react';
+import { Loader2, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import { useTurnkey } from '@/lib/turnkey';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { storeAccessCode } from '@/lib/auth/access-code';
 
 interface ConnectWalletModalProps {
   isOpen: boolean;
@@ -26,9 +28,42 @@ export function ConnectWalletModal({
   onGoogleSignIn,
   onEOAConnect,
 }: ConnectWalletModalProps) {
-  const { loginWithGoogle, loginWithEVMWallet, loginWithSolanaWallet, state } = useTurnkey();
-  const [loading, setLoading] = useState<'google' | 'evm' | 'solana' | null>(null);
+  const { loginWithGoogle, state } = useTurnkey();
+  const [loading, setLoading] = useState<'google' | 'validating' | null>(null);
   const [error, setError] = useState('');
+  const [accessCode, setAccessCode] = useState('');
+  const [isCodeValidated, setIsCodeValidated] = useState(false);
+
+  const handleValidateCode = useCallback(async () => {
+    if (!accessCode.trim()) {
+      setError('Please enter an access code');
+      return;
+    }
+
+    setLoading('validating');
+    setError('');
+
+    try {
+      const res = await fetch('/api/validate-access-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: accessCode.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (data.valid) {
+        storeAccessCode(accessCode.trim());
+        setIsCodeValidated(true);
+      } else {
+        setError('Invalid access code');
+      }
+    } catch {
+      setError('Failed to validate access code');
+    } finally {
+      setLoading(null);
+    }
+  }, [accessCode]);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -36,63 +71,35 @@ export function ConnectWalletModal({
       setError('');
       await loginWithGoogle();
       onGoogleSignIn?.();
-      // Note: Google OAuth will redirect, so we don't close modal here
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
       setLoading(null);
     }
   };
 
-  const handleEVMConnect = async () => {
-    try {
-      setLoading('evm');
-      setError('');
-      const success = await loginWithEVMWallet();
-      if (success) {
-        onEOAConnect?.();
-        onClose();
-      } else {
-        setError('Failed to connect EVM wallet');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect wallet');
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handleSolanaConnect = async () => {
-    try {
-      setLoading('solana');
-      setError('');
-      const success = await loginWithSolanaWallet();
-      if (success) {
-        onEOAConnect?.();
-        onClose();
-      } else {
-        setError('Failed to connect Solana wallet');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect Solana wallet');
-    } finally {
-      setLoading(null);
-    }
-  };
+  const handleClose = useCallback(() => {
+    setAccessCode('');
+    setError('');
+    setIsCodeValidated(false);
+    setLoading(null);
+    onClose();
+  }, [onClose]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} maxWidth="md" contentClassName="p-8 md:p-10">
+    <Modal isOpen={isOpen} onClose={handleClose} maxWidth="md" contentClassName="p-8 md:p-10">
       {/* Logo and Title */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        // transition={{ delay: 0.1 }}
         className="flex flex-col items-center mb-8"
       >
         <h2 className="text-xl font-semibold text-text-primary mb-2 tracking-tight">
           CONNECT WALLET
         </h2>
         <p className="text-xs text-text-muted-60 text-center max-w-xs leading-relaxed">
-          Choose your preferred method to connect and start trading
+          {isCodeValidated
+            ? 'Choose your preferred method to connect and start trading'
+            : 'Enter your access code to continue'}
         </p>
       </motion.div>
 
@@ -107,149 +114,108 @@ export function ConnectWalletModal({
         </motion.div>
       )}
 
-      {/* Buttons */}
-      <div className="space-y-3">
-        {/* Google Sign In Button */}
-        <motion.button
-          onClick={handleGoogleSignIn}
-          disabled={loading !== null || state.isLoading}
-          whileHover={loading === null ? { scale: 1.01, y: -1 } : {}}
-          whileTap={loading === null ? { scale: 0.99 } : {}}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          // transition={{ type: 'spring', stiffness: 300 }}
-          className={cn(
-            'w-full relative overflow-hidden cursor-pointer',
-            'px-5 py-4 rounded-xl',
-            'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-            'backdrop-blur-lg border border-border-white-15/60',
-            'hover:border-border-white-25',
-            'hover:from-card/85 hover:via-card/75 hover:to-card/70',
-            'transition-all duration-300',
-            'shadow-md shadow-black/30 hover:shadow-lg hover:shadow-black/40',
-            'group',
-            (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
-          )}
+      {!isCodeValidated ? (
+        /* ── Access Code Gate ────────────────────────────────── */
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
         >
-          {/* Glassmorphism overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
-
-          {/* Hover glow effect */}
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-            initial={false}
-          />
-
-          <div className="relative z-10 flex items-center justify-center">
-            {loading === 'google' ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                <span className="text-sm font-medium text-text-primary">Signing in...</span>
-              </>
-            ) : (
-              <div className="text-sm flex items-center gap-2 font-medium text-text-primary">
-                <Image src="/google.png" alt="Google" width={20} height={20} />
-                <span>Sign in with Google</span>
-              </div>
+          <div
+            className={cn(
+              'relative overflow-hidden rounded-xl',
+              'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
+              'backdrop-blur-lg border border-border-white-15/60',
+              'p-3.5 flex items-center gap-3'
             )}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+            <ShieldCheck className="relative z-10 w-4 h-4 text-text-muted-60 shrink-0" />
+            <input
+              type="text"
+              placeholder="Enter access code"
+              value={accessCode}
+              onChange={(e) => setAccessCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && accessCode.trim()) handleValidateCode();
+              }}
+              disabled={loading !== null}
+              autoFocus
+              className={cn(
+                'relative z-10 flex-1 bg-transparent outline-none',
+                'text-sm font-medium text-text-primary',
+                'placeholder:text-text-muted-60/30 caret-white',
+                'disabled:opacity-50'
+              )}
+            />
           </div>
-        </motion.button>
 
-        {/* <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border-white-10"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-card text-text-muted-40">Or connect with</span>
-          </div>
-        </div> */}
-
-        {/* <motion.button
-          onClick={handleEVMConnect}
-          disabled={loading !== null || state.isLoading}
-          whileHover={loading === null ? { scale: 1.01, y: -1 } : {}}
-          whileTap={loading === null ? { scale: 0.99 } : {}}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.25, type: 'spring', stiffness: 300 }}
-          className={cn(
-            'w-full relative overflow-hidden',
-            'px-5 py-4 rounded-xl',
-            'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-            'backdrop-blur-lg border border-border-white-15/60',
-            'hover:border-border-white-25',
-            'hover:from-card/85 hover:via-card/75 hover:to-card/70',
-            'transition-all duration-300',
-            'shadow-md shadow-black/30 hover:shadow-lg hover:shadow-black/40',
-            'group',
-            (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
-          )}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
-
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-            initial={false}
-          />
-
-          <div className="relative z-10 flex items-center justify-center gap-2.5">
-            {loading === 'evm' ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                <span className="text-sm font-medium text-text-primary">Connecting...</span>
-              </>
-            ) : (
-              <>
-                <Wallet className="w-5 h-5 text-text-primary" />
-                <span className="text-sm font-medium text-text-primary">Connect EVM Wallet</span>
-              </>
+          <button
+            onClick={handleValidateCode}
+            disabled={!accessCode.trim() || loading !== null}
+            className={cn(
+              'w-full py-3 rounded-xl text-sm font-semibold tracking-wide cursor-pointer',
+              'transition-all duration-200',
+              !accessCode.trim() || loading !== null
+                ? 'bg-white/5 text-text-muted-60/40 cursor-not-allowed border border-border-white-10/30'
+                : 'bg-gradient-to-r from-accent/80 to-accent/60 text-white hover:from-accent hover:to-accent/80 border border-accent/30 shadow-lg shadow-accent/10'
             )}
-          </div>
-        </motion.button> */}
-
-        {/* Solana Wallet Button */}
-        {/* <motion.button
-          onClick={handleSolanaConnect}
-          disabled={loading !== null || state.isLoading}
-          whileHover={loading === null ? { scale: 1.01, y: -1 } : {}}
-          whileTap={loading === null ? { scale: 0.99 } : {}}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3, type: 'spring', stiffness: 300 }}
-          className={cn(
-            'w-full relative overflow-hidden',
-            'px-5 py-4 rounded-xl',
-            'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-            'backdrop-blur-lg border border-border-white-15/60',
-            'hover:border-border-white-25',
-            'hover:from-card/85 hover:via-card/75 hover:to-card/70',
-            'transition-all duration-300',
-            'shadow-md shadow-black/30 hover:shadow-lg hover:shadow-black/40',
-            'group',
-            (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
-          )}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
-
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-            initial={false}
-          />
-
-          <div className="relative z-10 flex items-center justify-center gap-2.5">
-            {loading === 'solana' ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                <span className="text-sm font-medium text-text-primary">Connecting...</span>
-              </>
+          >
+            {loading === 'validating' ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Validating...
+              </span>
             ) : (
-              <>
-                <span className="text-sm font-medium text-text-primary">Connect Phantom</span>
-              </>
+              'CONTINUE'
             )}
-          </div>
-        </motion.button> */}
-      </div>
+          </button>
+        </motion.div>
+      ) : (
+        /* ── Sign-in Options ─────────────────────────────────── */
+        <div className="space-y-3">
+          {/* Google Sign In Button */}
+          <motion.button
+            onClick={handleGoogleSignIn}
+            disabled={loading !== null || state.isLoading}
+            whileHover={loading === null ? { scale: 1.01, y: -1 } : {}}
+            whileTap={loading === null ? { scale: 0.99 } : {}}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className={cn(
+              'w-full relative overflow-hidden cursor-pointer',
+              'px-5 py-4 rounded-xl',
+              'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
+              'backdrop-blur-lg border border-border-white-15/60',
+              'hover:border-border-white-25',
+              'hover:from-card/85 hover:via-card/75 hover:to-card/70',
+              'transition-all duration-300',
+              'shadow-md shadow-black/30 hover:shadow-lg hover:shadow-black/40',
+              'group',
+              (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              initial={false}
+            />
+            <div className="relative z-10 flex items-center justify-center">
+              {loading === 'google' ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  <span className="text-sm font-medium text-text-primary">Signing in...</span>
+                </>
+              ) : (
+                <div className="text-sm flex items-center gap-2 font-medium text-text-primary">
+                  <Image src="/google.png" alt="Google" width={20} height={20} />
+                  <span>Sign in with Google</span>
+                </div>
+              )}
+            </div>
+          </motion.button>
+        </div>
+      )}
 
       {/* Footer text */}
       <motion.p

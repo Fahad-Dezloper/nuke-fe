@@ -12,9 +12,8 @@ import { signPacificaMessageWithTurnkey } from './utils/turnkey-signing';
 import { roundAmount, roundPrice } from '@/dex/pacifica/utils/rounding';
 import axios from 'axios';
 import { BUILDER_CODE, BUILDER_MAX_FEE_RATE, EXPIRY_WINDOW } from '@/constants';
-
-
-
+import { apiClient } from '@/lib/api/client';
+import { API_ENDPOINTS } from '@/lib/api/endpoints';
 export class PacificaService {
   private baseUrl: string;
   private timeout: number;
@@ -83,33 +82,16 @@ export class PacificaService {
   }
 
   /**
-   * Check if the user has already claimed the NUKETRADE referral code
-   * (which also grants beta/whitelist access).
-   *
-   * We check the account settings endpoint — if the account can fetch
-   * settings without a 403, it has beta access.
-   * If the GET returns 403, the account still needs to claim.
+   * Check if the user has already claimed Pacifica access via our backend.
    */
-  async checkReferralCodeClaimed(account: string): Promise<boolean> {
+  async checkReferralCodeClaimed(userId: string): Promise<boolean> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/account/settings?account=${account}`,
-        { method: 'GET', headers: { Accept: '*/*' } }
+      const data = await apiClient.get<{ is_claimed: boolean }>(
+        API_ENDPOINTS.pacificaClaim.status(userId)
       );
-
-      if (response.status === 403) {
-        return false;
-      }
-
-      if (!response.ok) {
-        console.warn('[Pacifica] Account settings check returned:', response.status);
-        return false;
-      }
-
-      const json = await response.json();
-      return json?.success === true;
+      return data.is_claimed === true;
     } catch (err) {
-      console.warn('[Pacifica] Error checking referral code status:', err);
+      console.warn('[Pacifica] Error checking claim status:', err);
       return false;
     }
   }
@@ -127,7 +109,8 @@ export class PacificaService {
    */
   async claimReferralCode(
     account: string,
-    organizationId: string
+    organizationId: string,
+    userId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
       
@@ -157,6 +140,8 @@ export class PacificaService {
       if (apiResponse.error) {
         return { success: false, error: `Referral code claim failed: ${apiResponse.error}` };
       }
+
+      await apiClient.post(API_ENDPOINTS.pacificaClaim.claim, { user_id: userId });
 
       return { success: true };
     } catch (err) {

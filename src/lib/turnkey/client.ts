@@ -10,7 +10,7 @@ import { TURNKEY_API_BASE_URL } from './constants';
 import { SessionManager } from './session-manager';
 import { OAuthHandler } from './oauth-handler';
 import { WalletManager } from './wallet-manager';
-import { isOAuthRedirectInProgress, calculateSha256 } from './utils';
+import { isOAuthRedirectInProgress, extractOAuthParams, calculateSha256 } from './utils';
 import { ErrorCode, createError, toAppError, getUserMessage } from '@/lib/errors';
 import { KeyFormat } from '@turnkey/iframe-stamper';
 
@@ -47,6 +47,7 @@ export class TurnkeyClient {
       turnkeySubOrgId: null,
       publicKey: null,
       nonce: null,
+      googleIdToken: null,
     };
 
     this.sessionManager = new SessionManager(this.turnkey);
@@ -139,11 +140,15 @@ export class TurnkeyClient {
       this.updateState({ isLoading: true });
 
       if (isOAuthRedirectInProgress()) {
+        const { idToken: googleIdToken } = extractOAuthParams();
         await this.oauthHandler.handleOAuthRedirect(
           (credential, publicKey) => this.oauthHandler.loginWithGoogle(credential, publicKey),
           (subOrgId) => this.loadUserData(subOrgId),
           () => this.prepareForLogin()
         );
+        if (googleIdToken && this.state.isLoggedIn) {
+          this.updateState({ googleIdToken });
+        }
         return;
       }
 
@@ -160,11 +165,15 @@ export class TurnkeyClient {
           await this.prepareForLogin();
         }
       } else {
+        const { idToken: googleIdToken } = extractOAuthParams();
         await this.oauthHandler.handleOAuthRedirect(
           (credential, publicKey) => this.oauthHandler.loginWithGoogle(credential, publicKey),
           (subOrgId) => this.loadUserData(subOrgId),
           () => this.prepareForLogin()
         );
+        if (googleIdToken && this.state.isLoggedIn) {
+          this.updateState({ googleIdToken });
+        }
       }
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -298,7 +307,7 @@ export class TurnkeyClient {
    * @returns Promise resolving to login result with success status, sub-organization ID, wallets, or error
    */
   async loginWithGoogle(googleCredential: string): Promise<LoginResult> {
-    this.updateState({ isLoggingIn: true });
+    this.updateState({ isLoggingIn: true, googleIdToken: googleCredential });
 
     try {
       const result = await this.oauthHandler.loginWithGoogle(googleCredential);

@@ -7,7 +7,7 @@
 
 import { useTurnkey, getEVMAddress, getSolanaAddress } from '@/lib/turnkey';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Wallet, Key, ArrowDownToLine, ChevronDown, ArrowUpToLine } from 'lucide-react';
+import { LogOut, Wallet, Key, ArrowDownToLine, ChevronDown, ArrowUpToLine, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useCallback } from 'react';
 import { useUSDCBalanceBase } from '@/hooks/use-usdc-balance-base';
@@ -16,6 +16,7 @@ import { getProtocolConfig } from '@/lib/protocols/config';
 import Image from 'next/image';
 import { DepositModal } from './deposit-modal';
 import { ExportWalletModal } from './export-wallet-modal';
+import { WithdrawModal } from './withdraw-modal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +30,8 @@ export function WalletStatus() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { formattedBalance, isLoading: isBalanceLoading } = useUSDCBalanceBase();
   const { hlBalance, pacBalance, isLoading: isExchangeLoading } = useExchangeBalances();
   const [balanceHover, setBalanceHover] = useState(false);
@@ -63,6 +66,13 @@ export function WalletStatus() {
   // Get wallet addresses
   const walletAddress = getEVMAddress(state.userWallets) || 'Connected';
   const solanaAddress = getSolanaAddress(state.userWallets) || '';
+
+  const handleCopyAddress = useCallback(() => {
+    navigator.clipboard.writeText(walletAddress).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [walletAddress]);
 
   // Truncate address for display
   const displayAddress =
@@ -252,6 +262,24 @@ export function WalletStatus() {
           align="end"
           className="w-48 bg-card border border-border-white-10/50 backdrop-blur-xl"
         >
+          {/* Wallet Address */}
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              handleCopyAddress();
+            }}
+            className="flex items-center justify-between px-3 py-2 text-xs text-text-muted-60 hover:bg-white/5 cursor-pointer"
+          >
+            <span className="font-mono">{displayAddress}</span>
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-green-400" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator className="bg-border-white-10/50" />
+
           {/* Deposit */}
           <DropdownMenuItem
             onClick={() => setIsDepositModalOpen(true)}
@@ -270,16 +298,13 @@ export function WalletStatus() {
             Export Wallet
           </DropdownMenuItem>
 
-          {/* Withdraw (Coming Soon) */}
+          {/* Withdraw */}
           <DropdownMenuItem
-            disabled
-            className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted-40 cursor-not-allowed"
+            onClick={() => setIsWithdrawModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-white/5 cursor-pointer"
           >
-            <ArrowDownToLine className="w-4 h-4 text-text-muted-40" />
+            <ArrowDownToLine className="w-4 h-4 text-text-muted-60" />
             Withdraw
-            <span className="ml-auto text-[10px] text-text-muted-40 uppercase tracking-wider">
-              Soon
-            </span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator className="bg-border-white-10/50" />
@@ -311,6 +336,11 @@ export function WalletStatus() {
         onClose={() => setIsExportModalOpen(false)}
         evmAddress={walletAddress}
         solanaAddress={solanaAddress}
+      />
+
+      <WithdrawModal
+        isOpen={isWithdrawModalOpen}
+        onClose={() => setIsWithdrawModalOpen(false)}
       />
     </>
   );
