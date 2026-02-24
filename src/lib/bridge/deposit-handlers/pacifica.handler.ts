@@ -106,7 +106,6 @@ export class PacificaDepositHandler implements DepositHandler {
 
     // 2. Get partially signed transaction from backend
     const partiallySignedTx = await pacificaDepositService.getPartiallySignedTransaction({
-      user_address: solanaRecipientAddress,
       amount: solanaBalance.toString(),
     });
 

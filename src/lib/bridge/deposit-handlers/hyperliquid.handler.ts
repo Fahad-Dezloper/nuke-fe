@@ -112,7 +112,6 @@ export class HyperliquidDepositHandler implements DepositHandler {
     // 4. Submit deposit to Hyperliquid
     const txHash = await depositService.deposit({
       amount: arbitrumBalance.toString(),
-      userAddress: walletAddress,
       permit: signatureResult.signature,
     });
 

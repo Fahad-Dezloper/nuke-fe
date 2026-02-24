@@ -299,13 +299,10 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
 
         // Create the intent on backend
         const newIntentId = await hedgeIntentApi.create({
-          user_id: context.organizationId, // Using Turnkey org ID as user ID
           asset: params.asset,
           exchanges,
           margin_usd: params.marginUsd,
           leverage: params.leverage,
-          evm_address: context.evmAddress,
-          solana_address: context.solanaAddress,
         });
 
         // Store for resumability

@@ -109,8 +109,7 @@ export class PacificaService {
    */
   async claimReferralCode(
     account: string,
-    organizationId: string,
-    userId: string
+    organizationId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
       
@@ -141,7 +140,7 @@ export class PacificaService {
         return { success: false, error: `Referral code claim failed: ${apiResponse.error}` };
       }
 
-      await apiClient.post(API_ENDPOINTS.pacificaClaim.claim, { user_id: userId });
+      await apiClient.post(API_ENDPOINTS.pacificaClaim.claim);
 
       return { success: true };
     } catch (err) {

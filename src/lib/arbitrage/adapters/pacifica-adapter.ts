@@ -86,15 +86,15 @@ export class PacificaAdapter implements ProtocolAdapter {
         };
       }
 
+      // Get slippage percent (use provided or default)
+      const slippagePercent = params.slippagePercent || '0.5';
+
       // Calculate position amount in asset units
       // Formula: (margin * leverage) / price = amount in asset units
       // Example: ($500 * 3) / $45000 = 0.0333 BTC
       const usdSize = parseFloat(params.margin) * params.leverage;
       const amountInAsset = usdSize / parseFloat(entryPrice);
       const amount = amountInAsset.toString();
-
-      // Get slippage percent (use provided or default)
-      const slippagePercent = params.slippagePercent || '0.5';
 
       // Convert unified params to Pacifica request
       const pacificaRequest: CreateMarketOrderRequest = {

@@ -20,8 +20,7 @@ import type {
   CreateWithdrawalIntentRequest,
   CreateWithdrawalIntentResponse,
   WithdrawalNextActionResponse,
-  WithdrawalTransactionRequestHL,
-  WithdrawalTransactionRequestPacifica,
+  WithdrawalTransactionRequest,
   WithdrawalBridgeRequest,
   WithdrawalActionResultRequest,
   WithdrawalActionResultResponse,
@@ -58,9 +57,7 @@ export const withdrawalApi = {
    * Get signed transaction data for the withdraw step.
    * Returns EIP-712 typed data for Hyperliquid, or submits directly for Pacifica.
    */
-  async getTransaction<T = unknown>(
-    request: WithdrawalTransactionRequestHL | WithdrawalTransactionRequestPacifica
-  ): Promise<T> {
+  async getTransaction<T = unknown>(request: WithdrawalTransactionRequest): Promise<T> {
     return apiClient.post<T>(
       API_ENDPOINTS.withdrawIntent.transaction,
       request

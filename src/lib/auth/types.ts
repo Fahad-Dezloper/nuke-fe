@@ -16,9 +16,6 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   token: string;
-  evmAddress: string;
-  solanaAddress: string;
-  expiresAtUnix: number;
 }
 
 // ─── Token State ───────────────────────────────────────────────────────────────

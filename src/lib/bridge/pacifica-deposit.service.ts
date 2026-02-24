@@ -22,7 +22,6 @@ export const pacificaDepositService = {
     ): Promise<PacificaDepositResponse> {
         try {
             const response = await apiClient.post<PacificaDepositResponse>('/pacifica/deposit', {
-                user_address: request.user_address,
                 amount: parseInt(request.amount, 10), // BE expects u64
             });
 

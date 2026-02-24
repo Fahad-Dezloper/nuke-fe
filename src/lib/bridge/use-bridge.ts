@@ -169,7 +169,6 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
         // ── Step 5: Get bridge quote ──────────────────────────────
         setStatus('getting-quote');
         const quoteRequest: QuoteRequest = {
-          user: evmAddress,
           destinationChainId,
           amount,
           tradeType: 'EXACT_INPUT',

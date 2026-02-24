@@ -15,6 +15,38 @@ import { AUTH_STORAGE_KEYS, TOKEN_EXPIRY_BUFFER_SECONDS } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+function normalizeExpiry(value: unknown): number | null {
+  const raw =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value)
+        : NaN;
+
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return null;
+  }
+
+  // Some providers return ms; normalize to seconds.
+  return raw > 1_000_000_000_000 ? Math.floor(raw / 1000) : Math.floor(raw);
+}
+
+function getJwtExpiryUnix(token: string): number | null {
+  const parts = token.split('.');
+  if (parts.length < 2) {
+    return null;
+  }
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+    return normalizeExpiry(payload.exp);
+  } catch {
+    return null;
+  }
+}
+
 // ─── In-flight login deduplication ─────────────────────────────────────────────
 // Prevents concurrent login attempts from racing with each other.
 let loginPromise: Promise<LoginResponse> | null = null;
@@ -135,13 +167,23 @@ export async function login(
         throw new Error(errData.message || `Login failed (${res.status})`);
       }
 
-      const data: LoginResponse = await res.json();
+      const data = (await res.json()) as LoginResponse & {
+        expiresAtUnix?: number | string;
+        expires_at_unix?: number | string;
+      };
+
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const expiresAtUnix =
+        getJwtExpiryUnix(data.token) ??
+        normalizeExpiry(data.expiresAtUnix ?? data.expires_at_unix) ??
+        nowSeconds + 24 * 60 * 60;
 
       // Persist token
       const authToken: AuthToken = {
         jwt: data.token,
-        expiresAtUnix: data.expiresAtUnix,
+        expiresAtUnix,
       };
+      memoryToken = authToken;
       persistToken(authToken);
 
       return data;

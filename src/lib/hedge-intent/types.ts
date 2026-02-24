@@ -59,13 +59,10 @@ export type HedgeAction =
 
 /** POST /hedge-intents/ — request body */
 export interface CreateHedgeIntentRequest {
-  user_id: string;
   asset: string;
   exchanges: [ExchangeName, ExchangeName]; // Exactly 2 different exchanges
   margin_usd: number;
   leverage: number;
-  evm_address: string;
-  solana_address: string;
 }
 
 /** POST /hedge-intents/ — response */
