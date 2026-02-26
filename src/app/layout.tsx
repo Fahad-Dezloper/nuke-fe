@@ -11,6 +11,7 @@ import { MarketFeedProvider } from '@/components/providers/market-feed-provider'
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/sonner';
 import { GA_MEASUREMENT_ID } from '@/lib/analytics';
+import { Analytics } from '@vercel/analytics/next';
 
 const robotoMono = Roboto_Mono({
   variable: '--font-roboto-mono',
@@ -73,6 +74,7 @@ export default function RootLayout({
             </TurnkeyProvider>
           </QueryProvider>
         </ErrorBoundary>
+        <Analytics />
       </body>
     </html>
   );
