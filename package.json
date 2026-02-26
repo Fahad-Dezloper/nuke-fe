@@ -22,6 +22,7 @@
     "@turnkey/sdk-server": "^4.12.2",
     "@turnkey/solana": "^1.1.21",
     "@turnkey/wallet-stamper": "^1.1.11",
+    "@vercel/analytics": "^1.6.1",
     "axios": "^1.13.2",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
