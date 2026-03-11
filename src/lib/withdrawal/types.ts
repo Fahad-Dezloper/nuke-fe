@@ -44,10 +44,8 @@ export type WithdrawalStepStatus = 'PENDING' | 'CONFIRMED' | 'FAILED';
 
 /** POST /withdraw-intents/create-intent — request body */
 export interface CreateWithdrawalIntentRequest {
-  user_id: string;
   exchange: WithdrawalExchangeName;
   amount_usd: number;
-  evm_address: string;
   recipient: string;
   destination_chain_id: number;
 }
@@ -65,21 +63,22 @@ export interface WithdrawalNextActionResponse {
 
 /** POST /withdraw-intents/transaction — Hyperliquid request */
 export interface WithdrawalTransactionRequestHL {
-  evm_address: string;
-  destination: string;
   amount: string;
 }
 
 /** POST /withdraw-intents/transaction — Pacifica request */
 export interface WithdrawalTransactionRequestPacifica {
-  account: string;
   signature: string;
   amount: string;
 }
 
+/** POST /withdraw-intents/transaction — enum-wrapped request body */
+export type WithdrawalTransactionRequest =
+  | { Hyperliquid: WithdrawalTransactionRequestHL }
+  | { Pacifica: WithdrawalTransactionRequestPacifica };
+
 /** POST /withdraw-intents/bridge — request body */
 export interface WithdrawalBridgeRequest {
-  user: string;
   originChainId: number;
   destinationChainId: number;
   amount: string;

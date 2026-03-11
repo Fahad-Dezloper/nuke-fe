@@ -9,7 +9,7 @@
 'use client';
 
 import { atom } from 'jotai';
-import type { AuthState, AuthToken } from './types';
+import type { AuthState } from './types';
 import {
   login as authLogin,
   getToken,
@@ -75,13 +75,17 @@ export const loginAtom = atom(
         params.accessCode
       );
 
-      const token: AuthToken = {
-        jwt: response.token,
-        expiresAtUnix: response.expiresAtUnix,
-      };
+      const token = getToken();
+      const resolvedToken =
+        token ??
+        ({
+          jwt: response.token,
+          expiresAtUnix: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
+        } as const);
+      setToken(resolvedToken);
 
       set(authStateAtom, {
-        token,
+        token: resolvedToken,
         isAuthenticating: false,
         error: null,
       });

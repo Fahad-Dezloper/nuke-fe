@@ -25,7 +25,6 @@ export const TOKEN_ADDRESSES = {
  * Quote Request
  */
 export interface QuoteRequest {
-  user: string; // User's EVM address (0x...)
   // originChainId: number; // 8453 for Base
   destinationChainId: number; // 42161 for Arbitrum
   // originCurrency: string; // Token address on Base
@@ -201,7 +200,6 @@ export interface BridgeError {
  */
 export interface DepositRequest {
   amount: string; // Amount in smallest unit (6 decimals for USDC) as string
-  userAddress: string; // User's EVM address (0x...)
   permit: {
     v: number; // Recovery id (0 or 1, typically 27 or 28)
     r: Uint8Array; // 32-byte array (signature r component)
@@ -224,7 +222,6 @@ export const MIN_DEPOSIT_AMOUNT = 10_000_000;
  * Pacifica Deposit Request
  */
 export interface PacificaDepositRequest {
-  user_address: string; // Solana pubkey (base58)
   amount: string; // Amount in smallest unit (6 decimals for USDC) as string
 }
 

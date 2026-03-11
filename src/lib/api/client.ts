@@ -62,14 +62,17 @@ class ApiClient {
       });
     }
 
-    // Automatically attach JWT for non-GET requests (unless skipped or auth endpoint)
+    // Automatically attach JWT for:
+    // - all non-GET requests
+    // - GET /withdraw-intents* requests (currently auth-protected on backend)
     const resolvedHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       ...headers,
     };
 
     const isAuthEndpoint = endpoint.startsWith('/auth/') || endpoint.startsWith('/auth');
-    if (!skipAuth && method !== 'GET' && !isAuthEndpoint) {
+    const isProtectedWithdrawGet = method === 'GET' && endpoint.startsWith('/withdraw-intents');
+    if (!skipAuth && !isAuthEndpoint && (method !== 'GET' || isProtectedWithdrawGet)) {
       const jwt = getJWT();
       if (jwt) {
         resolvedHeaders['Authorization'] = `Bearer ${jwt}`;

@@ -11,8 +11,12 @@
 
 import { Signature } from 'ethers';
 import { HYPERLIQUID_API } from '@/dex/hyperliquid/constants';
-import { ErrorCode, createError, toAppError } from '@/lib/errors';
+import { ErrorCode, createError } from '@/lib/errors';
 import { signPacificaMessageWithTurnkey } from '@/lib/services/pacifica/utils/turnkey-signing';
+import { bridgeService } from '@/lib/bridge/bridge.service';
+import { signPermitWithTurnkey } from '@/lib/bridge/signing';
+import { signTransferWithAuthorizationWithTurnkey } from '@/lib/bridge/solana-signing';
+import type { TransferWithAuthorizationData } from '@/lib/bridge/types';
 import { withdrawalApi } from './api';
 import type {
   WithdrawalNextActionResponse,
@@ -37,6 +41,44 @@ export interface ActionResult {
   success: boolean;
   txHash: string | null;
   error: string | null;
+}
+
+function toAmountString(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return null;
+}
+
+function toChainId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function resolveBridgeAmount(params: Record<string, unknown> | null): string {
+  const amount = toAmountString(params?.amount);
+  if (amount) return amount;
+
+  const amountUsdRaw = params?.amount_usd;
+  const amountUsd =
+    typeof amountUsdRaw === 'number'
+      ? amountUsdRaw
+      : typeof amountUsdRaw === 'string'
+        ? Number(amountUsdRaw)
+        : NaN;
+
+  if (Number.isFinite(amountUsd) && amountUsd > 0) {
+    return Math.floor(amountUsd * 1_000_000).toString();
+  }
+
+  return '0';
 }
 
 // ─── Executor ────────────────────────────────────────────────────────────────
@@ -97,9 +139,7 @@ export class WithdrawalActionExecutor {
   ): Promise<ActionResult> {
     try {
       const params = _action.params as Record<string, unknown> | null;
-      const amount = (params?.amount as string) || '0';
-      const destination = (params?.destination as string) || context.evmAddress;
-
+      const amount = toAmountString(params?.amount) ?? toAmountString(params?.amount_usd) ?? '0';
       // 1. Get EIP-712 typed data from backend
       const txData = await withdrawalApi.getTransaction<{
         domain: { name: string; version: string; chainId: number; verifyingContract: string };
@@ -108,11 +148,28 @@ export class WithdrawalActionExecutor {
         message: Record<string, unknown>;
         action: Record<string, unknown>;
         nonce: number;
+        typedData?: {
+          domain: { name: string; version: string; chainId: number; verifyingContract: string };
+          types: Record<string, { name: string; type: string }[]>;
+          primaryType: string;
+          message: Record<string, unknown>;
+        };
       }>({
-        evm_address: context.evmAddress,
-        destination,
-        amount,
+        Hyperliquid: {
+          amount,
+        },
       });
+
+      const signDomain = txData.typedData?.domain ?? txData.domain;
+      const rawSignTypes = txData.typedData?.types ?? txData.types;
+      const signMessage = txData.typedData?.message ?? txData.message;
+      const signTypes = Object.fromEntries(
+        Object.entries(rawSignTypes ?? {}).filter(([key]) => key !== 'EIP712Domain')
+      ) as Record<string, { name: string; type: string }[]>;
+
+      if (!signDomain || !signTypes || !signMessage) {
+        throw new Error('Invalid Hyperliquid typed data payload from backend');
+      }
 
       // 2. Sign with Turnkey EVM wallet
       const { Turnkey } = await import('@turnkey/sdk-browser');
@@ -133,9 +190,9 @@ export class WithdrawalActionExecutor {
       });
 
       const signature = await signer.signTypedData(
-        txData.domain,
-        txData.types,
-        txData.message
+        signDomain,
+        signTypes,
+        signMessage
       );
 
       const sig = Signature.from(signature);
@@ -191,7 +248,7 @@ export class WithdrawalActionExecutor {
   ): Promise<ActionResult> {
     try {
       const params = _action.params as Record<string, unknown> | null;
-      const amount = (params?.amount as string) || '0';
+      const amount = toAmountString(params?.amount) ?? toAmountString(params?.amount_usd) ?? '0';
 
       // 1. Sign the withdrawal message
       const timestamp = Date.now();
@@ -212,9 +269,10 @@ export class WithdrawalActionExecutor {
 
       // 2. Submit to backend (backend submits to Pacifica)
       const result = await withdrawalApi.getTransaction<{ success?: boolean; error?: string }>({
-        account: context.solanaAddress,
-        signature,
-        amount,
+        Pacifica: {
+          signature,
+          amount,
+        },
       });
 
       if (result.error) {
@@ -243,9 +301,11 @@ export class WithdrawalActionExecutor {
   ): Promise<ActionResult> {
     try {
       const params = action.params as Record<string, unknown> | null;
-      const amount = (params?.amount as string) || '0';
-      const originChainId = (params?.originChainId as number) || 42161;
-      const destinationChainId = (params?.destinationChainId as number) || 8453;
+      const amount = resolveBridgeAmount(params);
+      const originChainId =
+        toChainId(params?.originChainId) ?? toChainId(params?.origin_chain_id) ?? 42161;
+      const destinationChainId =
+        toChainId(params?.destinationChainId) ?? toChainId(params?.destination_chain_id) ?? 8453;
       const recipient = (params?.recipient as string) || context.evmAddress;
 
       // 1. Get bridge quote from backend
@@ -259,69 +319,132 @@ export class WithdrawalActionExecutor {
               data: string;
               value: string;
               chainId: number;
+              post?: {
+                body?: {
+                  api?: string;
+                  kind?: string;
+                  requestId?: string;
+                };
+              };
+              sign?: {
+                domain: {
+                  name: string;
+                  version: string;
+                  chainId: number;
+                  verifyingContract: `0x${string}`;
+                };
+                types: Record<string, { name: string; type: string }[]>;
+                value: Record<string, unknown>;
+              };
             };
           }>;
         }>;
       }>({
-        user: context.evmAddress,
         originChainId,
         destinationChainId,
         amount,
         tradeType: 'EXACT_INPUT',
-        usePermit: false,
+        usePermit: true,
         recipient,
       });
 
       // 2. Find the transaction step
-      const txStep = quote.steps?.find((step) => step.kind === 'transaction');
-      if (!txStep || !txStep.items?.[0]?.data) {
+      const txStep =
+        quote.steps?.find((step) => step.kind === 'transaction') ||
+        quote.steps?.find((step) => {
+          const data = step.items?.[0]?.data as
+            | { to?: string; data?: string; chainId?: number }
+            | undefined;
+          return Boolean(data?.to && data?.data && data?.chainId);
+        });
+
+      if (txStep && txStep.items?.[0]?.data) {
+        const txData = txStep.items[0].data;
+
+        // 3. Sign and send with Turnkey EVM wallet
+        const { Turnkey } = await import('@turnkey/sdk-browser');
+        const { TurnkeySigner } = await import('@turnkey/ethers');
+        const { JsonRpcProvider } = await import('ethers');
+
+        const turnkey = new Turnkey({
+          apiBaseUrl: 'https://api.turnkey.com',
+          defaultOrganizationId: context.organizationId,
+        });
+
+        const indexedDbClient = await turnkey.indexedDbClient();
+        await indexedDbClient.init();
+
+        const rpcUrl = originChainId === 42161
+          ? process.env.NEXT_PUBLIC_ARBITRUM_RPC_URL
+          : process.env.NEXT_PUBLIC_BASE_RPC_URL;
+
+        const provider = new JsonRpcProvider(rpcUrl);
+
+        const signer = new TurnkeySigner({
+          client: indexedDbClient,
+          organizationId: context.organizationId,
+          signWith: context.evmAddress,
+        });
+
+        const connectedSigner = signer.connect(provider);
+
+        const tx = await connectedSigner.sendTransaction({
+          to: txData.to,
+          data: txData.data,
+          value: BigInt(txData.value || '0'),
+          chainId: txData.chainId,
+        });
+
+        const receipt = await tx.wait();
+        const txHash = receipt?.hash || tx.hash;
+        return { success: true, txHash, error: null };
+      }
+
+      // Fallback: permit/signature flow (e.g. eip3009) from relay quote
+      const signatureStep = quote.steps?.find((step) => step.kind === 'signature');
+      const signatureData = signatureStep?.items?.[0]?.data;
+      const postBody = signatureData?.post?.body;
+      const signData = signatureData?.sign;
+
+      if (!signatureStep || !signData || !postBody?.requestId) {
         return {
           success: false,
           txHash: null,
-          error: 'No transaction step found in bridge quote',
+          error: `No executable step found in bridge quote (amount=${amount}, origin=${originChainId}, destination=${destinationChainId})`,
         };
       }
 
-      const txData = txStep.items[0].data;
+      const executeKind = postBody.kind || 'PERMIT';
+      const executeApi = postBody.api || 'relay';
+      const requestId = postBody.requestId || signatureStep.requestId;
 
-      // 3. Sign and send with Turnkey EVM wallet
-      const { Turnkey } = await import('@turnkey/sdk-browser');
-      const { TurnkeySigner } = await import('@turnkey/ethers');
-      const { JsonRpcProvider } = await import('ethers');
+      const signature =
+        executeKind.toLowerCase() === 'eip3009'
+          ? await signTransferWithAuthorizationWithTurnkey(
+              signData as TransferWithAuthorizationData,
+              context.evmAddress,
+              context.organizationId
+            )
+          : await signPermitWithTurnkey(
+              {
+                sign: {
+                  domain: signData.domain,
+                  types: signData.types,
+                  value: signData.value,
+                },
+              },
+              context.evmAddress,
+              context.organizationId
+            );
 
-      const turnkey = new Turnkey({
-        apiBaseUrl: 'https://api.turnkey.com',
-        defaultOrganizationId: context.organizationId,
+      await bridgeService.executePermit({
+        signature,
+        kind: executeKind,
+        requestId,
+        api: executeApi,
       });
 
-      const indexedDbClient = await turnkey.indexedDbClient();
-      await indexedDbClient.init();
-
-      const rpcUrl = originChainId === 42161
-        ? process.env.NEXT_PUBLIC_ARBITRUM_RPC_URL
-        : process.env.NEXT_PUBLIC_BASE_RPC_URL;
-
-      const provider = new JsonRpcProvider(rpcUrl);
-
-      const signer = new TurnkeySigner({
-        client: indexedDbClient,
-        organizationId: context.organizationId,
-        signWith: context.evmAddress,
-      });
-
-      const connectedSigner = signer.connect(provider);
-
-      const tx = await connectedSigner.sendTransaction({
-        to: txData.to,
-        data: txData.data,
-        value: BigInt(txData.value || '0'),
-        chainId: txData.chainId,
-      });
-
-      const receipt = await tx.wait();
-      const txHash = receipt?.hash || tx.hash;
-
-      return { success: true, txHash, error: null };
+      return { success: true, txHash: requestId, error: null };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error('[WithdrawalExecutor] Bridge failed:', err);

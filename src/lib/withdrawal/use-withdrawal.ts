@@ -251,10 +251,8 @@ export function useWithdrawal(): UseWithdrawalReturn {
         exchangeRef.current = params.exchange;
 
         const newIntentId = await withdrawalApi.create({
-          user_id: context.organizationId,
           exchange: toExchangeName(params.exchange),
           amount_usd: params.amountUsd,
-          evm_address: context.evmAddress,
           recipient: params.recipient || context.evmAddress,
           destination_chain_id: 8453,
         });

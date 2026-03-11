@@ -129,7 +129,6 @@ export function useFundExchange(): UseFundExchangeReturn {
         const amountSmallestUnit = Math.floor(amountUsd * 1_000_000).toString();
 
         const quoteRequest: QuoteRequest = {
-          user: wallet.evmAddress,
           destinationChainId: getDestinationChainId(exchange),
           amount: amountSmallestUnit,
           tradeType: 'EXACT_INPUT',

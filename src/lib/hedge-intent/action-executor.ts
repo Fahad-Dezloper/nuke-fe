@@ -84,6 +84,7 @@ const BRIDGE_REQUEST_PREFIX = 'hedge_bridge_';
 
 const PACIFICA_REFERRAL_PREFIX = 'pacifica_referral_claimed_';
 const PACIFICA_BUILDER_PREFIX = 'pacifica_builder_approved_';
+const HEDGE_ORDER_BUFFER_PCT = 1.0;
 
 function isPacificaReferralCached(account: string): boolean {
   try {
@@ -274,7 +275,6 @@ export class HedgeActionExecutor {
 
       // 1. Get bridge quote
       const quoteRequest: QuoteRequest = {
-        user: context.evmAddress,
         destinationChainId: params.destination_chain_id,
         amount: amountSmallestUnit,
         tradeType: 'EXACT_INPUT',
@@ -470,15 +470,13 @@ export class HedgeActionExecutor {
     } else {
       try {
         console.log('[HedgeExecutor] Checking Pacifica beta access (referral code)...');
-        const userId = context.organizationId;
-        const hasBetaAccess = await this.pacificaService.checkReferralCodeClaimed(userId);
+        const hasBetaAccess = await this.pacificaService.checkReferralCodeClaimed(context.organizationId);
 
         if (!hasBetaAccess) {
           console.log('[HedgeExecutor] No beta access — claiming referral code NUKETRADE...');
           const claimResult = await this.pacificaService.claimReferralCode(
             account,
-            context.organizationId,
-            userId
+            context.organizationId
           );
 
           if (!claimResult.success) {
@@ -717,6 +715,13 @@ export class HedgeActionExecutor {
       }
     } catch (err) {
       console.warn('[HedgeExecutor] Could not fetch Pacifica balance, using effective_margin_usd:', err);
+    }
+
+    // Apply a final shared buffer before opening positions so both legs keep the same size
+    // while reducing risk of per-exchange insufficient-balance rejections.
+    const bufferedMarginForLegs = marginForLegs * (1 - HEDGE_ORDER_BUFFER_PCT / 100);
+    if (bufferedMarginForLegs > 0) {
+      marginForLegs = bufferedMarginForLegs;
     }
 
     // ── Step 5: Open both legs in parallel ──

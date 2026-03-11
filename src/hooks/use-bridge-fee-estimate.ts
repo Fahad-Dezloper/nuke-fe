@@ -63,7 +63,6 @@ export function useBridgeFeeEstimate() {
     queryKey: queryKeys.bridgeFees.estimate(amountSmallestUnit, evmAddress ?? ''),
     queryFn: async () => {
       const quoteResponse = await bridgeService.getQuote({
-        user: evmAddress!,
         destinationChainId: CHAIN_IDS.ARBITRUM,
         amount: amountSmallestUnit,
         tradeType: 'EXACT_INPUT',

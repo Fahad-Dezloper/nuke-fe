@@ -19,7 +19,6 @@ export const depositService = {
     try {
       const response = await apiClient.post<string>('/hyperliquid/deposit', {
         amount: request.amount,
-        user: request.userAddress,
         permit: {
           v: request.permit.v,
           r: Array.from(request.permit.r), // Convert Uint8Array to number array
