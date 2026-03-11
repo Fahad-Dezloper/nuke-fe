@@ -469,6 +469,10 @@ export class TurnkeyClient {
       const indexedDbClient = await this.turnkey.indexedDbClient();
       await indexedDbClient.clear();
 
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+      }
+
       this.updateState({
         isLoggedIn: false,
         isLoading: false,
