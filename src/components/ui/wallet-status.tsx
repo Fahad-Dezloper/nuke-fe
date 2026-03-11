@@ -7,7 +7,16 @@
 
 import { useTurnkey, getEVMAddress, getSolanaAddress } from '@/lib/turnkey';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Wallet, Key, ArrowDownToLine, ChevronDown, ArrowUpToLine, Copy, Check } from 'lucide-react';
+import {
+  LogOut,
+  Wallet,
+  Key,
+  ArrowDownToLine,
+  ChevronDown,
+  ArrowUpToLine,
+  Copy,
+  Check,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useCallback } from 'react';
 import { useUSDCBalanceBase } from '@/hooks/use-usdc-balance-base';
@@ -24,6 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function WalletStatus() {
   const { state, logout } = useTurnkey();
@@ -46,6 +56,17 @@ export function WalletStatus() {
     hoverTimeout.current = setTimeout(() => setBalanceHover(false), 150);
   }, []);
 
+  // Get wallet addresses
+  const walletAddress = getEVMAddress(state.userWallets) || 'Connected';
+  const solanaAddress = getSolanaAddress(state.userWallets) || '';
+
+  const handleCopyAddress = useCallback(() => {
+    navigator.clipboard.writeText(walletAddress).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [walletAddress]);
+
   if (!state.isLoggedIn) {
     return null;
   }
@@ -62,17 +83,6 @@ export function WalletStatus() {
   const handleExportWallet = () => {
     setIsExportModalOpen(true);
   };
-
-  // Get wallet addresses
-  const walletAddress = getEVMAddress(state.userWallets) || 'Connected';
-  const solanaAddress = getSolanaAddress(state.userWallets) || '';
-
-  const handleCopyAddress = useCallback(() => {
-    navigator.clipboard.writeText(walletAddress).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  }, [walletAddress]);
 
   // Truncate address for display
   const displayAddress =
@@ -299,13 +309,25 @@ export function WalletStatus() {
           </DropdownMenuItem>
 
           {/* Withdraw */}
-          <DropdownMenuItem
-            onClick={() => setIsWithdrawModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-white/5 cursor-pointer"
-          >
-            <ArrowDownToLine className="w-4 h-4 text-text-muted-60" />
-            Withdraw
-          </DropdownMenuItem>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <DropdownMenuItem
+                    // onClick={() => setIsWithdrawModalOpen(true)}
+                    disabled
+                    className="flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-white/5 cursor-pointer"
+                  >
+                    <ArrowDownToLine className="w-4 h-4 text-text-muted-60" />
+                    Withdraw
+                  </DropdownMenuItem>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8}>
+                Coming soon
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           <DropdownMenuSeparator className="bg-border-white-10/50" />
 
@@ -338,10 +360,7 @@ export function WalletStatus() {
         solanaAddress={solanaAddress}
       />
 
-      <WithdrawModal
-        isOpen={isWithdrawModalOpen}
-        onClose={() => setIsWithdrawModalOpen(false)}
-      />
+      <WithdrawModal isOpen={isWithdrawModalOpen} onClose={() => setIsWithdrawModalOpen(false)} />
     </>
   );
 }
