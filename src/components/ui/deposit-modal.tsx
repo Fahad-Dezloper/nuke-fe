@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTurnkey } from '@/lib/turnkey/hooks';
-import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
+import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { useUSDCBalanceBase } from '@/hooks/use-usdc-balance-base';
 
 interface DepositModalProps {
@@ -43,11 +43,17 @@ export function DepositModal({
 
   // Get wallet address from Turnkey if not provided
   // Extract address first to avoid dependency on array reference
-  const extractedAddress =
-    propWalletAddress ||
-    (turnkeyState.isLoggedIn && turnkeyState.userWallets?.length
-      ? getEVMAddress(turnkeyState.userWallets) || ''
-      : '');
+
+  // ----------------------
+  // const extractedAddress =
+  //   propWalletAddress ||
+  //   (turnkeyState.isLoggedIn && turnkeyState.userWallets?.length
+  //     ? getEVMAddress(turnkeyState.userWallets) || ''
+  //     : '');
+
+  const extractedAddress = getSolanaAddress(turnkeyState.userWallets || []);
+
+  // ----------------------
 
   // Memoize based on the actual address string, not the wallets array
   const walletAddress = useMemo(() => extractedAddress, [extractedAddress]);
@@ -72,7 +78,7 @@ export function DepositModal({
 
   const handleCopyAddress = async () => {
     try {
-      await navigator.clipboard.writeText(walletAddress);
+      await navigator.clipboard.writeText(walletAddress || '');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -111,7 +117,7 @@ export function DepositModal({
           DEPOSIT USDC
         </h2>
         <p className="text-xs text-text-muted-60">
-          Send USDC to your deposit address on Base network
+          Send USDC to your deposit address on Solana network
         </p>
       </motion.div>
 
@@ -167,8 +173,8 @@ export function DepositModal({
                 <div className="relative w-3.5 h-3.5 flex items-center justify-center">
                   {!baseImageError ? (
                     <Image
-                      src="/tokens/base.jpg"
-                      alt="Base"
+                      src="/tokens/solana.webp"
+                      alt="Solana"
                       width={14}
                       height={14}
                       className="rounded-full"
@@ -180,7 +186,7 @@ export function DepositModal({
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-text-muted-60 font-medium">Base</span>
+                <span className="text-xs text-text-muted-60 font-medium">Solana</span>
               </div>
               <motion.button
                 onClick={handleRefreshBalance}
@@ -270,8 +276,8 @@ export function DepositModal({
         className="p-3 rounded-lg text-yellow-600 bg-yellow-700/10 border border-accent/20"
       >
         <p className="text-xs text-text-muted-60 leading-relaxed">
-          Deposit at least <span className="text-text-primary font-medium">25 USDC</span> on BASE to
-          fund both Hyperliquid and Pacifica (~$12.50 each).
+          Deposit at least <span className="text-text-primary font-medium">25 USDC</span> on Solana
+          to fund both Hyperliquid and Pacifica (~$12.50 each).
         </p>
       </motion.div>
     </Modal>
