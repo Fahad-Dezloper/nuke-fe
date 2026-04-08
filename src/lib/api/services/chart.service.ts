@@ -11,7 +11,7 @@ import { API_ENDPOINTS } from '../endpoints';
  */
 export interface ChartDataPoint {
   id: string;
-  platform: 'hyperliquid' | 'pacifica';
+  platform: 'hyperliquid' | 'pacifica' | 'backpack';
   symbol: string;
   rate: number; // Hourly funding rate
   mark_px: number;
@@ -21,6 +21,7 @@ export interface ChartDataPoint {
 export interface ChartApiResponse {
   hyperliquid: ChartDataPoint[];
   pacifica: ChartDataPoint[];
+  backpack: ChartDataPoint[];
 }
 
 /**

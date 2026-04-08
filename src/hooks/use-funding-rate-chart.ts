@@ -87,12 +87,15 @@ export interface ChartDataPoint {
   fullTimestamp: string;
   hyperliquid: number | null;
   pacifica: number | null;
+  backpack: number | null;
   hyperliquidRaw: number;
   pacificaRaw: number;
+  backpackRaw: number;
   projectedHyperliquid: number | null;
   projectedPacifica: number | null;
-  longProtocol: 'hyperliquid' | 'pacifica';
-  shortProtocol: 'hyperliquid' | 'pacifica';
+  projectedBackpack: number | null;
+  longProtocol: 'hyperliquid' | 'pacifica' | 'backpack';
+  shortProtocol: 'hyperliquid' | 'pacifica' | 'backpack';
   longRate: number;
   shortRate: number;
   netRate: number;
@@ -109,10 +112,10 @@ interface UseFundingRateChartOptions {
 function transformChartData(
   chartData: ChartApiResponse,
   timeframe: ChartTimeframe,
-  consistentLong: 'hyperliquid' | 'pacifica',
-  consistentShort: 'hyperliquid' | 'pacifica'
+  consistentLong: 'hyperliquid' | 'pacifica' | 'backpack',
+  consistentShort: 'hyperliquid' | 'pacifica' | 'backpack'
 ): ChartDataPoint[] {
-  const { hyperliquid, pacifica } = chartData;
+  const { hyperliquid, pacifica, backpack } = chartData;
 
   const hyperliquidMap = new Map<string, (typeof hyperliquid)[0]>();
   hyperliquid.forEach((item) => {
@@ -132,9 +135,19 @@ function transformChartData(
     }
   });
 
+  const backpackMap = new Map<string, (typeof backpack)[0]>();
+  backpack.forEach((item) => {
+    const normalized = normalizeTimestamp(item.timestamp, timeframe);
+    const existing = backpackMap.get(normalized);
+    if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
+      backpackMap.set(normalized, item);
+    }
+  });
+
   const allNormalizedTimestamps = new Set<string>();
   hyperliquidMap.forEach((_, key) => allNormalizedTimestamps.add(key));
   pacificaMap.forEach((_, key) => allNormalizedTimestamps.add(key));
+  backpackMap.forEach((_, key) => allNormalizedTimestamps.add(key));
 
   const sortedTimestamps = Array.from(allNormalizedTimestamps).sort();
   const projectionThreshold = sortedTimestamps.length * 0.95;
@@ -142,13 +155,19 @@ function transformChartData(
   return sortedTimestamps.map((normalizedTimestamp, index) => {
     const hlData = hyperliquidMap.get(normalizedTimestamp);
     const pacData = pacificaMap.get(normalizedTimestamp);
-    const displayTimestamp = hlData?.timestamp || pacData?.timestamp || normalizedTimestamp;
+    const bpData = backpackMap.get(normalizedTimestamp);
+    const displayTimestamp =
+      hlData?.timestamp || pacData?.timestamp || bpData?.timestamp || normalizedTimestamp;
 
     const hlYearly = hlData ? hourlyToYearlyPercentage(hlData.rate) : null;
     const pacYearly = pacData ? hourlyToYearlyPercentage(pacData.rate) : null;
+    const bpYearly = bpData ? hourlyToYearlyPercentage(bpData.rate) : null;
 
-    const longRate = consistentLong === 'hyperliquid' ? (hlYearly ?? 0) : (pacYearly ?? 0);
-    const shortRate = consistentShort === 'hyperliquid' ? (hlYearly ?? 0) : (pacYearly ?? 0);
+    const resolveRate = (p: 'hyperliquid' | 'pacifica' | 'backpack'): number =>
+      p === 'hyperliquid' ? (hlYearly ?? 0) : p === 'pacifica' ? (pacYearly ?? 0) : (bpYearly ?? 0);
+
+    const longRate = resolveRate(consistentLong);
+    const shortRate = resolveRate(consistentShort);
     const netRate = shortRate - longRate;
     const isProjected = index >= projectionThreshold;
 
@@ -158,10 +177,13 @@ function transformChartData(
       fullTimestamp: formatFullTimestamp(displayTimestamp),
       hyperliquid: hlYearly ?? null,
       pacifica: pacYearly ?? null,
+      backpack: bpYearly ?? null,
       hyperliquidRaw: hlData?.rate || 0,
       pacificaRaw: pacData?.rate || 0,
+      backpackRaw: bpData?.rate || 0,
       projectedHyperliquid: isProjected && hlData ? (hlYearly ?? null) : null,
       projectedPacifica: isProjected && pacData ? (pacYearly ?? null) : null,
+      projectedBackpack: isProjected && bpData ? (bpYearly ?? null) : null,
       longProtocol: consistentLong,
       shortProtocol: consistentShort,
       longRate,

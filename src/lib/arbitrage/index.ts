@@ -23,7 +23,7 @@ export type {
 
 // Export adapter interface and implementations
 export type { ProtocolAdapter } from './adapters/protocol-adapter.interface';
-export { HyperLiquidAdapter, PacificaAdapter } from './adapters';
+export { HyperLiquidAdapter, PacificaAdapter, BackpackAdapter } from './adapters';
 
 // Export pair registry and configuration
 export { ArbitragePairRegistry, ARBITRAGE_PAIRS, getPairsForAsset, getPairById } from './pairs';

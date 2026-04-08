@@ -12,13 +12,13 @@
 /**
  * Exchange identifiers (lowercase) — used in most API responses and leg results.
  */
-export type Exchange = 'hyperliquid' | 'pacifica';
+export type Exchange = 'hyperliquid' | 'pacifica' | 'backpack';
 
 /**
  * Exchange names (PascalCase) — used ONLY in the create-intent request body.
  * The backend expects this exact casing in the `exchanges` array.
  */
-export type ExchangeName = 'Hyperliquid' | 'Pacifica';
+export type ExchangeName = 'Hyperliquid' | 'Pacifica' | 'Backpack';
 
 /** Hedge intent lifecycle status (owned by backend) */
 export type HedgeIntentStatus =

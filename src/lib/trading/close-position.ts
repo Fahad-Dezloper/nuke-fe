@@ -8,13 +8,14 @@
 
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
+import { BackpackService } from '@/lib/services/backpack/backpack.service';
 import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
 import { BUILDER_CODE } from '@/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CloseLegResult {
-  protocol: 'hyperliquid' | 'pacifica';
+  protocol: 'hyperliquid' | 'pacifica' | 'backpack';
   success: boolean;
   error?: string;
 }
@@ -31,10 +32,17 @@ export interface PacificaPositionData {
   side: 'Long' | 'Short';
 }
 
+export interface BackpackPositionData {
+  symbol: string;
+  size: string;
+  side: 'Long' | 'Short';
+}
+
 // ─── Singleton Services ───────────────────────────────────────────────────────
 
 const hlService = new HyperLiquidService();
 const pacificaService = new PacificaService();
+const backpackService = new BackpackService();
 
 // ─── Close Functions ──────────────────────────────────────────────────────────
 
@@ -113,6 +121,43 @@ export async function closePacificaPosition(
   } catch (err) {
     return {
       protocol: 'pacifica',
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Close a Backpack position by creating a reduce-only market order on the opposite side.
+ */
+export async function closeBackpackPosition(
+  bp: BackpackPositionData,
+  solanaAddress: string,
+  organizationId: string
+): Promise<CloseLegResult> {
+  try {
+    const closeSide = bp.side === 'Long' ? 'Ask' : 'Bid';
+
+    const result = await backpackService.executePerpOrder({
+      order: {
+        symbol: `${bp.symbol.toUpperCase()}_USDC_PERP`,
+        side: closeSide,
+        orderType: 'Market',
+        quantity: bp.size,
+        reduceOnly: true,
+      },
+      solanaAddress,
+      organizationId,
+    });
+
+    return {
+      protocol: 'backpack',
+      success: result.success,
+      error: result.success ? undefined : result.error || 'Backpack close failed',
+    };
+  } catch (err) {
+    return {
+      protocol: 'backpack',
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error',
     };

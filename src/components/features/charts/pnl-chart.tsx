@@ -54,12 +54,14 @@ interface PnLChartProps {
  */
 function calcPointPnL(
   point: ChartDataPoint,
-  longProtocol: 'hyperliquid' | 'pacifica'
+  longProtocol: 'hyperliquid' | 'pacifica' | 'backpack'
 ): number {
-  const longRate =
-    longProtocol === 'hyperliquid' ? point.hyperliquidRaw : point.pacificaRaw;
-  const shortRate =
-    longProtocol === 'hyperliquid' ? point.pacificaRaw : point.hyperliquidRaw;
+  const rateFor = (p: 'hyperliquid' | 'pacifica' | 'backpack'): number =>
+    p === 'hyperliquid' ? point.hyperliquidRaw : p === 'pacifica' ? point.pacificaRaw : point.backpackRaw;
+
+  const shortProtocol = point.shortProtocol;
+  const longRate = rateFor(longProtocol);
+  const shortRate = rateFor(shortProtocol);
   return (shortRate - longRate) * NOTIONAL_SIZE;
 }
 
@@ -107,7 +109,7 @@ function computePnLBars(
  */
 function compute1DBars(
   data: ChartDataPoint[],
-  longProtocol: 'hyperliquid' | 'pacifica'
+  longProtocol: 'hyperliquid' | 'pacifica' | 'backpack'
 ): PnLBarData[] {
   const historicalPoints = data.slice(-23);
 
@@ -145,7 +147,7 @@ function compute1DBars(
  */
 function compute1WBars(
   data: ChartDataPoint[],
-  longProtocol: 'hyperliquid' | 'pacifica'
+  longProtocol: 'hyperliquid' | 'pacifica' | 'backpack'
 ): PnLBarData[] {
   const SAMPLE_INTERVAL = 5; // every 5th hourly candle
   const NUM_HISTORICAL = 30;

@@ -11,15 +11,15 @@ import { API_ENDPOINTS } from '../endpoints';
  * Spread APR entry for a single asset
  */
 export interface SpreadAprEntry {
-  long_platform: 'hyperliquid' | 'pacifica';
-  short_platform: 'hyperliquid' | 'pacifica';
+  long_platform: 'hyperliquid' | 'pacifica' | 'backpack';
+  short_platform: 'hyperliquid' | 'pacifica' | 'backpack';
   total_spread: number;
 }
 
 /**
  * Seven-day average APR per protocol for a single asset
  */
-export type SevenDayAvgAprEntry = Partial<Record<'hyperliquid' | 'pacifica', number>>;
+export type SevenDayAvgAprEntry = Partial<Record<'hyperliquid' | 'pacifica' | 'backpack', number>>;
 
 /**
  * Full API response from /aggregated/average/apr
@@ -33,8 +33,8 @@ export interface AverageAprApiResponse {
  * Processed spread APR data for a single asset (used in UI)
  */
 export interface AssetSpreadApr {
-  longPlatform: 'hyperliquid' | 'pacifica';
-  shortPlatform: 'hyperliquid' | 'pacifica';
+  longPlatform: 'hyperliquid' | 'pacifica' | 'backpack';
+  shortPlatform: 'hyperliquid' | 'pacifica' | 'backpack';
   totalSpread: number; // Weekly spread
   sevenDayApr: number; // Annualized: totalSpread * 52
 }

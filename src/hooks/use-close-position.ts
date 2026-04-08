@@ -14,7 +14,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { closeHLPosition, closePacificaPosition } from '@/lib/trading/close-position';
+import { closeHLPosition, closePacificaPosition, closeBackpackPosition } from '@/lib/trading/close-position';
 import { queryKeys } from '@/lib/query-keys';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
 
@@ -28,7 +28,7 @@ const RETRY_DELAY_MS = 1500;
 export type CloseStatus = 'idle' | 'closing' | 'success' | 'partial' | 'error';
 
 export interface CloseLegResult {
-  protocol: 'hyperliquid' | 'pacifica';
+  protocol: 'hyperliquid' | 'pacifica' | 'backpack';
   success: boolean;
   error?: string;
 }
@@ -116,6 +116,11 @@ export function useClosePosition(options: UseClosePositionOptions) {
         if (rawPosition.pacifica) {
           const pac = rawPosition.pacifica;
           tasks.push(() => closePacificaPosition(pac, solanaAddress, organizationId));
+        }
+
+        if (rawPosition.backpack) {
+          const bp = rawPosition.backpack;
+          tasks.push(() => closeBackpackPosition(bp, solanaAddress, organizationId));
         }
 
         if (tasks.length === 0) {

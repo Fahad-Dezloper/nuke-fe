@@ -16,11 +16,13 @@ import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperli
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
 import { HyperLiquidAdapter } from '@/lib/arbitrage/adapters/hyperliquid-adapter';
 import { PacificaAdapter } from '@/lib/arbitrage/adapters/pacifica-adapter';
+import { BackpackAdapter } from '@/lib/arbitrage/adapters/backpack-adapter';
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
+import { BackpackService } from '@/lib/services/backpack/backpack.service';
 import { MarketPriceHelper } from '@/dex/hyperliquid/utils/market-price';
 import { positionsService } from '@/lib/api/services/positions.service';
-import { closeHLPosition, closePacificaPosition } from '@/lib/trading/close-position';
+import { closeHLPosition, closePacificaPosition, closeBackpackPosition } from '@/lib/trading/close-position';
 import {
   trackBridgeStarted,
   trackBridgeCompleted,
@@ -155,8 +157,10 @@ export class HedgeActionExecutor {
   private pacificaDepositHandler: PacificaDepositHandler;
   private hlAdapter: HyperLiquidAdapter;
   private pacificaAdapter: PacificaAdapter;
+  private backpackAdapter: BackpackAdapter;
   private hlService: HyperLiquidService;
   private pacificaService: PacificaService;
+  private backpackService: BackpackService;
   private priceHelper: MarketPriceHelper;
 
   constructor() {
@@ -164,8 +168,10 @@ export class HedgeActionExecutor {
     this.pacificaDepositHandler = new PacificaDepositHandler();
     this.hlService = new HyperLiquidService();
     this.pacificaService = new PacificaService();
+    this.backpackService = new BackpackService();
     this.hlAdapter = new HyperLiquidAdapter(this.hlService);
     this.pacificaAdapter = new PacificaAdapter(this.pacificaService);
+    this.backpackAdapter = new BackpackAdapter();
     this.priceHelper = new MarketPriceHelper();
   }
 
@@ -595,96 +601,78 @@ export class HedgeActionExecutor {
     }
 
     // ── Step 2: Check current leverage and update only if different ──
-    console.log(`[HedgeExecutor] Checking leverage for ${asset} on both exchanges...`);
+    console.log(`[HedgeExecutor] Checking leverage for ${asset} on all legs...`);
 
-    // Fetch current leverage from both exchanges in parallel
-    const [hlCurrentLeverage, pacCurrentLeverage] = await Promise.allSettled([
-      this.hlService.fetchUserLeverage(context.evmAddress, asset.toUpperCase()),
-      this.pacificaService.fetchLeverage(context.solanaAddress, asset.toUpperCase()),
-    ]);
+    const exchangesInLegs = Array.from(new Set(legs.map((l) => l.exchange)));
 
-    // Determine if HL leverage needs updating
-    let hlNeedsUpdate = true;
-    if (hlCurrentLeverage.status === 'fulfilled' && hlCurrentLeverage.value.success) {
-      const currentHlLev = hlCurrentLeverage.value.leverage;
-      if (currentHlLev !== undefined && currentHlLev !== null && currentHlLev === leverage) {
-        console.log(`[HedgeExecutor] HL leverage already ${leverage}x — skipping update`);
-        hlNeedsUpdate = false;
-      }
-    }
-    // If fetch failed, we still try to update (better to attempt than skip)
+    const leverageChecks = await Promise.allSettled(
+      exchangesInLegs.map(async (ex) => {
+        if (ex === 'hyperliquid') {
+          const res = await this.hlService.fetchUserLeverage(context.evmAddress, asset.toUpperCase());
+          return { exchange: ex, current: res.success ? res.leverage ?? null : null, success: res.success, error: res.error };
+        }
+        if (ex === 'pacifica') {
+          const res = await this.pacificaService.fetchLeverage(context.solanaAddress, asset.toUpperCase());
+          return { exchange: ex, current: res.success ? res.leverage : null, success: res.success, error: res.error };
+        }
+        // backpack
+        const res = await this.backpackService.fetchLeverageLimit({
+          solanaAddress: context.solanaAddress,
+          organizationId: context.organizationId,
+        });
+        return { exchange: ex, current: res.success ? res.leverageLimit : null, success: res.success, error: res.error };
+      })
+    );
 
-    // Determine if Pacifica leverage needs updating
-    let pacNeedsUpdate = true;
-    if (pacCurrentLeverage.status === 'fulfilled' && pacCurrentLeverage.value.success) {
-      const currentPacLev = pacCurrentLeverage.value.leverage;
-      // null means default (max leverage) — always update in that case
-      if (currentPacLev !== null && currentPacLev === leverage) {
-        console.log(`[HedgeExecutor] Pacifica leverage already ${leverage}x — skipping update`);
-        pacNeedsUpdate = false;
-      }
-    }
+    const leverageUpdates: Promise<{ exchangeLabel: string; ok: boolean; error?: string }>[] = [];
 
-    // Update leverage where needed
-    if (hlNeedsUpdate || pacNeedsUpdate) {
-      console.log(
-        `[HedgeExecutor] Updating leverage to ${leverage}x —`,
-        `HL: ${hlNeedsUpdate ? 'yes' : 'skip'}, Pacifica: ${pacNeedsUpdate ? 'yes' : 'skip'}`
-      );
+    for (const settled of leverageChecks) {
+      if (settled.status !== 'fulfilled') continue;
+      const { exchange: ex, current } = settled.value;
 
-      const leveragePromises: Promise<{ exchange: string; result: { success: boolean; error?: string } }>[] = [];
+      const needsUpdate =
+        ex === 'pacifica'
+          ? current === null || current !== leverage
+          : current === null || current !== leverage;
 
-      if (hlNeedsUpdate) {
-        leveragePromises.push(
+      if (!needsUpdate) continue;
+
+      if (ex === 'hyperliquid') {
+        leverageUpdates.push(
           this.hlService
-            .updateLeverage(
-              { assetTicker: asset.toUpperCase(), leverage },
-              context.evmAddress,
-              context.organizationId
-            )
-            .then((result) => ({ exchange: 'HyperLiquid', result }))
-            .catch((err) => ({
-              exchange: 'HyperLiquid',
-              result: { success: false, error: err instanceof Error ? err.message : String(err) },
-            }))
+            .updateLeverage({ assetTicker: asset.toUpperCase(), leverage }, context.evmAddress, context.organizationId)
+            .then((r) => ({ exchangeLabel: 'HyperLiquid', ok: r.success, error: r.error }))
+            .catch((err) => ({ exchangeLabel: 'HyperLiquid', ok: false, error: err instanceof Error ? err.message : String(err) }))
         );
-      }
-
-      if (pacNeedsUpdate) {
-        leveragePromises.push(
+      } else if (ex === 'pacifica') {
+        leverageUpdates.push(
           this.pacificaService
-            .updateLeverage(
-              asset.toUpperCase(),
-              leverage,
-              context.solanaAddress,
-              context.organizationId
-            )
-            .then((result) => ({ exchange: 'Pacifica', result }))
-            .catch((err) => ({
-              exchange: 'Pacifica',
-              result: { success: false, error: err instanceof Error ? err.message : String(err) },
-            }))
+            .updateLeverage(asset.toUpperCase(), leverage, context.solanaAddress, context.organizationId)
+            .then((r) => ({ exchangeLabel: 'Pacifica', ok: r.success, error: r.error }))
+            .catch((err) => ({ exchangeLabel: 'Pacifica', ok: false, error: err instanceof Error ? err.message : String(err) }))
+        );
+      } else {
+        leverageUpdates.push(
+          this.backpackService
+            .updateLeverageLimit({ leverage, solanaAddress: context.solanaAddress, organizationId: context.organizationId })
+            .then((r) => ({ exchangeLabel: 'Backpack', ok: r.success, error: r.error }))
+            .catch((err) => ({ exchangeLabel: 'Backpack', ok: false, error: err instanceof Error ? err.message : String(err) }))
         );
       }
+    }
 
-      const leverageResults = await Promise.all(leveragePromises);
-
-      // Check all leverage results — any failure is fatal
-      for (const { exchange, result } of leverageResults) {
-        if (!result.success) {
-          console.error(`[HedgeExecutor] ${exchange} leverage update failed:`, result.error);
+    if (leverageUpdates.length > 0) {
+      const results = await Promise.all(leverageUpdates);
+      for (const r of results) {
+        if (!r.ok) {
           return {
             success: false,
             txHash: null,
-            error: `Failed to set leverage on ${exchange}: ${result.error || 'Unknown error'}`,
+            error: `Failed to set leverage on ${r.exchangeLabel}: ${r.error || 'Unknown error'}`,
             legResults: null,
           };
         }
       }
-
-      console.log(`[HedgeExecutor] Leverage set to ${leverage}x on both exchanges ✓`);
-    } else {
-      console.log(`[HedgeExecutor] Leverage already ${leverage}x on both exchanges — no update needed ✓`);
     }
 
     // ── Step 3: Fetch market price for position sizing (Pacifica requires it) ──
@@ -703,14 +691,17 @@ export class HedgeActionExecutor {
     // ── Step 4: Cap margin to actual Pacifica balance so both legs stay equal ──
     let marginForLegs = effective_margin_usd;
     try {
-      const balanceResult = await this.pacificaService.fetchAccountBalance(context.solanaAddress);
-      if (balanceResult.success && balanceResult.availableToSpend > 0) {
-        const available = balanceResult.availableToSpend * 0.995;
-        if (available < marginForLegs) {
-          console.log(
-            `[HedgeExecutor] Pacifica available ($${available.toFixed(2)}) < effective_margin ($${marginForLegs.toFixed(2)}) — capping both legs`
-          );
-          marginForLegs = available;
+      const needsPacificaCap = legs.some((l) => l.exchange === 'pacifica');
+      if (needsPacificaCap) {
+        const balanceResult = await this.pacificaService.fetchAccountBalance(context.solanaAddress);
+        if (balanceResult.success && balanceResult.availableToSpend > 0) {
+          const available = balanceResult.availableToSpend * 0.995;
+          if (available < marginForLegs) {
+            console.log(
+              `[HedgeExecutor] Pacifica available ($${available.toFixed(2)}) < effective_margin ($${marginForLegs.toFixed(2)}) — capping both legs`
+            );
+            marginForLegs = available;
+          }
         }
       }
     } catch (err) {
@@ -742,7 +733,21 @@ export class HedgeActionExecutor {
           });
           return { exchange: leg.exchange, result };
         } else {
-          const result = await this.pacificaAdapter.openPosition({
+          if (leg.exchange === 'pacifica') {
+            const result = await this.pacificaAdapter.openPosition({
+              asset,
+              direction,
+              margin: marginForLegs.toString(),
+              leverage,
+              walletAddress: context.solanaAddress,
+              organizationId: context.organizationId,
+              isMarket: true,
+              price: marketPrice,
+            });
+            return { exchange: leg.exchange, result };
+          }
+
+          const result = await this.backpackAdapter.openPosition({
             asset,
             direction,
             margin: marginForLegs.toString(),
@@ -842,7 +847,9 @@ export class HedgeActionExecutor {
       // Step 3: Close the specific exchange's leg
       const closeResult = exchange === 'hyperliquid'
         ? await this.closeHLPositionAction(position.hyperliquid, asset, context)
-        : await this.closePacificaPositionAction(position.pacifica, asset, context);
+        : exchange === 'pacifica'
+          ? await this.closePacificaPositionAction(position.pacifica, asset, context)
+          : await this.closeBackpackPositionAction(position.backpack, asset, context);
 
       if (closeResult.success) {
         trackPositionClosed(asset);
@@ -925,6 +932,30 @@ export class HedgeActionExecutor {
       success: result.success,
       txHash: null,
       error: result.success ? null : result.error || 'Failed to close Pacifica position',
+      legResults: null,
+    };
+  }
+
+  private async closeBackpackPositionAction(
+    bpPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
+    asset: string,
+    context: ExecutorContext
+  ): Promise<ActionResult> {
+    if (!bpPosition) {
+      return {
+        success: false,
+        txHash: null,
+        error: `No Backpack position found for ${asset}`,
+        legResults: null,
+      };
+    }
+
+    const result = await closeBackpackPosition(bpPosition, context.solanaAddress, context.organizationId);
+
+    return {
+      success: result.success,
+      txHash: null,
+      error: result.success ? null : result.error || 'Failed to close Backpack position',
       legResults: null,
     };
   }

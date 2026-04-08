@@ -9,7 +9,7 @@ import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import type { AssetDropdownItem } from '@/types/positions';
 import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 
-export type Protocol = 'hyperliquid' | 'pacifica';
+export type Protocol = 'hyperliquid' | 'pacifica' | 'backpack';
 
 export interface BestPairResult {
   long: Protocol;
@@ -37,14 +37,17 @@ export function getBestPair(
   }
 
   // Fallback: compare live funding rates
-  const hyperliquidRate = asset.hyperliquidFundingRate ?? 0;
-  const pacificaRate = asset.pacificaFundingRate ?? 0;
-  const isHyperliquidLower = hyperliquidRate < pacificaRate;
+  const protocols = asset.protocols ?? {};
+  const entries = Object.entries(protocols)
+    .map(([id, p]) => ({ id: id as Protocol, yearly: p.fundingRateYearly }))
+    .filter((e) => typeof e.yearly === 'number' && Number.isFinite(e.yearly));
 
-  return {
-    long: isHyperliquidLower ? 'hyperliquid' : 'pacifica',
-    short: isHyperliquidLower ? 'pacifica' : 'hyperliquid',
-  };
+  if (entries.length < 2) return DEFAULT;
+
+  entries.sort((a, b) => a.yearly - b.yearly);
+  const long = entries[0]!.id;
+  const short = entries[entries.length - 1]!.id;
+  return { long, short };
 }
 
 /**

@@ -82,8 +82,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
         value = data.hyperliquid;
       } else if (protocolId === 'pacifica') {
         value = data.pacifica;
+      } else if (protocolId === 'backpack') {
+        value = data.backpack;
       }
-      // Future protocols can be added here
 
       if (value === null || value === undefined) return null;
 
@@ -182,8 +183,11 @@ export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartPr
           if (d.pacifica !== null && d.pacifica !== undefined) allValues.push(d.pacifica);
           if (d.projectedPacifica !== null && d.projectedPacifica !== undefined)
             allValues.push(d.projectedPacifica);
+        } else if (protocolId === 'backpack') {
+          if (d.backpack !== null && d.backpack !== undefined) allValues.push(d.backpack);
+          if (d.projectedBackpack !== null && d.projectedBackpack !== undefined)
+            allValues.push(d.projectedBackpack);
         }
-        // Future protocols can be added here
       });
     });
 
@@ -240,12 +244,16 @@ export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartPr
               ? 'hyperliquid'
               : protocolId === 'pacifica'
                 ? 'pacifica'
+                : protocolId === 'backpack'
+                  ? 'backpack'
                 : null;
           const projectedDataKey =
             protocolId === 'hyperliquid'
               ? 'projectedHyperliquid'
               : protocolId === 'pacifica'
                 ? 'projectedPacifica'
+                : protocolId === 'backpack'
+                  ? 'projectedBackpack'
                 : null;
 
           if (!dataKey || !projectedDataKey) return [];

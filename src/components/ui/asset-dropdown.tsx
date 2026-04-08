@@ -278,7 +278,7 @@ export function AssetDropdown({
     protocol,
     className,
   }: {
-    protocol: 'hyperliquid' | 'pacifica';
+    protocol: 'hyperliquid' | 'pacifica' | 'backpack';
     className?: string;
   }) => {
     if (protocol === 'hyperliquid') {
@@ -286,6 +286,17 @@ export function AssetDropdown({
         <Image
           src="/tokens/hype.png"
           alt="Hyperliquid"
+          width={20}
+          height={20}
+          className="rounded-full shrink-0"
+        />
+      );
+    }
+    if (protocol === 'backpack') {
+      return (
+        <Image
+          src="/tokens/backpack.png"
+          alt="Backpack"
           width={20}
           height={20}
           className="rounded-full shrink-0"
