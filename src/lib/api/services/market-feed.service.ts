@@ -21,6 +21,11 @@ export interface MarketFeedApiResponse {
     funding: number; // Hourly funding rate
     max_leverage: number;
   } | null;
+  backpack: {
+    mark_px: number;
+    funding: number; // Hourly funding rate
+    max_leverage: number;
+  } | null;
 }
 
 /**
@@ -70,50 +75,62 @@ function hourlyTo30DayAPR(hourlyRate: number): number {
  */
 function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdownItem[] {
   return apiData
-    .filter((item) => item.hyperliquid && item.pacifica) // Filter out items with null protocols
+    .filter((item) => {
+      const protocols = [item.hyperliquid, item.pacifica, item.backpack].filter(Boolean);
+      return protocols.length >= 2; // Need at least 2 venues to form a hedge
+    })
     .map((item) => {
-      // TypeScript now knows these are not null after filter
-      const hyperliquid = item.hyperliquid!;
-      const pacifica = item.pacifica!;
+      const protocols: Record<string, import('@/types/positions').ProtocolData> = {};
 
-      const hyperliquidYearly = hourlyToYearlyPercentage(hyperliquid.funding);
-      const pacificaYearly = hourlyToYearlyPercentage(pacifica.funding);
-      const hyperliquid30D = hourlyTo30DayAPR(hyperliquid.funding);
-      const pacifica30D = hourlyTo30DayAPR(pacifica.funding);
-
-      // Best pair logic: Long on lower funding rate, Short on higher funding rate
-      // Net APR = (Short rate) - (Long rate) = (Higher rate) - (Lower rate)
-      // This is always positive when there's an arbitrage opportunity
-      const lowerRate = Math.min(hyperliquidYearly, pacificaYearly);
-      const higherRate = Math.max(hyperliquidYearly, pacificaYearly);
-      const netAPR = higherRate - lowerRate; // Always positive
-
-      const lowerRate30D = Math.min(hyperliquid30D, pacifica30D);
-      const higherRate30D = Math.max(hyperliquid30D, pacifica30D);
-      const apr30D = higherRate30D - lowerRate30D; // Always positive
-
-      // Use the minimum of the two max leverages
-      const maxLeverage = Math.min(hyperliquid.max_leverage, pacifica.max_leverage);
-
-      // Create modular protocol structure
-      const protocols: Record<string, import('@/types/positions').ProtocolData> = {
-        hyperliquid: {
+      if (item.hyperliquid) {
+        const yearly = hourlyToYearlyPercentage(item.hyperliquid.funding);
+        const apr30d = hourlyTo30DayAPR(item.hyperliquid.funding);
+        protocols.hyperliquid = {
           protocol: 'hyperliquid',
-          markPx: hyperliquid.mark_px,
-          fundingRate: hyperliquid.funding,
-          fundingRateYearly: hyperliquidYearly,
-          fundingRate30D: hyperliquid30D,
-          maxLeverage: hyperliquid.max_leverage,
-        },
-        pacifica: {
+          markPx: item.hyperliquid.mark_px,
+          fundingRate: item.hyperliquid.funding,
+          fundingRateYearly: yearly,
+          fundingRate30D: apr30d,
+          maxLeverage: item.hyperliquid.max_leverage,
+        };
+      }
+      if (item.pacifica) {
+        const yearly = hourlyToYearlyPercentage(item.pacifica.funding);
+        const apr30d = hourlyTo30DayAPR(item.pacifica.funding);
+        protocols.pacifica = {
           protocol: 'pacifica',
-          markPx: pacifica.mark_px,
-          fundingRate: pacifica.funding,
-          fundingRateYearly: pacificaYearly,
-          fundingRate30D: pacifica30D,
-          maxLeverage: pacifica.max_leverage,
-        },
-      };
+          markPx: item.pacifica.mark_px,
+          fundingRate: item.pacifica.funding,
+          fundingRateYearly: yearly,
+          fundingRate30D: apr30d,
+          maxLeverage: item.pacifica.max_leverage,
+        };
+      }
+      if (item.backpack) {
+        const yearly = hourlyToYearlyPercentage(item.backpack.funding);
+        const apr30d = hourlyTo30DayAPR(item.backpack.funding);
+        protocols.backpack = {
+          protocol: 'backpack',
+          markPx: item.backpack.mark_px,
+          fundingRate: item.backpack.funding,
+          fundingRateYearly: yearly,
+          fundingRate30D: apr30d,
+          maxLeverage: item.backpack.max_leverage,
+        };
+      }
+
+      const ratesYearly = Object.values(protocols).map((p) => p.fundingRateYearly);
+      const rates30d = Object.values(protocols).map((p) => p.fundingRate30D);
+
+      const lowerRate = Math.min(...ratesYearly);
+      const higherRate = Math.max(...ratesYearly);
+      const netAPR = higherRate - lowerRate;
+
+      const lowerRate30D = Math.min(...rates30d);
+      const higherRate30D = Math.max(...rates30d);
+      const apr30D = higherRate30D - lowerRate30D;
+
+      const maxLeverage = Math.min(...Object.values(protocols).map((p) => p.maxLeverage));
 
       return {
         asset: item.symbol,
@@ -121,13 +138,19 @@ function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdow
         maxLeverage,
         protocols,
         // Legacy fields for backward compatibility
-        hyperliquidFundingRate: hyperliquidYearly,
-        pacificaFundingRate: pacificaYearly,
+        hyperliquidFundingRate: protocols.hyperliquid?.fundingRateYearly ?? 0,
+        pacificaFundingRate: protocols.pacifica?.fundingRateYearly ?? 0,
+        backpackFundingRate: protocols.backpack?.fundingRateYearly,
         netAPR,
         apr30D,
-        markPx: hyperliquid.mark_px, // Use Hyperliquid mark price for sorting
-        hyperliquidMarkPx: hyperliquid.mark_px,
-        pacificaMarkPx: pacifica.mark_px,
+        markPx:
+          protocols.hyperliquid?.markPx ??
+          protocols.pacifica?.markPx ??
+          protocols.backpack?.markPx ??
+          0,
+        hyperliquidMarkPx: protocols.hyperliquid?.markPx,
+        pacificaMarkPx: protocols.pacifica?.markPx,
+        backpackMarkPx: protocols.backpack?.markPx,
       };
     });
 }

@@ -14,8 +14,10 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { closeHLPosition, closePacificaPosition } from '@/lib/trading/close-position';
+import { closeHLPosition, closePacificaPosition, closeBackpackPosition } from '@/lib/trading/close-position';
 import { queryKeys } from '@/lib/query-keys';
+// Backpack authenticated balance refresh disabled (display-only demo).
+// import { refreshBackpackMarginBalance } from '@/lib/stores/backpack-margin.store';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -28,7 +30,7 @@ const RETRY_DELAY_MS = 1500;
 export type CloseStatus = 'idle' | 'closing' | 'success' | 'partial' | 'error';
 
 export interface CloseLegResult {
-  protocol: 'hyperliquid' | 'pacifica';
+  protocol: 'hyperliquid' | 'pacifica' | 'backpack';
   success: boolean;
   error?: string;
 }
@@ -118,6 +120,11 @@ export function useClosePosition(options: UseClosePositionOptions) {
           tasks.push(() => closePacificaPosition(pac, solanaAddress, organizationId));
         }
 
+        if (rawPosition.backpack) {
+          const bp = rawPosition.backpack;
+          tasks.push(() => closeBackpackPosition(bp, solanaAddress, organizationId));
+        }
+
         if (tasks.length === 0) {
           setClosingAssets((prev) => ({ ...prev, [key]: 'error' }));
           activeCloses.current.delete(key);
@@ -145,8 +152,11 @@ export function useClosePosition(options: UseClosePositionOptions) {
         activeCloses.current.delete(key);
 
         if (allSuccess) {
-          // Invalidate positions cache so it refetches
           queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.balance.exchangeHlPac(evmAddress, solanaAddress),
+          });
+          // Backpack display-only: skip signed balance refresh.
           onSuccess?.();
         }
 

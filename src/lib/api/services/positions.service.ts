@@ -32,6 +32,17 @@ export interface PositionApiResponse {
     leverage: number;
     liquidationPrice: string;
   } | null;
+  /** Backpack leg is not included by backend yet; treat as optional. */
+  backpack?: {
+    symbol: string;
+    size: string;
+    side: 'Long' | 'Short';
+    pnl: string;
+    funding: string;
+    margin: string;
+    leverage: number;
+    liquidationPrice: string;
+  } | null;
 }
 
 /**
@@ -85,6 +96,7 @@ function formatPercentage(value: number | string): string {
  */
 export function transformPositionData(apiData: PositionApiResponse): ArbitragePosition {
   const { symbol, hyperliquid, pacifica } = apiData;
+  const backpack = apiData.backpack ?? null;
 
   // Determine which protocol has long and short positions
   // Normalize protocol names to lowercase IDs for consistency
@@ -93,13 +105,18 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
       ? 'hyperliquid'
       : pacifica?.side === 'Long'
         ? 'pacifica'
-        : 'hyperliquid';
+        : backpack?.side === 'Long'
+          ? 'backpack'
+          : 'hyperliquid';
+
   const shortProtocolId =
     hyperliquid?.side === 'Short'
       ? 'hyperliquid'
       : pacifica?.side === 'Short'
         ? 'pacifica'
-        : 'pacifica';
+        : backpack?.side === 'Short'
+          ? 'backpack'
+          : 'pacifica';
 
   // Get display names (will be resolved in components using protocol config)
   const longProtocol = longProtocolId;
@@ -108,17 +125,20 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
   // Calculate total size (sum of both positions)
   const hyperliquidSize = hyperliquid ? parseFloat(hyperliquid.size) : 0;
   const pacificaSize = pacifica ? parseFloat(pacifica.size) : 0;
-  const totalSize = hyperliquidSize + pacificaSize;
+  const backpackSize = backpack ? parseFloat(backpack.size) : 0;
+  const totalSize = hyperliquidSize + pacificaSize + backpackSize;
 
   // Calculate total PNL (sum of both positions)
   const hyperliquidPnl = hyperliquid ? parseFloat(hyperliquid.pnl) : 0;
   const pacificaPnl = pacifica ? parseFloat(pacifica.pnl) : 0;
-  const totalPricePnl = hyperliquidPnl + pacificaPnl;
+  const backpackPnl = backpack ? parseFloat(backpack.pnl) : 0;
+  const totalPricePnl = hyperliquidPnl + pacificaPnl + backpackPnl;
 
   // Calculate total funding PNL (sum of both positions)
   const hyperliquidFunding = hyperliquid ? parseFloat(hyperliquid.funding) : 0;
   const pacificaFunding = pacifica ? parseFloat(pacifica.funding) : 0;
-  const totalFundingPnl = hyperliquidFunding + pacificaFunding;
+  const backpackFunding = backpack ? parseFloat(backpack.funding) : 0;
+  const totalFundingPnl = hyperliquidFunding + pacificaFunding + backpackFunding;
 
   // Calculate total PNL
   const totalPnl = totalPricePnl + totalFundingPnl;
@@ -128,19 +148,24 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
   if (totalSize > 0) {
     const hlLeverage = hyperliquid ? hyperliquid.leverage : 0;
     const pacLeverage = pacifica ? pacifica.leverage : 0;
+    const bpLeverage = backpack ? backpack.leverage : 0;
     avgLeverage = Math.round(
-      (hyperliquidSize * hlLeverage + pacificaSize * pacLeverage) / totalSize
+      (hyperliquidSize * hlLeverage + pacificaSize * pacLeverage + backpackSize * bpLeverage) /
+        totalSize
     );
   } else if (hyperliquid) {
     avgLeverage = hyperliquid.leverage;
   } else if (pacifica) {
     avgLeverage = pacifica.leverage;
+  } else if (backpack) {
+    avgLeverage = backpack.leverage;
   }
 
   // Calculate total margin
   const hyperliquidMargin = hyperliquid ? parseFloat(hyperliquid.margin) : 0;
   const pacificaMargin = pacifica ? parseFloat(pacifica.margin) : 0;
-  const totalMargin = hyperliquidMargin + pacificaMargin;
+  const backpackMargin = backpack ? parseFloat(backpack.margin) : 0;
+  const totalMargin = hyperliquidMargin + pacificaMargin + backpackMargin;
 
   return {
     asset: symbol,
@@ -181,6 +206,17 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
             margin: `$${pacificaMargin.toFixed(2)}`,
             liquidationPrice: pacifica.liquidationPrice
               ? `$${parseFloat(pacifica.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+              : '',
+          } as ProtocolPositionData)
+        : null,
+      backpack: backpack
+        ? ({
+            size: backpack.size,
+            pnl: formatCurrency(backpackPnl),
+            funding: formatCurrency(backpackFunding),
+            margin: `$${backpackMargin.toFixed(2)}`,
+            liquidationPrice: backpack.liquidationPrice
+              ? `$${parseFloat(backpack.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
               : '',
           } as ProtocolPositionData)
         : null,

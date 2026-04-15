@@ -128,11 +128,11 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
                 value={tradeDetails.estimatedAPR}
                 valueColor="green"
               />
-              <TradeDetailRow
+              {/* <TradeDetailRow
                 label="Max Drawdown"
                 value={tradeDetails.maxDrawdown}
                 valueColor="red"
-              />
+              /> */}
             </div>
           </div>
         )}

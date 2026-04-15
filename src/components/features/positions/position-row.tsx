@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import type { ArbitragePosition, ProtocolDataMap, ProtocolPositionData } from '@/types/positions';
 import { getProtocolConfig } from '@/lib/protocols/config';
+import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
 
 interface PositionRowProps {
   position: ArbitragePosition;
@@ -235,7 +236,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           {/* ASSET */}
           <div className="flex items-center gap-2">
             <Image
-              src={`https://app.hyperliquid.xyz/coins/${position.asset.toUpperCase()}.svg`}
+              src={hyperliquidCoinIconUrl(position.asset)}
               alt={position.asset}
               width={20}
               height={20}

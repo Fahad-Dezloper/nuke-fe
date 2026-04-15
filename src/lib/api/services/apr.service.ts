@@ -11,15 +11,15 @@ import { API_ENDPOINTS } from '../endpoints';
  * Spread APR entry for a single asset
  */
 export interface SpreadAprEntry {
-  long_platform: 'hyperliquid' | 'pacifica';
-  short_platform: 'hyperliquid' | 'pacifica';
+  long_platform: 'hyperliquid' | 'pacifica' | 'backpack';
+  short_platform: 'hyperliquid' | 'pacifica' | 'backpack';
   total_spread: number;
 }
 
 /**
  * Seven-day average APR per protocol for a single asset
  */
-export type SevenDayAvgAprEntry = Partial<Record<'hyperliquid' | 'pacifica', number>>;
+export type SevenDayAvgAprEntry = Partial<Record<'hyperliquid' | 'pacifica' | 'backpack', number>>;
 
 /**
  * Full API response from /aggregated/average/apr
@@ -33,10 +33,15 @@ export interface AverageAprApiResponse {
  * Processed spread APR data for a single asset (used in UI)
  */
 export interface AssetSpreadApr {
-  longPlatform: 'hyperliquid' | 'pacifica';
-  shortPlatform: 'hyperliquid' | 'pacifica';
+  longPlatform: 'hyperliquid' | 'pacifica' | 'backpack';
+  shortPlatform: 'hyperliquid' | 'pacifica' | 'backpack';
   totalSpread: number; // Weekly spread
   sevenDayApr: number; // Annualized: totalSpread * 52
+  /**
+   * Top spread pairs for the asset, sorted by total_spread desc.
+   * Includes the best pair at index 0.
+   */
+  topPairs?: SpreadAprEntry[];
 }
 
 /**
@@ -52,12 +57,15 @@ function transformSpreadAprData(response: AverageAprApiResponse): SpreadAprMap {
 
   for (const [asset, entries] of Object.entries(response.seven_day_spread_apr)) {
     if (entries.length > 0) {
-      const entry = entries[0];
+      // Pick the best pair (max total_spread) rather than assuming ordering.
+      const sorted = [...entries].sort((a, b) => b.total_spread - a.total_spread);
+      const entry = sorted[0]!;
       result[asset] = {
         longPlatform: entry.long_platform,
         shortPlatform: entry.short_platform,
         totalSpread: entry.total_spread,
         sevenDayApr: entry.total_spread * 52, // Annualized from weekly
+        topPairs: sorted.slice(0, 3),
       };
     }
   }

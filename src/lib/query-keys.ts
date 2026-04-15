@@ -37,8 +37,10 @@ export const queryKeys = {
   balance: {
     all: ['balance'] as const,
     usdcBase: (address: string) => ['balance', 'usdc-base', address] as const,
-    exchangeBalances: (evmAddress: string, solanaAddress: string) =>
-      ['balance', 'exchange', evmAddress, solanaAddress] as const,
+    usdcSolana: (address: string) => ['balance', 'usdc-solana', address] as const,
+    /** Hyperliquid + Pacifica (unsigned / server-side reads — safe to poll). */
+    exchangeHlPac: (evmAddress: string, solanaAddress: string) =>
+      ['balance', 'exchange-hl-pac', evmAddress, solanaAddress] as const,
   },
 
   withdrawal: {

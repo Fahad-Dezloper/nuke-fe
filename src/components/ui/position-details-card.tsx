@@ -13,6 +13,8 @@ export interface PositionDetailsCardProps extends PositionDetailsCardType {
   existingBalance?: string;
   /** Show the "Add Margin" button */
   showAddMargin?: boolean;
+  /** If true, render button disabled (non-clickable) */
+  addMarginDisabled?: boolean;
   /** Called when user clicks "Add Margin" */
   onAddMargin?: () => void;
 }
@@ -25,6 +27,7 @@ export function PositionDetailsCard({
   size,
   existingBalance,
   showAddMargin,
+  addMarginDisabled,
   onAddMargin,
   className,
 }: PositionDetailsCardProps) {
@@ -64,16 +67,18 @@ export function PositionDetailsCard({
           </div>
         )}
 
-        {showAddMargin && onAddMargin && (
+        {showAddMargin && (
           <button
-            onClick={onAddMargin}
+            onClick={addMarginDisabled ? undefined : onAddMargin}
+            disabled={!!addMarginDisabled}
             className={cn(
-              'flex items-center justify-center gap-1.5 mt-1 cursor-pointer',
+              'flex items-center justify-center gap-1.5 mt-1',
               'w-full py-1.5 rounded-lg',
               'text-[10px] font-medium tracking-wide',
               'bg-white/5 border border-border-white-10/40',
-              'text-text-muted-60 hover:text-text-primary',
-              'hover:bg-white/10 hover:border-border-white-20/50',
+              addMarginDisabled
+                ? 'text-text-muted-60/40 cursor-not-allowed opacity-60'
+                : 'text-text-muted-60 hover:text-text-primary cursor-pointer hover:bg-white/10 hover:border-border-white-20/50',
               'transition-all duration-150'
             )}
           >

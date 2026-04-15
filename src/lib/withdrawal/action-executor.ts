@@ -305,7 +305,7 @@ export class WithdrawalActionExecutor {
       const originChainId =
         toChainId(params?.originChainId) ?? toChainId(params?.origin_chain_id) ?? 42161;
       const destinationChainId =
-        toChainId(params?.destinationChainId) ?? toChainId(params?.destination_chain_id) ?? 8453;
+        toChainId(params?.destinationChainId) ?? toChainId(params?.destination_chain_id) ?? 792703809;
       const recipient = (params?.recipient as string) || context.evmAddress;
 
       // 1. Get bridge quote from backend

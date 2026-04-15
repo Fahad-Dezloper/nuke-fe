@@ -18,8 +18,8 @@ import {
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState, useRef, useCallback } from 'react';
-import { useUSDCBalanceBase } from '@/hooks/use-usdc-balance-base';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useUSDCBalanceSolana } from '@/hooks/use-usdc-balance-solana';
 import { useExchangeBalances } from '@/hooks/use-exchange-balances';
 import { getProtocolConfig } from '@/lib/protocols/config';
 import Image from 'next/image';
@@ -42,7 +42,7 @@ export function WalletStatus() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { formattedBalance, isLoading: isBalanceLoading } = useUSDCBalanceBase();
+  const { formattedBalance, isLoading: isBalanceLoading } = useUSDCBalanceSolana();
   const { hlBalance, pacBalance, isLoading: isExchangeLoading } = useExchangeBalances();
   const [balanceHover, setBalanceHover] = useState(false);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,6 +54,12 @@ export function WalletStatus() {
 
   const handleBalanceLeave = useCallback(() => {
     hoverTimeout.current = setTimeout(() => setBalanceHover(false), 150);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+    };
   }, []);
 
   // Get wallet addresses
@@ -217,13 +223,13 @@ export function WalletStatus() {
                       {/* Separator */}
                       <div className="border-t border-border-white-10/50" />
 
-                      {/* Base wallet row */}
+                      {/* Solana wallet row */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
                           <div className="relative">
                             <Image
-                              src="/tokens/base.jpg"
-                              alt="Base"
+                              src="/tokens/solana.webp"
+                              alt="Solana"
                               width={10}
                               height={10}
                               className="rounded-full ring-1 ring-white/10 absolute -top-[2px] -right-[2px]"
@@ -238,7 +244,7 @@ export function WalletStatus() {
                           </div>
                           <div className="flex flex-col">
                             <span className="text-[11px] font-medium text-text-primary leading-tight">
-                              BASE USDC
+                              SOLANA USDC
                             </span>
                           </div>
                         </div>

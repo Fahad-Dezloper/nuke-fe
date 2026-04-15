@@ -1,14 +1,14 @@
 /**
  * USDC Balance Store
- * Global Jotai store for USDC balance on Base network
+ * Global Jotai store for USDC balances (Base + Solana)
  */
 
 'use client';
 
 import { atom } from 'jotai';
-import { getUSDCBalanceOnBase } from '@/lib/bridge/balance-api';
+import { getUSDCBalanceOnBase, getUSDCBalanceOnSolana } from '@/lib/bridge/balance-api';
 import { formatUSDCBalance } from '@/lib/bridge/balance';
-import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
+import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import type { Wallet } from '@/lib/turnkey/types';
 
 /**
@@ -127,5 +127,83 @@ export const fetchUSDCBalanceBaseFromTurnkeyAtom = atom(
     }
 
     await set(fetchUSDCBalanceBaseAtom, walletAddress);
+  }
+);
+
+// ─── Solana USDC balance ─────────────────────────────────────────────────────
+
+/** USDC balance on Solana (in smallest unit - bigint) */
+export const usdcBalanceSolanaAtom = atom<bigint | null>(null);
+
+/** USDC balance formatted for display (string) */
+export const usdcBalanceSolanaFormattedAtom = atom<string>((get) => {
+  const balance = get(usdcBalanceSolanaAtom);
+  if (balance === null) return '0.00';
+  return formatUSDCBalance(balance);
+});
+
+/** USDC balance loading state */
+export const usdcBalanceSolanaLoadingAtom = atom<boolean>(false);
+
+/** USDC balance error state */
+export const usdcBalanceSolanaErrorAtom = atom<Error | null>(null);
+
+/** USDC balance last updated timestamp */
+export const usdcBalanceSolanaLastUpdatedAtom = atom<number | null>(null);
+
+/**
+ * Action atom to fetch USDC balance on Solana.
+ * Usage: await set(fetchUSDCBalanceSolanaAtom, solanaAddress)
+ */
+export const fetchUSDCBalanceSolanaAtom = atom(
+  null,
+  async (get, set, solanaAddress: string | null) => {
+    if (!solanaAddress) {
+      set(usdcBalanceSolanaAtom, null);
+      set(usdcBalanceSolanaErrorAtom, null);
+      return;
+    }
+
+    const isLoading = get(usdcBalanceSolanaLoadingAtom);
+    if (isLoading) return;
+
+    set(usdcBalanceSolanaLoadingAtom, true);
+    set(usdcBalanceSolanaErrorAtom, null);
+
+    try {
+      const balance = await getUSDCBalanceOnSolana(solanaAddress);
+      set(usdcBalanceSolanaAtom, balance);
+      set(usdcBalanceSolanaLastUpdatedAtom, Date.now());
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error('Failed to fetch USDC balance on Solana');
+      set(usdcBalanceSolanaErrorAtom, err);
+      console.error('Error fetching USDC balance on Solana:', error);
+    } finally {
+      set(usdcBalanceSolanaLoadingAtom, false);
+    }
+  }
+);
+
+/**
+ * Action atom to fetch Solana USDC balance using Turnkey wallet list.
+ * Usage: await set(fetchUSDCBalanceSolanaFromTurnkeyAtom, turnkeyWallets)
+ */
+export const fetchUSDCBalanceSolanaFromTurnkeyAtom = atom(
+  null,
+  async (_get, set, wallets: Wallet[] | null) => {
+    if (!wallets || wallets.length === 0) {
+      set(usdcBalanceSolanaAtom, null);
+      set(usdcBalanceSolanaErrorAtom, null);
+      return;
+    }
+
+    const solanaAddress = getSolanaAddress(wallets);
+    if (!solanaAddress) {
+      set(usdcBalanceSolanaAtom, null);
+      set(usdcBalanceSolanaErrorAtom, null);
+      return;
+    }
+
+    await set(fetchUSDCBalanceSolanaAtom, solanaAddress);
   }
 );

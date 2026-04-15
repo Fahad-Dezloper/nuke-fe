@@ -40,6 +40,14 @@ export const PROTOCOL_CONFIGS: Record<string, ProtocolConfig> = {
     bgOpacity: 0.1,
     borderOpacity: 0.2,
   },
+  backpack: {
+    id: 'backpack',
+    displayName: 'Backpack',
+    logo: '/tokens/backpack.svg',
+    colorVar: '--chart-backpack',
+    bgOpacity: 0.1,
+    borderOpacity: 0.2,
+  },
   // Future protocols can be added here:
   // drift: {
   //   id: 'drift',

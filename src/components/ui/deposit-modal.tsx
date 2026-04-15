@@ -2,7 +2,7 @@
 
 /**
  * Deposit Modal Component
- * Modal for depositing USDC on Base network
+ * Modal for depositing USDC on Solana network
  */
 
 import { motion } from 'framer-motion';
@@ -13,7 +13,7 @@ import { Modal } from './modal';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
-import { useUSDCBalanceBase } from '@/hooks/use-usdc-balance-base';
+import { useUSDCBalanceSolana } from '@/hooks/use-usdc-balance-solana';
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -34,7 +34,7 @@ export function DepositModal({
   balance: propBalance,
 }: DepositModalProps) {
   const { state: turnkeyState } = useTurnkey();
-  const { formattedBalance, isLoading: isLoadingBalance, refresh } = useUSDCBalanceBase();
+  const { formattedBalance, isLoading: isLoadingBalance, refresh } = useUSDCBalanceSolana();
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [usdcImageError, setUsdcImageError] = useState(false);
@@ -100,7 +100,7 @@ export function DepositModal({
   };
 
   const handleViewOnExplorer = () => {
-    const explorerUrl = `https://basescan.org/address/${walletAddress}`;
+    const explorerUrl = `https://solscan.io/account/${walletAddress}`;
     window.open(explorerUrl, '_blank');
   };
 

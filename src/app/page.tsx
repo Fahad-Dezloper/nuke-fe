@@ -26,13 +26,14 @@ export default function Home() {
   const setPositionSelectedAsset = useSetAtom(positionSelectedAssetAtom);
   const globalSelectedAsset = useAtomValue(selectedAssetAtom);
 
-  // Sync position controls store when global selected asset changes
+  // Sync symbol only when the *ticker* changes — not when the same row gets a
+  // new object reference from market-feed polling.
+  const globalAssetSymbol = globalSelectedAsset?.asset;
   useEffect(() => {
-    if (globalSelectedAsset) {
-      const normalizedAsset = normalizeAssetName(globalSelectedAsset.asset);
-      setPositionSelectedAsset(normalizedAsset);
+    if (globalAssetSymbol) {
+      setPositionSelectedAsset(normalizeAssetName(globalAssetSymbol));
     }
-  }, [globalSelectedAsset, setPositionSelectedAsset]);
+  }, [globalAssetSymbol, setPositionSelectedAsset]);
 
   const handleAssetChange = useCallback(
     (asset: AssetDropdownItem) => {

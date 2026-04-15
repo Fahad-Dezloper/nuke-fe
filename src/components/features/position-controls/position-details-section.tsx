@@ -13,9 +13,16 @@ import { PositionDetailsCard } from '@/components/ui/position-details-card';
 import { AddMarginModal } from '@/components/ui/add-margin-modal';
 import { isLoggedInAtom } from '@/lib/turnkey/store';
 import { useFundExchange } from '@/hooks/use-fund-exchange';
-import { marginAtom, leverageAtom, hlBalanceAtom, pacBalanceAtom, baseBalanceAtom } from './store';
+import {
+  marginAtom,
+  leverageAtom,
+  hlBalanceAtom,
+  pacBalanceAtom,
+  bpBalanceAtom,
+  baseBalanceAtom,
+} from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
-import { useBestPair } from '@/hooks/use-best-pair';
+import { useBestPair, type Protocol } from '@/hooks/use-best-pair';
 import { formatPrice } from '@/lib/utils';
 import type { FundExchange } from '@/hooks/use-fund-exchange';
 
@@ -30,6 +37,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
   const isLoggedIn = useAtomValue(isLoggedInAtom);
   const hlBalance = useAtomValue(hlBalanceAtom);
   const pacBalance = useAtomValue(pacBalanceAtom);
+  const bpBalance = useAtomValue(bpBalanceAtom);
   const baseBalance = useAtomValue(baseBalanceAtom);
   const { getBestPairForAsset } = useBestPair();
 
@@ -79,50 +87,54 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
     }
 
     const bestPair = getBestPairForAsset(selectedAsset);
-    const longProtocolName = bestPair.long.toUpperCase();
-    const shortProtocolName = bestPair.short.toUpperCase();
 
-    function getExistingBalance(protocol: string): number {
-      return protocol === 'HYPERLIQUID' ? hlBalance : pacBalance;
+    function getExistingBalance(protocol: Protocol): number {
+      if (protocol === 'hyperliquid') return hlBalance;
+      if (protocol === 'pacifica') return pacBalance;
+      return bpBalance;
     }
 
-    function getProtocolId(protocol: string): FundExchange {
-      return protocol === 'HYPERLIQUID' ? 'hyperliquid' : 'pacifica';
+    function fundTarget(protocol: Protocol): FundExchange | null {
+      // Backpack is display-only for now.
+      return protocol === 'backpack' ? null : protocol;
+    }
+
+    function legCard(
+      label: 'LONG' | 'SHORT',
+      protocol: Protocol,
+      gradientColor: 'long' | 'short'
+    ) {
+      const bal = getExistingBalance(protocol);
+      return {
+        label,
+        platform: protocol.toUpperCase(),
+        fundTarget: fundTarget(protocol),
+        gradientColor,
+        margin: formatMargin(halfMargin),
+        size: calculateSize(halfMargin),
+        existingBalanceNum: bal,
+        existingBalance: bal > 0 ? `$${bal.toFixed(2)}` : '$0.00',
+      };
     }
 
     return [
-      {
-        label: 'LONG',
-        platform: longProtocolName,
-        protocolId: getProtocolId(longProtocolName),
-        gradientColor: 'long' as const,
-        margin: formatMargin(halfMargin),
-        size: calculateSize(halfMargin),
-        existingBalanceNum: getExistingBalance(longProtocolName),
-        existingBalance:
-          getExistingBalance(longProtocolName) > 0
-            ? `$${getExistingBalance(longProtocolName).toFixed(2)}`
-            : '$0.00',
-      },
-      {
-        label: 'SHORT',
-        platform: shortProtocolName,
-        protocolId: getProtocolId(shortProtocolName),
-        gradientColor: 'short' as const,
-        margin: formatMargin(halfMargin),
-        size: calculateSize(halfMargin),
-        existingBalanceNum: getExistingBalance(shortProtocolName),
-        existingBalance:
-          getExistingBalance(shortProtocolName) > 0
-            ? `$${getExistingBalance(shortProtocolName).toFixed(2)}`
-            : '$0.00',
-      },
+      legCard('LONG', bestPair.long, 'long'),
+      legCard('SHORT', bestPair.short, 'short'),
     ];
-  }, [margin, leverage, price, selectedAsset, getBestPairForAsset, hlBalance, pacBalance]);
+  }, [
+    margin,
+    leverage,
+    price,
+    selectedAsset,
+    getBestPairForAsset,
+    hlBalance,
+    pacBalance,
+    bpBalance,
+  ]);
 
   // Derive context for the currently-selected exchange's modal
-  const selectedCard = positionDetails.find((c) => c.protocolId === addMarginExchange);
-  const otherCard = positionDetails.find((c) => c.protocolId !== addMarginExchange);
+  const selectedCard = positionDetails.find((c) => c.fundTarget === addMarginExchange);
+  const otherCard = positionDetails.find((c) => c !== selectedCard);
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
@@ -138,7 +150,10 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
               size={card.size}
               existingBalance={card.existingBalance}
               showAddMargin={isLoggedIn && baseBalance > 0}
-              onAddMargin={() => handleOpenAddMargin(card.protocolId)}
+              addMarginDisabled={card.fundTarget === null}
+              onAddMargin={
+                card.fundTarget ? () => handleOpenAddMargin(card.fundTarget as FundExchange) : undefined
+              }
             />
           </div>
         ))}

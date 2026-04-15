@@ -25,6 +25,8 @@ import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getWalletContext } from '@/lib/wallet-context';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { queryKeys } from '@/lib/query-keys';
+// Backpack authenticated balance refresh disabled (display-only demo).
+// import { refreshBackpackMarginBalance } from '@/lib/stores/backpack-margin.store';
 import { hedgeIntentApi } from './api';
 import { HedgeIntentEngine, type EngineCallbacks } from './engine';
 import type { ExecutorContext } from './action-executor';
@@ -198,8 +200,11 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
           setStatusMessage('Hedge is live!');
           // Refresh the positions table so the new hedge appears immediately
           queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
-          // Also refresh exchange balances since they changed
-          queryClient.invalidateQueries({ queryKey: queryKeys.balance.all });
+          const wallet = getWalletContext(turnkeyState);
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.balance.exchangeHlPac(wallet.evmAddress, wallet.solanaAddress),
+          });
+          // Backpack display-only: skip signed balance refresh.
 
           toast.success('Hedge Position Live', {
             description: 'Delta-neutral hedge is live on both legs.',
@@ -236,7 +241,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
           .catch(() => { /* non-critical */ });
       },
     }),
-    [queryClient, setMargin]
+    [queryClient, setMargin, turnkeyState]
   );
 
   // ── Run the engine ─────────────────────────────────────────

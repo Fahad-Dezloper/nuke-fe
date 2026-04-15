@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { getBestPair } from '@/hooks/use-best-pair';
+import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
 import {
   chartService,
   type ChartApiResponse,
@@ -87,12 +88,15 @@ export interface ChartDataPoint {
   fullTimestamp: string;
   hyperliquid: number | null;
   pacifica: number | null;
+  backpack: number | null;
   hyperliquidRaw: number;
   pacificaRaw: number;
+  backpackRaw: number;
   projectedHyperliquid: number | null;
   projectedPacifica: number | null;
-  longProtocol: 'hyperliquid' | 'pacifica';
-  shortProtocol: 'hyperliquid' | 'pacifica';
+  projectedBackpack: number | null;
+  longProtocol: 'hyperliquid' | 'pacifica' | 'backpack';
+  shortProtocol: 'hyperliquid' | 'pacifica' | 'backpack';
   longRate: number;
   shortRate: number;
   netRate: number;
@@ -109,10 +113,14 @@ interface UseFundingRateChartOptions {
 function transformChartData(
   chartData: ChartApiResponse,
   timeframe: ChartTimeframe,
-  consistentLong: 'hyperliquid' | 'pacifica',
-  consistentShort: 'hyperliquid' | 'pacifica'
+  consistentLong: 'hyperliquid' | 'pacifica' | 'backpack',
+  consistentShort: 'hyperliquid' | 'pacifica' | 'backpack'
 ): ChartDataPoint[] {
-  const { hyperliquid, pacifica } = chartData;
+  // Backend may omit a platform key entirely when it has no data.
+  // Normalize to empty arrays so the chart never crashes on `.forEach`.
+  const hyperliquid = chartData.hyperliquid ?? [];
+  const pacifica = chartData.pacifica ?? [];
+  const backpack = chartData.backpack ?? [];
 
   const hyperliquidMap = new Map<string, (typeof hyperliquid)[0]>();
   hyperliquid.forEach((item) => {
@@ -132,9 +140,19 @@ function transformChartData(
     }
   });
 
+  const backpackMap = new Map<string, (typeof backpack)[0]>();
+  backpack.forEach((item) => {
+    const normalized = normalizeTimestamp(item.timestamp, timeframe);
+    const existing = backpackMap.get(normalized);
+    if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
+      backpackMap.set(normalized, item);
+    }
+  });
+
   const allNormalizedTimestamps = new Set<string>();
   hyperliquidMap.forEach((_, key) => allNormalizedTimestamps.add(key));
   pacificaMap.forEach((_, key) => allNormalizedTimestamps.add(key));
+  backpackMap.forEach((_, key) => allNormalizedTimestamps.add(key));
 
   const sortedTimestamps = Array.from(allNormalizedTimestamps).sort();
   const projectionThreshold = sortedTimestamps.length * 0.95;
@@ -142,13 +160,19 @@ function transformChartData(
   return sortedTimestamps.map((normalizedTimestamp, index) => {
     const hlData = hyperliquidMap.get(normalizedTimestamp);
     const pacData = pacificaMap.get(normalizedTimestamp);
-    const displayTimestamp = hlData?.timestamp || pacData?.timestamp || normalizedTimestamp;
+    const bpData = backpackMap.get(normalizedTimestamp);
+    const displayTimestamp =
+      hlData?.timestamp || pacData?.timestamp || bpData?.timestamp || normalizedTimestamp;
 
     const hlYearly = hlData ? hourlyToYearlyPercentage(hlData.rate) : null;
     const pacYearly = pacData ? hourlyToYearlyPercentage(pacData.rate) : null;
+    const bpYearly = bpData ? hourlyToYearlyPercentage(bpData.rate) : null;
 
-    const longRate = consistentLong === 'hyperliquid' ? (hlYearly ?? 0) : (pacYearly ?? 0);
-    const shortRate = consistentShort === 'hyperliquid' ? (hlYearly ?? 0) : (pacYearly ?? 0);
+    const resolveRate = (p: 'hyperliquid' | 'pacifica' | 'backpack'): number =>
+      p === 'hyperliquid' ? (hlYearly ?? 0) : p === 'pacifica' ? (pacYearly ?? 0) : (bpYearly ?? 0);
+
+    const longRate = resolveRate(consistentLong);
+    const shortRate = resolveRate(consistentShort);
     const netRate = shortRate - longRate;
     const isProjected = index >= projectionThreshold;
 
@@ -158,10 +182,13 @@ function transformChartData(
       fullTimestamp: formatFullTimestamp(displayTimestamp),
       hyperliquid: hlYearly ?? null,
       pacifica: pacYearly ?? null,
+      backpack: bpYearly ?? null,
       hyperliquidRaw: hlData?.rate || 0,
       pacificaRaw: pacData?.rate || 0,
+      backpackRaw: bpData?.rate || 0,
       projectedHyperliquid: isProjected && hlData ? (hlYearly ?? null) : null,
       projectedPacifica: isProjected && pacData ? (pacYearly ?? null) : null,
+      projectedBackpack: isProjected && bpData ? (bpYearly ?? null) : null,
       longProtocol: consistentLong,
       shortProtocol: consistentShort,
       longRate,
@@ -175,6 +202,7 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
   const { timeframe = '30m' } = options;
   const selectedAsset = useAtomValue(selectedAssetAtom);
   const spreadAprData = useAtomValue(spreadAprDataAtom);
+  const overrides = useAtomValue(bestPairOverrideAtom);
 
   const assetName = selectedAsset?.asset ?? '';
 
@@ -185,13 +213,22 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
     staleTime: 30_000, // Chart data refreshes every 30s
   });
 
-  // Transform chart data (memoized — only recomputes when inputs change)
+  const bestPair = useMemo(
+    () =>
+      getBestPair(
+        selectedAsset,
+        spreadAprData,
+        selectedAsset ? overrides[selectedAsset.asset] ?? null : null
+      ),
+    [selectedAsset, spreadAprData, overrides]
+  );
+
+  // Depend on `bestPair.long` / `short` (primitives), not the whole asset object,
+  // so we do not rebuild all points when only the row reference changes.
   const transformedData = useMemo<ChartDataPoint[]>(() => {
     if (!query.data) return [];
-
-    const bestPair = getBestPair(selectedAsset, spreadAprData);
     return transformChartData(query.data, timeframe, bestPair.long, bestPair.short);
-  }, [query.data, timeframe, selectedAsset, spreadAprData]);
+  }, [query.data, timeframe, bestPair.long, bestPair.short]);
 
   return {
     data: transformedData,

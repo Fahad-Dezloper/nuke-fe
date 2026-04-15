@@ -12,13 +12,13 @@
 /**
  * Exchange identifiers (lowercase) — used in most API responses and leg results.
  */
-export type Exchange = 'hyperliquid' | 'pacifica';
+export type Exchange = 'hyperliquid' | 'pacifica' | 'backpack';
 
 /**
  * Exchange names (PascalCase) — used ONLY in the create-intent request body.
  * The backend expects this exact casing in the `exchanges` array.
  */
-export type ExchangeName = 'Hyperliquid' | 'Pacifica';
+export type ExchangeName = 'Hyperliquid' | 'Pacifica' | 'Backpack';
 
 /** Hedge intent lifecycle status (owned by backend) */
 export type HedgeIntentStatus =
@@ -46,10 +46,12 @@ export type HedgeLegStatus =
 
 /** Actions the backend can instruct the client to execute */
 export type HedgeAction =
-  | 'BRIDGE_BASE_TO_ARB'
-  | 'BRIDGE_BASE_TO_SOL'
+  | 'BRIDGE_BASE_TO_ARB' // legacy
+  | 'BRIDGE_BASE_TO_SOL' // legacy
+  | 'BRIDGE_SOL_TO_ARB'
   | 'DEPOSIT_TO_HYPERLIQUID'
   | 'DEPOSIT_TO_PACIFICA'
+  | 'DEPOSIT_TO_BACKPACK'
   | 'OPEN_HEDGE_POSITION'
   | 'CLOSE_POSITION'
   | 'WAIT'
@@ -144,7 +146,7 @@ export interface HedgeIntentDetail {
 
 // ─── Bridge Action Params (from backend) ─────────────────────────────────────
 
-/** Params shape for BRIDGE_BASE_TO_ARB / BRIDGE_BASE_TO_SOL */
+/** Params shape for bridge actions (origin now Solana per backend) */
 export interface BridgeActionParams {
   origin_chain_id: number;
   destination_chain_id: number;
@@ -157,7 +159,7 @@ export interface BridgeActionParams {
   existing_onchain_usd: number;
 }
 
-/** Params shape for DEPOSIT_TO_HYPERLIQUID / DEPOSIT_TO_PACIFICA */
+/** Params shape for DEPOSIT_TO_HYPERLIQUID / DEPOSIT_TO_PACIFICA / DEPOSIT_TO_BACKPACK */
 export interface DepositActionParams {
   protocol: string; // Lowercase exchange name
   chain: number; // Chain ID (42161 or 792703809)

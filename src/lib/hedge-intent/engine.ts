@@ -274,9 +274,11 @@ export class HedgeIntentEngine {
     switch (action) {
       case 'BRIDGE_BASE_TO_ARB':
       case 'BRIDGE_BASE_TO_SOL':
+      case 'BRIDGE_SOL_TO_ARB':
         return 'bridging';
       case 'DEPOSIT_TO_HYPERLIQUID':
       case 'DEPOSIT_TO_PACIFICA':
+      case 'DEPOSIT_TO_BACKPACK':
         return 'depositing';
       case 'OPEN_HEDGE_POSITION':
         return 'opening';
@@ -296,10 +298,14 @@ export class HedgeIntentEngine {
         return `Bridging $${action.amount_usd} USDC to Arbitrum...`;
       case 'BRIDGE_BASE_TO_SOL':
         return `Bridging $${action.amount_usd} USDC to Solana...`;
+      case 'BRIDGE_SOL_TO_ARB':
+        return `Bridging $${action.amount_usd} USDC to Arbitrum...`;
       case 'DEPOSIT_TO_HYPERLIQUID':
         return 'Depositing USDC into Hyperliquid...';
       case 'DEPOSIT_TO_PACIFICA':
         return 'Depositing USDC into Pacifica...';
+      case 'DEPOSIT_TO_BACKPACK':
+        return 'Depositing USDC into Backpack...';
       case 'OPEN_HEDGE_POSITION':
         return 'Opening hedge positions...';
       case 'CLOSE_POSITION':
@@ -318,10 +324,14 @@ export class HedgeIntentEngine {
         return 'Bridge to Arbitrum';
       case 'BRIDGE_BASE_TO_SOL':
         return 'Bridge to Solana';
+      case 'BRIDGE_SOL_TO_ARB':
+        return 'Bridge to Arbitrum';
       case 'DEPOSIT_TO_HYPERLIQUID':
         return 'Deposit to Hyperliquid';
       case 'DEPOSIT_TO_PACIFICA':
         return 'Deposit to Pacifica';
+      case 'DEPOSIT_TO_BACKPACK':
+        return 'Deposit to Backpack';
       case 'OPEN_HEDGE_POSITION':
         return 'Open hedge positions';
       case 'CLOSE_POSITION':

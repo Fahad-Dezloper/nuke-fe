@@ -11,6 +11,7 @@ import { ProtocolRegistry } from './protocol-registry';
 import { ARBITRAGE_PAIRS } from './pairs/pair-config';
 import { HyperLiquidAdapter } from './adapters/hyperliquid-adapter';
 import { PacificaAdapter } from './adapters/pacifica-adapter';
+import { BackpackAdapter } from './adapters/backpack-adapter';
 import type { ExecuteArbitragePairParams } from './orchestrator';
 import type { ArbitrageExecutionResult } from './types';
 import type { ArbitragePair } from './types';
@@ -45,6 +46,7 @@ export class ArbitrageService {
     // Register protocol adapters
     this.protocolRegistry.register('hyperliquid', new HyperLiquidAdapter());
     this.protocolRegistry.register('pacifica', new PacificaAdapter());
+    this.protocolRegistry.register('backpack', new BackpackAdapter());
 
     // Register arbitrage pairs
     this.pairRegistry.registerPairs(ARBITRAGE_PAIRS);

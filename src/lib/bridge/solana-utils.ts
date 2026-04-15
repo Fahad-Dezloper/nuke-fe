@@ -194,6 +194,29 @@ export async function signSolanaMessageWithTurnkey(
 }
 
 /**
+ * Complete flow: Deserialize, co-sign with user, and submit Backpack deposit transaction.
+ *
+ * Backend returns a legacy Solana transaction (base64) that is already partially signed
+ * by the server fee payer. The client adds the user's signature and submits.
+ */
+export async function signAndSubmitBackpackDeposit(
+  base64Transaction: string,
+  userWalletAddress: string,
+  organizationId: string
+): Promise<string> {
+  const { transaction, serializedMessage } = await deserializeSolanaTransaction(base64Transaction);
+
+  const userSignature = await signSolanaMessageWithTurnkey(
+    serializedMessage,
+    userWalletAddress,
+    organizationId
+  );
+
+  await addSignatureToTransaction(transaction, userSignature, userWalletAddress);
+  return submitSolanaTransaction(transaction);
+}
+
+/**
  * Complete flow: Deserialize, sign with user, and submit transaction
  * @param base64Transaction - Base64 encoded partially signed transaction from BE
  * @param userWalletAddress - User's Solana wallet address
