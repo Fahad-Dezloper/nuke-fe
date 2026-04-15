@@ -19,6 +19,7 @@ interface BestPairTooltipProps {
 const PROTOCOL_LABELS: Record<string, string> = {
   hyperliquid: 'HyperLiquid',
   pacifica: 'Pacifica',
+  backpack: 'Backpack',
 };
 
 export function BestPairTooltip({ asset, isVisible, position }: BestPairTooltipProps) {

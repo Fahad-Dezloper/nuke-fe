@@ -2,7 +2,7 @@
 
 /**
  * Withdraw Modal Component
- * Modal for withdrawing USDC from an exchange to Base wallet.
+ * Modal for withdrawing USDC from an exchange to Solana wallet.
  * Follows the glassmorphism design of DepositModal / ClosePositionModal.
  */
 
@@ -14,7 +14,7 @@ import { Modal } from './modal';
 import { useWithdrawal } from '@/lib/withdrawal';
 import type { WithdrawalExchange, WithdrawalPhase } from '@/lib/withdrawal';
 import { useTurnkey } from '@/lib/turnkey/hooks';
-import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
+import { getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { useExchangeBalances } from '@/hooks/use-exchange-balances';
 import { getProtocolConfig } from '@/lib/protocols/config';
 import { cn } from '@/lib/utils';
@@ -31,7 +31,7 @@ const EXCHANGES: { id: WithdrawalExchange; label: string }[] = [
 
 const STEP_LABELS: { key: string; label: string }[] = [
   { key: 'withdraw', label: 'Withdraw from exchange' },
-  { key: 'bridge', label: 'Bridge to Base' },
+  { key: 'bridge', label: 'Bridge to Solana' },
   { key: 'done', label: 'Complete' },
 ];
 
@@ -98,7 +98,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
     const amountNum = parseFloat(amount);
     if (!amountNum || amountNum <= 0) return;
 
-    const walletAddress = getEVMAddress(turnkeyState.userWallets || []);
+    const walletAddress = getSolanaAddress(turnkeyState.userWallets || []);
 
     await startWithdrawal({
       exchange: selectedExchange,
@@ -153,9 +153,9 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
           </h2>
         </div>
         <p className="text-xs text-text-muted-60">
-          {showForm && 'Withdraw USDC from an exchange to your Base wallet'}
+          {showForm && 'Withdraw USDC from an exchange to your Solana wallet'}
           {isInProgress && (statusMessage || 'Processing withdrawal...')}
-          {phase === 'completed' && 'Funds have been withdrawn to your Base wallet.'}
+          {phase === 'completed' && 'Funds have been withdrawn to your Solana wallet.'}
         </p>
       </motion.div>
 
@@ -469,7 +469,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
         className="p-3 rounded-lg bg-yellow-700/10 border border-accent/20"
       >
         <p className="text-xs text-text-muted-60 leading-relaxed">
-          Withdrawals move USDC from the exchange to your Base wallet.
+          Withdrawals move USDC from the exchange to your Solana wallet.
           The process involves a withdrawal step and a bridge step.
         </p>
       </motion.div>

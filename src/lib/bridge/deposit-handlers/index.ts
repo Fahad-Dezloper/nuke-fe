@@ -18,6 +18,7 @@ export type {
 // Implementations
 export { HyperliquidDepositHandler } from './hyperliquid.handler';
 export { PacificaDepositHandler } from './pacifica.handler';
+export { BackpackDepositHandler } from './backpack.handler';
 
 // Registry
 export { DepositHandlerRegistry, createDefaultDepositHandlerRegistry } from './registry';

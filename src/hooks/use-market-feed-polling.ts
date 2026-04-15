@@ -22,6 +22,7 @@ import {
   marketFeedErrorAtom,
   marketFeedLastUpdatedAtom,
 } from '@/lib/stores/market-feed.store';
+import { mergeStableMarketFeed } from '@/lib/stores/market-feed-merge';
 import { marketFeedService } from '@/lib/api/services/market-feed.service';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -45,12 +46,12 @@ export function useMarketFeedPolling() {
     staleTime: POLLING_INTERVAL - 500,
   });
 
-  // Sync React Query state → Jotai atoms (for components that read from atoms)
+  // Sync React Query → Jotai. Reuse row objects when values are unchanged so
+  // `selectedAssetAtom` and list subscribers do not re-render every poll tick.
   useEffect(() => {
-    if (query.data) {
-      setMarketFeedData(query.data);
-      setLastUpdated(Date.now());
-    }
+    if (!query.data) return;
+    setMarketFeedData((prev) => mergeStableMarketFeed(prev, query.data!));
+    setLastUpdated(Date.now());
   }, [query.data, setMarketFeedData, setLastUpdated]);
 
   useEffect(() => {

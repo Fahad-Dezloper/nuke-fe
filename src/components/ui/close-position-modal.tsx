@@ -15,6 +15,7 @@ import Image from 'next/image';
 import type { ClosePositionResult, CloseLegResult } from '@/hooks/use-close-position';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
 import { getProtocolConfig } from '@/lib/protocols/config';
+import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -244,7 +245,7 @@ export function ClosePositionModal({
         className="flex items-center gap-2.5 mt-5 mb-4"
       >
         <Image
-          src={`https://app.hyperliquid.xyz/coins/${position.symbol.toUpperCase()}.svg`}
+          src={hyperliquidCoinIconUrl(position.symbol)}
           alt={position.symbol}
           width={28}
           height={28}

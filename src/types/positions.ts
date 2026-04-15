@@ -140,9 +140,12 @@ export interface AssetDropdownItem {
   // Legacy fields for backward compatibility (derived from protocols)
   hyperliquidFundingRate: number;
   pacificaFundingRate: number;
+  /** Yearly funding % when Backpack data exists for this symbol */
+  backpackFundingRate?: number;
   netAPR: number;
   apr30D: number;
   markPx?: number; // Primary mark price (from first protocol)
   hyperliquidMarkPx?: number;
   pacificaMarkPx?: number;
+  backpackMarkPx?: number;
 }

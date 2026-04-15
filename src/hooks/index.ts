@@ -8,3 +8,4 @@ export { usePositions } from './use-positions';
 export { useClosePosition } from './use-close-position';
 export type { CloseStatus, CloseLegResult, ClosePositionResult } from './use-close-position';
 export { useUSDCBalanceBase } from './use-usdc-balance-base';
+export { useUSDCBalanceSolana } from './use-usdc-balance-solana';

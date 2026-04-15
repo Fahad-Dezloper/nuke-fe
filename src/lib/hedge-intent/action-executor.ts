@@ -14,6 +14,8 @@ import { bridgeService } from '@/lib/bridge/bridge.service';
 import { pollBridgeStatus } from '@/lib/bridge/poll-bridge-status';
 import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperliquid.handler';
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
+// Backpack authenticated actions disabled (display-only demo).
+// import { BackpackDepositHandler } from '@/lib/bridge/deposit-handlers/backpack.handler';
 import { HyperLiquidAdapter } from '@/lib/arbitrage/adapters/hyperliquid-adapter';
 import { PacificaAdapter } from '@/lib/arbitrage/adapters/pacifica-adapter';
 import { BackpackAdapter } from '@/lib/arbitrage/adapters/backpack-adapter';
@@ -44,6 +46,7 @@ import type {
   LegResultEntry,
   Exchange,
   BridgeActionParams,
+  DepositActionParams,
   OpenPositionActionParams,
   ClosePositionActionParams,
 } from './types';
@@ -155,6 +158,7 @@ function clearBridgeRequestId(legId: string): void {
 export class HedgeActionExecutor {
   private hlDepositHandler: HyperliquidDepositHandler;
   private pacificaDepositHandler: PacificaDepositHandler;
+  // private backpackDepositHandler: BackpackDepositHandler;
   private hlAdapter: HyperLiquidAdapter;
   private pacificaAdapter: PacificaAdapter;
   private backpackAdapter: BackpackAdapter;
@@ -166,6 +170,7 @@ export class HedgeActionExecutor {
   constructor() {
     this.hlDepositHandler = new HyperliquidDepositHandler();
     this.pacificaDepositHandler = new PacificaDepositHandler();
+    // this.backpackDepositHandler = new BackpackDepositHandler();
     this.hlService = new HyperLiquidService();
     this.pacificaService = new PacificaService();
     this.backpackService = new BackpackService();
@@ -187,11 +192,23 @@ export class HedgeActionExecutor {
       case 'BRIDGE_BASE_TO_SOL':
         return this.executeBridge(action, context, 'pacifica');
 
+      case 'BRIDGE_SOL_TO_ARB':
+        return this.executeBridge(action, context, 'hyperliquid');
+
       case 'DEPOSIT_TO_HYPERLIQUID':
         return this.executeDeposit(context, 'hyperliquid', action);
 
       case 'DEPOSIT_TO_PACIFICA':
         return this.executeDeposit(context, 'pacifica', action);
+
+      case 'DEPOSIT_TO_BACKPACK':
+        // Backpack display-only: skip authenticated deposit.
+        return {
+          success: false,
+          txHash: null,
+          error: 'Backpack funding is disabled in this demo build.',
+          legResults: null,
+        };
 
       case 'OPEN_HEDGE_POSITION':
         return this.executeOpenPosition(action, context);
@@ -275,7 +292,7 @@ export class HedgeActionExecutor {
       const amountUsd = action.amount_usd!;
       const amountSmallestUnit = Math.floor(amountUsd * 1_000_000).toString();
 
-      // Recipient: EVM address for Arb, Solana address for Sol
+    // Recipient: destination chain address family (EVM vs Solana)
       const recipient =
         params.recipient || (exchange === 'hyperliquid' ? context.evmAddress : context.solanaAddress);
 
@@ -404,11 +421,34 @@ export class HedgeActionExecutor {
     exchange: Exchange,
     action: NextActionResponse
   ): Promise<ActionResult> {
+    if (exchange === 'backpack') {
+      return {
+        success: false,
+        txHash: null,
+        error: 'Backpack funding is disabled in this demo build.',
+        legResults: null,
+      };
+    }
     const handler =
-      exchange === 'hyperliquid' ? this.hlDepositHandler : this.pacificaDepositHandler;
-    const exchangeLabel = exchange === 'hyperliquid' ? 'Hyperliquid' : 'Pacifica';
+      exchange === 'hyperliquid'
+        ? this.hlDepositHandler
+        : exchange === 'pacifica'
+          ? this.pacificaDepositHandler
+          : this.pacificaDepositHandler;
+    const exchangeLabel =
+      exchange === 'hyperliquid'
+        ? 'Hyperliquid'
+        : exchange === 'pacifica'
+          ? 'Pacifica'
+          : 'Backpack';
 
-    const legId = ((action.params as Record<string, unknown>)?.leg_id as string) || '';
+    const depositParams = action.params as unknown as DepositActionParams;
+    const legId = depositParams.leg_id || '';
+    const amountUsd =
+      typeof depositParams.amount_usd === 'number' && Number.isFinite(depositParams.amount_usd)
+        ? depositParams.amount_usd
+        : 0;
+    const depositAmountMicros = undefined;
 
     // Ensure referral code claimed + builder code approved before depositing to Pacifica
     if (exchange === 'pacifica') {
@@ -423,6 +463,7 @@ export class HedgeActionExecutor {
         organizationId: context.organizationId,
         bridgeRequestId: legId,
         solanaRecipientAddress: context.solanaAddress,
+        depositAmountMicros,
       });
 
       if (!depositResult || !depositResult.txHash) {
@@ -615,12 +656,8 @@ export class HedgeActionExecutor {
           const res = await this.pacificaService.fetchLeverage(context.solanaAddress, asset.toUpperCase());
           return { exchange: ex, current: res.success ? res.leverage : null, success: res.success, error: res.error };
         }
-        // backpack
-        const res = await this.backpackService.fetchLeverageLimit({
-          solanaAddress: context.solanaAddress,
-          organizationId: context.organizationId,
-        });
-        return { exchange: ex, current: res.success ? res.leverageLimit : null, success: res.success, error: res.error };
+        // backpack (disabled for display-only demo)
+        return { exchange: ex, current: null, success: true, error: undefined };
       })
     );
 
@@ -747,17 +784,15 @@ export class HedgeActionExecutor {
             return { exchange: leg.exchange, result };
           }
 
-          const result = await this.backpackAdapter.openPosition({
-            asset,
-            direction,
-            margin: marginForLegs.toString(),
-            leverage,
-            walletAddress: context.solanaAddress,
-            organizationId: context.organizationId,
-            isMarket: true,
-            price: marketPrice,
-          });
-          return { exchange: leg.exchange, result };
+          // backpack (disabled for display-only demo)
+          return {
+            exchange: leg.exchange,
+            result: {
+              success: false,
+              positionId: null,
+              error: 'Backpack trading is disabled in this demo build.',
+            },
+          };
         }
       })
     );
@@ -849,7 +884,7 @@ export class HedgeActionExecutor {
         ? await this.closeHLPositionAction(position.hyperliquid, asset, context)
         : exchange === 'pacifica'
           ? await this.closePacificaPositionAction(position.pacifica, asset, context)
-          : await this.closeBackpackPositionAction(position.backpack, asset, context);
+          : await this.closeBackpackPositionAction(position.backpack ?? null, asset, context);
 
       if (closeResult.success) {
         trackPositionClosed(asset);
@@ -941,23 +976,32 @@ export class HedgeActionExecutor {
     asset: string,
     context: ExecutorContext
   ): Promise<ActionResult> {
-    if (!bpPosition) {
-      return {
-        success: false,
-        txHash: null,
-        error: `No Backpack position found for ${asset}`,
-        legResults: null,
-      };
-    }
-
-    const result = await closeBackpackPosition(bpPosition, context.solanaAddress, context.organizationId);
-
+    // backpack (disabled for display-only demo)
     return {
-      success: result.success,
+      success: false,
       txHash: null,
-      error: result.success ? null : result.error || 'Failed to close Backpack position',
+      error: `Backpack trading is disabled in this demo build (asset ${asset})`,
       legResults: null,
     };
+
+    // unreachable (kept for reference while Backpack is disabled)
+    // if (!bpPosition) {
+    //   return {
+    //     success: false,
+    //     txHash: null,
+    //     error: `No Backpack position found for ${asset}`,
+    //     legResults: null,
+    //   };
+    // }
+    //
+    // const result = await closeBackpackPosition(bpPosition, context.solanaAddress, context.organizationId);
+    //
+    // return {
+    //   success: result.success,
+    //   txHash: null,
+    //   error: result.success ? null : result.error || 'Failed to close Backpack position',
+    //   legResults: null,
+    // };
   }
 
   // Bridge status polling is now handled by the shared pollBridgeStatus utility

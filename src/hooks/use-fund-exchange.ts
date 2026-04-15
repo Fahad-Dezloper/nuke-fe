@@ -1,11 +1,9 @@
 /**
- * useFundExchange — Bridge + Deposit for a single exchange
+ * useFundExchange — Bridge + deposit (or direct Solana deposit) per exchange
  *
- * Standalone hook that handles the full funding flow:
- *   Base USDC → bridge to destination chain → deposit into exchange margin
- *
- * Reuses existing DepositHandler infrastructure and bridgeService directly,
- * without going through the hedge intent system.
+ * - Hyperliquid: Solana USDC → bridge to Arbitrum → HL deposit API
+ * - Pacifica: Solana USDC → bridge to Solana (relay) → Pacifica deposit tx
+ * - Backpack: Solana USDC → SPL transfer to Backpack deposit address (no bridge)
  */
 
 'use client';
@@ -19,6 +17,8 @@ import { bridgeService } from '@/lib/bridge/bridge.service';
 import { pollBridgeStatus } from '@/lib/bridge/poll-bridge-status';
 import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperliquid.handler';
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
+// Backpack funding disabled (display-only demo).
+// import { BackpackDepositHandler } from '@/lib/bridge/deposit-handlers/backpack.handler';
 import { CHAIN_IDS } from '@/lib/bridge/types';
 import type { QuoteRequest } from '@/lib/bridge/types';
 import { queryKeys } from '@/lib/query-keys';
@@ -28,7 +28,6 @@ import {
   trackDepositStarted,
   trackDepositCompleted,
   trackDepositFailed,
-  trackBridgeFailed,
 } from '@/lib/analytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -69,15 +68,18 @@ const hlHandler = new HyperliquidDepositHandler();
 const pacHandler = new PacificaDepositHandler();
 
 function getHandler(exchange: FundExchange) {
-  return exchange === 'hyperliquid' ? hlHandler : pacHandler;
+  if (exchange === 'hyperliquid') return hlHandler;
+  return pacHandler;
 }
 
 function getExchangeLabel(exchange: FundExchange): string {
-  return exchange === 'hyperliquid' ? 'HyperLiquid' : 'Pacifica';
+  if (exchange === 'hyperliquid') return 'HyperLiquid';
+  return 'Pacifica';
 }
 
 function getDestinationChainId(exchange: FundExchange): number {
-  return exchange === 'hyperliquid' ? CHAIN_IDS.ARBITRUM : CHAIN_IDS.SOLANA;
+  if (exchange === 'hyperliquid') return CHAIN_IDS.ARBITRUM;
+  return CHAIN_IDS.SOLANA;
 }
 
 function getChainLabel(exchange: FundExchange): string {
@@ -120,6 +122,8 @@ export function useFundExchange(): UseFundExchangeReturn {
         const wallet = getWalletContext(turnkeyState);
         const recipient =
           exchange === 'hyperliquid' ? wallet.evmAddress : wallet.solanaAddress;
+
+        // Backpack funding disabled (display-only demo).
 
         // ── Step 1: Get bridge quote ──────────────────────────────
         trackBridgeStarted(exchange, String(amountUsd));
@@ -190,8 +194,9 @@ export function useFundExchange(): UseFundExchangeReturn {
         setStep('success');
         setStatusMessage(`Successfully funded ${label}!`);
 
-        // Refresh balances so the UI updates immediately
-        queryClient.invalidateQueries({ queryKey: queryKeys.balance.all });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.balance.exchangeHlPac(wallet.evmAddress, wallet.solanaAddress),
+        });
 
         toast.success(`${label} Funded`, {
           description: `$${amountUsd.toFixed(2)} USDC deposited to ${label}.`,

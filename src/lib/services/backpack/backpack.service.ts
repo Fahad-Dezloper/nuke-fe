@@ -21,6 +21,28 @@ import { signBackpackMessageWithTurnkey } from './utils/turnkey-signing';
 
 export const BACKPACK_API_BASE_URL = 'https://api.backpack.exchange';
 
+/** Per-asset row from GET /api/v1/capital (balanceQuery). */
+type BackpackCapitalAssetRow = {
+  available?: string;
+  locked?: string;
+  staked?: string;
+};
+
+function parseUsdcAvailableFromCapital(raw: unknown): number {
+  if (!raw || typeof raw !== 'object') return 0;
+  const obj = raw as Record<string, unknown>;
+  for (const key of Object.keys(obj)) {
+    if (key.toUpperCase() !== 'USDC') continue;
+    const row = obj[key];
+    if (!row || typeof row !== 'object') continue;
+    const available = (row as BackpackCapitalAssetRow).available;
+    if (available == null) continue;
+    const n = parseFloat(String(available));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
 type SignedRequestArgs = {
   instruction: BackpackInstruction;
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -131,6 +153,33 @@ export class BackpackService {
     }
   }
 
+  /**
+   * User-specific Solana deposit address for USDC (perp collateral).
+   * GET /wapi/v1/capital/deposit/address?blockchain=Solana — instruction `depositAddressQuery`.
+   */
+  async fetchSolanaDepositAddress(args: {
+    solanaAddress: string;
+    organizationId: string;
+  }): Promise<{ success: boolean; address?: string; error?: string }> {
+    try {
+      const data = await this.signedRequest<{ address: string }>({
+        instruction: 'depositAddressQuery',
+        method: 'GET',
+        path: '/wapi/v1/capital/deposit/address',
+        query: { blockchain: 'Solana' },
+        solanaAddress: args.solanaAddress,
+        organizationId: args.organizationId,
+      });
+      if (!data?.address?.trim()) {
+        return { success: false, error: 'Backpack did not return a Solana deposit address' };
+      }
+      return { success: true, address: data.address.trim() };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.API_BAD_REQUEST);
+      return { success: false, error: getUserMessage(appError) };
+    }
+  }
+
   async getOpenPositions(args: {
     solanaAddress: string;
     organizationId: string;
@@ -174,6 +223,29 @@ export class BackpackService {
     } catch (error) {
       const appError = toAppError(error, ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED);
       return { success: false, error: getUserMessage(appError) };
+    }
+  }
+
+  /**
+   * Perp collateral: USDC `available` from signed GET /api/v1/capital (instruction balanceQuery).
+   */
+  async fetchUsdcAvailableBalance(args: {
+    solanaAddress: string;
+    organizationId: string;
+  }): Promise<{ success: boolean; usdcUsd: number; error?: string }> {
+    try {
+      const raw = await this.signedRequest<unknown>({
+        instruction: 'balanceQuery',
+        method: 'GET',
+        path: '/api/v1/capital',
+        solanaAddress: args.solanaAddress,
+        organizationId: args.organizationId,
+      });
+      const usdcUsd = parseUsdcAvailableFromCapital(raw);
+      return { success: true, usdcUsd };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.API_BAD_REQUEST);
+      return { success: false, usdcUsd: 0, error: getUserMessage(appError) };
     }
   }
 

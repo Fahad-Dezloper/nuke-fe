@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { AnimatedNumber } from '@/components/ui/animated-number';
 import { formatPrice } from '@/lib/utils';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
+import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
 import Image from 'next/image';
 
 interface AssetPriceHeaderProps {
@@ -21,7 +22,9 @@ export function AssetPriceHeader({ className }: AssetPriceHeaderProps) {
   const selectedAsset = useAtomValue(selectedAssetAtom);
 
   const asset = selectedAsset?.asset || 'N/A';
-  const assetLogo = `https://app.hyperliquid.xyz/coins/${selectedAsset?.asset.toUpperCase()}.svg`;
+  const assetLogo = selectedAsset?.asset
+    ? hyperliquidCoinIconUrl(selectedAsset.asset)
+    : '';
   const currentPrice = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
 
   const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);

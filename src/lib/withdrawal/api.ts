@@ -5,7 +5,7 @@
  * Follows the same pattern as hedgeIntentApi.
  *
  * Endpoints:
- *   POST   /withdraw-intents/create-intent          — create intent
+ *   POST   /withdraw-intents/create-intent          — create intent (Solana destination only)
  *   GET    /withdraw-intents/{id}/next-action        — poll for next action
  *   POST   /withdraw-intents/transaction             — get signed tx data (withdraw step)
  *   POST   /withdraw-intents/bridge                  — get bridge quote

@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { getBestPair } from '@/hooks/use-best-pair';
+import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
 import {
   chartService,
   type ChartApiResponse,
@@ -115,7 +116,11 @@ function transformChartData(
   consistentLong: 'hyperliquid' | 'pacifica' | 'backpack',
   consistentShort: 'hyperliquid' | 'pacifica' | 'backpack'
 ): ChartDataPoint[] {
-  const { hyperliquid, pacifica, backpack } = chartData;
+  // Backend may omit a platform key entirely when it has no data.
+  // Normalize to empty arrays so the chart never crashes on `.forEach`.
+  const hyperliquid = chartData.hyperliquid ?? [];
+  const pacifica = chartData.pacifica ?? [];
+  const backpack = chartData.backpack ?? [];
 
   const hyperliquidMap = new Map<string, (typeof hyperliquid)[0]>();
   hyperliquid.forEach((item) => {
@@ -197,6 +202,7 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
   const { timeframe = '30m' } = options;
   const selectedAsset = useAtomValue(selectedAssetAtom);
   const spreadAprData = useAtomValue(spreadAprDataAtom);
+  const overrides = useAtomValue(bestPairOverrideAtom);
 
   const assetName = selectedAsset?.asset ?? '';
 
@@ -207,13 +213,22 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
     staleTime: 30_000, // Chart data refreshes every 30s
   });
 
-  // Transform chart data (memoized — only recomputes when inputs change)
+  const bestPair = useMemo(
+    () =>
+      getBestPair(
+        selectedAsset,
+        spreadAprData,
+        selectedAsset ? overrides[selectedAsset.asset] ?? null : null
+      ),
+    [selectedAsset, spreadAprData, overrides]
+  );
+
+  // Depend on `bestPair.long` / `short` (primitives), not the whole asset object,
+  // so we do not rebuild all points when only the row reference changes.
   const transformedData = useMemo<ChartDataPoint[]>(() => {
     if (!query.data) return [];
-
-    const bestPair = getBestPair(selectedAsset, spreadAprData);
     return transformChartData(query.data, timeframe, bestPair.long, bestPair.short);
-  }, [query.data, timeframe, selectedAsset, spreadAprData]);
+  }, [query.data, timeframe, bestPair.long, bestPair.short]);
 
   return {
     data: transformedData,

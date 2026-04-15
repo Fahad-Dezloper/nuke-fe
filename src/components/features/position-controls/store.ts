@@ -5,6 +5,10 @@
 
 import { atom } from 'jotai';
 import type { ArbitragePair } from '@/lib/arbitrage';
+import { getBestPair, type Protocol } from '@/hooks/use-best-pair';
+import { selectedAssetAtom as marketSelectedAssetAtom } from '@/lib/stores/market-feed.store';
+import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
+import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
 
 // Leverage state (1-5x)
 export const leverageAtom = atom<number>(3);
@@ -30,7 +34,10 @@ export const hlBalanceAtom = atom<number>(0);
 /** Pacifica available_to_spend balance (free margin) in USD */
 export const pacBalanceAtom = atom<number>(0);
 
-/** Base USDC wallet balance in USD */
+/** Backpack USDC available (perp collateral) in USD */
+export const bpBalanceAtom = atom<number>(0);
+
+/** Funding wallet USDC balance in USD (Solana) */
 export const baseBalanceAtom = atom<number>(0);
 
 // ─── Margin Validation ──────────────────────────────────────────────────────
@@ -44,21 +51,42 @@ export interface MarginValidation {
   maxMargin: number;
 }
 
+function protocolLabel(p: Protocol): string {
+  if (p === 'hyperliquid') return 'Hyperliquid';
+  if (p === 'pacifica') return 'Pacifica';
+  return 'Backpack';
+}
+
 /**
  * Derived atom that validates the margin input against existing exchange balances.
  *
- * Validation uses ONLY what's already deposited on each exchange — no Base
+ * Validation uses ONLY what's already deposited on each exchange — no wallet
  * balance is considered. Users pre-fund exchanges via the "Add Margin" buttons.
  *
- * Max margin = 2 × min(hlFree, pacFree), since each side gets margin / 2
- * and the bottleneck is whichever exchange has less.
+ * Max margin = 2 × min(longVenueFree, shortVenueFree) for the current best pair.
  */
 export const marginValidationAtom = atom<MarginValidation>((get) => {
   const marginStr = get(marginAtom);
-  const hlFree = get(hlBalanceAtom);
-  const pacFree = get(pacBalanceAtom);
+  const asset = get(marketSelectedAssetAtom);
+  const spreadAprData = get(spreadAprDataAtom);
+  const overrides = get(bestPairOverrideAtom);
+  const override = asset ? overrides[asset.asset] ?? null : null;
+  const { long, short } = getBestPair(asset, spreadAprData, override);
 
-  const maxPerSide = Math.min(hlFree, pacFree);
+  const longFree =
+    long === 'hyperliquid'
+      ? get(hlBalanceAtom)
+      : long === 'pacifica'
+        ? get(pacBalanceAtom)
+        : get(bpBalanceAtom);
+  const shortFree =
+    short === 'hyperliquid'
+      ? get(hlBalanceAtom)
+      : short === 'pacifica'
+        ? get(pacBalanceAtom)
+        : get(bpBalanceAtom);
+
+  const maxPerSide = Math.min(longFree, shortFree);
   const maxMargin = Math.floor(maxPerSide * 2 * 100) / 100;
 
   const marginValue = parseFloat(marginStr);
@@ -69,20 +97,20 @@ export const marginValidationAtom = atom<MarginValidation>((get) => {
 
   const perSide = marginValue / 2;
 
-  if (perSide > hlFree + 0.01) {
-    const shortfall = (perSide - hlFree).toFixed(2);
+  if (perSide > longFree + 0.01) {
+    const shortfall = (perSide - longFree).toFixed(2);
     return {
       isValid: false,
-      error: `Insufficient HyperLiquid margin. Add $${shortfall} via "Add Margin".`,
+      error: `Insufficient ${protocolLabel(long)} margin. Add $${shortfall} via "Add Margin".`,
       maxMargin,
     };
   }
 
-  if (perSide > pacFree + 0.01) {
-    const shortfall = (perSide - pacFree).toFixed(2);
+  if (perSide > shortFree + 0.01) {
+    const shortfall = (perSide - shortFree).toFixed(2);
     return {
       isValid: false,
-      error: `Insufficient Pacifica margin. Add $${shortfall} via "Add Margin".`,
+      error: `Insufficient ${protocolLabel(short)} margin. Add $${shortfall} via "Add Margin".`,
       maxMargin,
     };
   }

@@ -12,6 +12,8 @@
 import type { DepositHandler } from './deposit-handler.interface';
 import { HyperliquidDepositHandler } from './hyperliquid.handler';
 import { PacificaDepositHandler } from './pacifica.handler';
+// Backpack deposit handler disabled (display-only demo).
+// import { BackpackDepositHandler } from './backpack.handler';
 
 /**
  * Deposit Handler Registry
@@ -93,6 +95,7 @@ export function createDefaultDepositHandlerRegistry(): DepositHandlerRegistry {
 
   registry.register(new HyperliquidDepositHandler());
   registry.register(new PacificaDepositHandler());
+  // registry.register(new BackpackDepositHandler());
 
   // Future protocols:
   // registry.register(new DriftDepositHandler());

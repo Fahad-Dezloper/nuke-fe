@@ -11,7 +11,24 @@ import { ChartContainer, ChartTooltip, ChartLegend, type ChartConfig } from '@/c
 import { cn } from '@/lib/utils';
 import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
 import type { ChartTimeframe } from '@/lib/api/services/chart.service';
-import { getProtocolConfig, getAllProtocolIds } from '@/lib/protocols/config';
+import { getProtocolConfig } from '@/lib/protocols/config';
+
+type ProtocolId = 'hyperliquid' | 'pacifica' | 'backpack';
+
+function getSeriesValue(
+  d: ChartDataPoint,
+  protocolId: ProtocolId,
+  kind: 'actual' | 'projected'
+): number | null {
+  if (kind === 'projected') {
+    if (protocolId === 'hyperliquid') return d.projectedHyperliquid;
+    if (protocolId === 'pacifica') return d.projectedPacifica;
+    return d.projectedBackpack;
+  }
+  if (protocolId === 'hyperliquid') return d.hyperliquid;
+  if (protocolId === 'pacifica') return d.pacifica;
+  return d.backpack;
+}
 
 /**
  * Build chart config dynamically from protocol configurations
@@ -24,8 +41,7 @@ function buildChartConfig(): ChartConfig {
     },
   };
 
-  // Add all protocols dynamically
-  getAllProtocolIds().forEach((protocolId) => {
+  (['hyperliquid', 'pacifica', 'backpack'] as const).forEach((protocolId) => {
     const protocolConfig = getProtocolConfig(protocolId);
     if (protocolConfig) {
       config[protocolId] = {
@@ -70,34 +86,28 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
     return `${sign}${value.toFixed(4)}%`;
   };
 
-  // Get all protocols with data dynamically
-  const protocolsWithData = getAllProtocolIds()
+  const activePair: ProtocolId[] = [data.longProtocol, data.shortProtocol];
+
+  const protocolsWithData = activePair
     .map((protocolId) => {
       const protocolConfig = getProtocolConfig(protocolId);
       if (!protocolConfig) return null;
 
-      // Get data value based on protocol ID
-      let value: number | null = null;
-      if (protocolId === 'hyperliquid') {
-        value = data.hyperliquid;
-      } else if (protocolId === 'pacifica') {
-        value = data.pacifica;
-      } else if (protocolId === 'backpack') {
-        value = data.backpack;
-      }
-
+      const value = getSeriesValue(data, protocolId, 'actual');
       if (value === null || value === undefined) return null;
 
       const isLong = data.longProtocol === protocolId;
       const isShort = data.shortProtocol === protocolId;
-      const hasBothData = data.hyperliquid !== null && data.pacifica !== null;
+      const longVal = getSeriesValue(data, data.longProtocol, 'actual');
+      const shortVal = getSeriesValue(data, data.shortProtocol, 'actual');
+      const hasBothLegData = longVal !== null && shortVal !== null;
 
       return {
         protocolId,
         displayName: protocolConfig.displayName,
         value,
         color: `var(${protocolConfig.colorVar})`,
-        label: hasBothData
+        label: hasBothLegData
           ? isLong
             ? `${protocolConfig.displayName} (Long)`
             : isShort
@@ -108,7 +118,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
 
-  const hasBothData = data.hyperliquid !== null && data.pacifica !== null;
+  const longVal = getSeriesValue(data, data.longProtocol, 'actual');
+  const shortVal = getSeriesValue(data, data.shortProtocol, 'actual');
+  const hasBothData = longVal !== null && shortVal !== null;
 
   return (
     <div className="rounded-lg border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md">
@@ -171,24 +183,18 @@ export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartPr
   const domain = useMemo(() => {
     if (data.length === 0) return [-60, 120];
 
+    const lp = data[0].longProtocol as ProtocolId;
+    const sp = data[0].shortProtocol as ProtocolId;
+    const active = [lp, sp];
+
     const allValues: number[] = [];
     data.forEach((d) => {
-      // Add all protocol values dynamically
-      getAllProtocolIds().forEach((protocolId) => {
-        if (protocolId === 'hyperliquid') {
-          if (d.hyperliquid !== null && d.hyperliquid !== undefined) allValues.push(d.hyperliquid);
-          if (d.projectedHyperliquid !== null && d.projectedHyperliquid !== undefined)
-            allValues.push(d.projectedHyperliquid);
-        } else if (protocolId === 'pacifica') {
-          if (d.pacifica !== null && d.pacifica !== undefined) allValues.push(d.pacifica);
-          if (d.projectedPacifica !== null && d.projectedPacifica !== undefined)
-            allValues.push(d.projectedPacifica);
-        } else if (protocolId === 'backpack') {
-          if (d.backpack !== null && d.backpack !== undefined) allValues.push(d.backpack);
-          if (d.projectedBackpack !== null && d.projectedBackpack !== undefined)
-            allValues.push(d.projectedBackpack);
-        }
-      });
+      for (const protocolId of active) {
+        const v = getSeriesValue(d, protocolId, 'actual');
+        if (v !== null && v !== undefined) allValues.push(v);
+        const pv = getSeriesValue(d, protocolId, 'projected');
+        if (pv !== null && pv !== undefined) allValues.push(pv);
+      }
     });
 
     if (allValues.length === 0) return [-60, 120];
@@ -233,30 +239,23 @@ export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartPr
           domain={domain}
         />
         <ChartTooltip content={<CustomTooltip />} />
-        {/* Render lines dynamically for all protocols */}
-        {getAllProtocolIds().flatMap((protocolId) => {
+        {/* Only the selected best-pair legs (long + short), not every venue with chart data */}
+        {[longProtocol, shortProtocol].flatMap((protocolId) => {
           const protocolConfig = getProtocolConfig(protocolId);
           if (!protocolConfig) return [];
 
-          // Map protocol ID to data key (for now, only hyperliquid and pacifica are supported)
           const dataKey =
             protocolId === 'hyperliquid'
               ? 'hyperliquid'
               : protocolId === 'pacifica'
                 ? 'pacifica'
-                : protocolId === 'backpack'
-                  ? 'backpack'
-                : null;
+                : 'backpack';
           const projectedDataKey =
             protocolId === 'hyperliquid'
               ? 'projectedHyperliquid'
               : protocolId === 'pacifica'
                 ? 'projectedPacifica'
-                : protocolId === 'backpack'
-                  ? 'projectedBackpack'
-                : null;
-
-          if (!dataKey || !projectedDataKey) return [];
+                : 'projectedBackpack';
 
           return [
             <Line

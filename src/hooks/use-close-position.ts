@@ -16,6 +16,8 @@ import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closeHLPosition, closePacificaPosition, closeBackpackPosition } from '@/lib/trading/close-position';
 import { queryKeys } from '@/lib/query-keys';
+// Backpack authenticated balance refresh disabled (display-only demo).
+// import { refreshBackpackMarginBalance } from '@/lib/stores/backpack-margin.store';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -150,8 +152,11 @@ export function useClosePosition(options: UseClosePositionOptions) {
         activeCloses.current.delete(key);
 
         if (allSuccess) {
-          // Invalidate positions cache so it refetches
           queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.balance.exchangeHlPac(evmAddress, solanaAddress),
+          });
+          // Backpack display-only: skip signed balance refresh.
           onSuccess?.();
         }
 

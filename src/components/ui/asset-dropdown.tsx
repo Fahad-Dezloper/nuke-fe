@@ -27,10 +27,12 @@ import {
   selectedAssetSymbolAtom,
 } from '@/lib/stores/market-feed.store';
 import { useBestPair } from '@/hooks/use-best-pair';
+import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
 import { useAssetQueryParam } from '@/lib/hooks/use-asset-query-param';
 import { BestPairTooltip } from './best-pair-tooltip';
 import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 import Image from 'next/image';
+import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
 
 // ─── Sorting Types & Helpers ──────────────────────────────────────────────────
 
@@ -46,6 +48,10 @@ interface SortConfig {
 
 /** Default sort: 7D APR descending (highest first) */
 const DEFAULT_SORT: SortConfig = { column: '7dApr', direction: 'desc' };
+
+/** Column template: ASSET | BEST PAIR | PRICE | HL | PAC | BACKPACK | NET APR | 7D APR */
+const ARBITRAGE_TABLE_COLS =
+  'grid-cols-[minmax(140px,auto)_minmax(140px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(90px,auto)_minmax(90px,auto)]';
 
 /**
  * Extract the numeric value for a given sort column from an asset.
@@ -105,6 +111,86 @@ function nextSortState(current: SortConfig, column: SortColumn): SortConfig {
   }
   // asc → reset to default sort
   return DEFAULT_SORT;
+}
+
+type ProtocolId = 'hyperliquid' | 'pacifica' | 'backpack';
+
+type PairRow = {
+  long: ProtocolId;
+  short: ProtocolId;
+  /** Net yearly spread in percentage points */
+  netApr: number;
+  /** Approx 7D APR (best-effort). If spreadAprData is available for the asset, we keep that for the top row. */
+  sevenDayApr: number | null;
+};
+
+function protocolFundingYearly(asset: AssetDropdownItem, protocol: ProtocolId): number | null {
+  const p = asset.protocols?.[protocol];
+  const direct = p?.fundingRateYearly;
+  const fallback =
+    protocol === 'hyperliquid'
+      ? asset.hyperliquidFundingRate
+      : protocol === 'pacifica'
+        ? asset.pacificaFundingRate
+        : asset.backpackFundingRate;
+  const v = typeof direct === 'number' && Number.isFinite(direct) ? direct : fallback;
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+function computeTopPairs(asset: AssetDropdownItem, spreadAprData: SpreadAprMap): PairRow[] {
+  const spread = spreadAprData[asset.asset];
+  const topPairsFromApi = spread?.topPairs;
+  if (topPairsFromApi && topPairsFromApi.length > 0) {
+    return topPairsFromApi.slice(0, 3).map((e) => {
+      const long = e.long_platform as ProtocolId;
+      const short = e.short_platform as ProtocolId;
+      const longYearly = protocolFundingYearly(asset, long);
+      const shortYearly = protocolFundingYearly(asset, short);
+      const netApr =
+        longYearly != null && shortYearly != null ? shortYearly - longYearly : e.total_spread * 52;
+      return {
+        long,
+        short,
+        netApr,
+        sevenDayApr: e.total_spread * 52,
+      };
+    });
+  }
+
+  const protocols: ProtocolId[] = ['hyperliquid', 'pacifica', 'backpack'];
+  const available = protocols
+    .map((id) => ({ id, yearly: protocolFundingYearly(asset, id) }))
+    .filter((e): e is { id: ProtocolId; yearly: number } => e.yearly !== null);
+
+  if (available.length < 2) return [];
+
+  // Build all unordered pairs; direction is determined by funding (long = lower, short = higher)
+  const pairs: PairRow[] = [];
+  for (let i = 0; i < available.length; i++) {
+    for (let j = i + 1; j < available.length; j++) {
+      const a = available[i]!;
+      const b = available[j]!;
+      const long = a.yearly <= b.yearly ? a : b;
+      const short = a.yearly <= b.yearly ? b : a;
+      const netApr = short.yearly - long.yearly;
+      pairs.push({
+        long: long.id,
+        short: short.id,
+        netApr,
+        // We only have 7D APR from backend for the best pair; for other pairs, approximate with netApr.
+        sevenDayApr: null,
+      });
+    }
+  }
+
+  pairs.sort((x, y) => y.netApr - x.netApr);
+  const top = pairs.slice(0, 3);
+
+  if (spread && top[0]) {
+    top[0] = { ...top[0], sevenDayApr: spread.sevenDayApr };
+  }
+
+  return top;
 }
 
 // ─── Sortable Header Sub-Component ───────────────────────────────────────────
@@ -168,7 +254,8 @@ export function AssetDropdown({
   const assets = useAtomValue(marketFeedDataAtom);
   const globalSelectedAsset = useAtomValue(selectedAssetAtom);
   const setSelectedAsset = useSetAtom(selectedAssetAtom);
-  const selectedSymbol = useAtomValue(selectedAssetSymbolAtom);
+  void useAtomValue(selectedAssetSymbolAtom);
+  const setBestPairOverride = useSetAtom(bestPairOverrideAtom);
   const { getBestPairForAsset, spreadAprData } = useBestPair();
 
   // URL query param sync
@@ -180,6 +267,7 @@ export function AssetDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sort, setSort] = useState<SortConfig>(DEFAULT_SORT);
+  const [expandedAssets, setExpandedAssets] = useState<Set<string>>(new Set());
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [hoveredAsset, setHoveredAsset] = useState<AssetDropdownItem | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
@@ -226,9 +314,16 @@ export function AssetDropdown({
     };
   }, [isOpen]);
 
-  const handleSelect = (asset: AssetDropdownItem) => {
+  const handleSelect = (asset: AssetDropdownItem, overridePair?: { long: ProtocolId; short: ProtocolId } | null) => {
     // Update global state
     setSelectedAsset(asset);
+    // Set/clear best pair override for this asset
+    setBestPairOverride((prev) => {
+      const next = { ...prev };
+      if (overridePair) next[asset.asset] = overridePair;
+      else delete next[asset.asset];
+      return next;
+    });
     // Update URL query param
     updateUrlWithAsset(asset.asset);
     // Call prop callback if provided
@@ -237,6 +332,15 @@ export function AssetDropdown({
     setSearchQuery('');
     setHoveredAsset(null);
   };
+
+  const toggleExpanded = useCallback((symbol: string) => {
+    setExpandedAssets((prev) => {
+      const next = new Set(prev);
+      if (next.has(symbol)) next.delete(symbol);
+      else next.add(symbol);
+      return next;
+    });
+  }, []);
 
   // Note: Auto-selection is now handled by useAssetQueryParam hook
   // which initializes from URL or falls back to default asset (BTC)
@@ -276,10 +380,8 @@ export function AssetDropdown({
   // Get protocol logo/icon component
   const ProtocolIcon = ({
     protocol,
-    className,
   }: {
     protocol: 'hyperliquid' | 'pacifica' | 'backpack';
-    className?: string;
   }) => {
     if (protocol === 'hyperliquid') {
       return (
@@ -295,11 +397,11 @@ export function AssetDropdown({
     if (protocol === 'backpack') {
       return (
         <Image
-          src="/tokens/backpack.png"
+          src="/tokens/backpack.svg"
           alt="Backpack"
-          width={20}
-          height={20}
-          className="rounded-full shrink-0"
+          width={12}
+          height={12}
+          className="shrink-0"
         />
       );
     }
@@ -331,7 +433,7 @@ export function AssetDropdown({
         {selectedAsset ? (
           <>
             <Image
-              src={`https://app.hyperliquid.xyz/coins/${selectedAsset.asset.toUpperCase()}.svg`}
+              src={hyperliquidCoinIconUrl(selectedAsset.asset)}
               alt={selectedAsset.asset}
               width={20}
               height={20}
@@ -355,7 +457,7 @@ export function AssetDropdown({
         <div
           className={cn(
             'absolute top-full left-0 mt-2 z-[10002]',
-            'w-auto min-w-[1200px] max-w-[1500px] min-h-[500px] max-h-[600px] overflow-hidden',
+            'w-auto min-w-[1280px] max-w-[1580px] min-h-[500px] max-h-[600px] overflow-hidden',
             'bg-background/95 backdrop-blur-xl border border-border-white-20/50',
             'rounded-2xl shadow-2xl shadow-black/60',
             'ring-1 ring-white/10',
@@ -414,7 +516,7 @@ export function AssetDropdown({
 
           {/* Table Header */}
           <div className="sticky top-0 z-[10001] px-5 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md shadow-lg shadow-black/20 shrink-0">
-            <div className="grid grid-cols-[minmax(140px,auto)_minmax(140px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(90px,auto)_minmax(90px,auto)] gap-4">
+            <div className={cn('grid gap-4', ARBITRAGE_TABLE_COLS)}>
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
                 ASSET
               </span>
@@ -442,6 +544,16 @@ export function AssetDropdown({
                 />
                 PACIFICA
               </span>
+              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold flex items-center gap-2">
+                <Image
+                  src="/tokens/backpack.svg"
+                  alt="Backpack"
+                  width={12}
+                  height={12}
+                  className="rounded shrink-0"
+                />
+                BACKPACK
+              </span>
               <SortableHeader label="NET APR" column="netApr" sort={sort} onSort={handleSort} />
               <SortableHeader label="7D APR" column="7dApr" sort={sort} onSort={handleSort} />
             </div>
@@ -459,16 +571,25 @@ export function AssetDropdown({
                   const isSelected = selectedAsset?.asset === asset.asset;
                   const hyperliquidPositive = asset.hyperliquidFundingRate >= 0;
                   const pacificaPositive = asset.pacificaFundingRate >= 0;
-                  const bestPair = getBestPairForAsset(asset);
+                  const backpackRate = asset.backpackFundingRate;
+                  const hasBackpack =
+                    backpackRate !== undefined && asset.protocols.backpack != null;
+                  const backpackPositive = hasBackpack && backpackRate >= 0;
+                  const topPairs = computeTopPairs(asset, spreadAprData);
+                  const bestPair = topPairs[0]
+                    ? { long: topPairs[0].long, short: topPairs[0].short }
+                    : getBestPairForAsset(asset);
                   const assetSpreadApr = spreadAprData[asset.asset];
+                  const isExpanded = expandedAssets.has(asset.asset);
 
                   return (
                     <div key={asset.asset} className="relative">
                       <button
                         type="button"
-                        onClick={() => handleSelect(asset)}
+                        onClick={() => handleSelect(asset, null)}
                         className={cn(
-                          'w-full grid grid-cols-[minmax(140px,auto)_minmax(140px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(90px,auto)_minmax(90px,auto)] items-center gap-4 px-5 py-3.5',
+                          'w-full grid items-center gap-4 px-5 py-3.5',
+                          ARBITRAGE_TABLE_COLS,
                           'text-left transition-all duration-200',
                           'border-l-[3px] border-l-transparent',
                           'hover:border-l-accent/60 hover:bg-gray-500/10 hover:backdrop-blur-sm cursor-pointer',
@@ -479,16 +600,39 @@ export function AssetDropdown({
                         {/* Asset */}
                         <div className="flex items-center gap-2.5">
                           <Image
-                            src={`https://app.hyperliquid.xyz/coins/${asset.asset.toUpperCase()}.svg`}
+                            src={hyperliquidCoinIconUrl(asset.asset)}
                             alt={asset.asset}
                             width={24}
                             height={24}
                             className="rounded-full shrink-0 ring-1 ring-border-white-10/50"
                           />
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-sm font-semibold text-text-primary leading-tight">
-                              {asset.asset}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-semibold text-text-primary leading-tight">
+                                {asset.asset}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpanded(asset.asset);
+                                }}
+                                className={cn(
+                                  'inline-flex items-center justify-center rounded-md',
+                                  'h-5 w-5 border border-border-white-10/40 bg-white/5',
+                                  'hover:bg-white/10 hover:border-border-white-20/60 transition-colors',
+                                  'text-text-muted-60 hover:text-text-primary'
+                                )}
+                                aria-label={isExpanded ? 'Hide more pairs' : 'Show more pairs'}
+                              >
+                                <ChevronDown
+                                  className={cn(
+                                    'h-3 w-3 transition-transform duration-150',
+                                    isExpanded && 'rotate-180'
+                                  )}
+                                />
+                              </button>
+                            </div>
                             <span className="text-[11px] text-text-muted-60 leading-tight font-medium">
                               Max {asset.maxLeverage}x
                             </span>
@@ -558,16 +702,170 @@ export function AssetDropdown({
                           </span>
                         </div>
 
+                        {/* Backpack funding rate (yearly %, same as HL / Pacifica columns) */}
+                        <div className="flex items-center gap-1.5">
+                          {hasBackpack ? (
+                            <>
+                              {backpackPositive ? (
+                                <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
+                              )}
+                              <span
+                                className={cn(
+                                  'text-sm tabular-nums',
+                                  backpackPositive ? 'text-green-400' : 'text-red-400'
+                                )}
+                              >
+                                {formatPercentWithSign(backpackRate)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-sm text-text-muted-60 tabular-nums">—</span>
+                          )}
+                        </div>
+
                         {/* NET APR */}
                         <span className="text-sm  tabular-nums text-green-400">
-                          {formatPercentWithSign(asset.netAPR)}
+                          {topPairs[0] ? formatPercentWithSign(topPairs[0].netApr) : formatPercentWithSign(asset.netAPR)}
                         </span>
 
                         {/* 7D APR */}
                         <span className="text-sm  tabular-nums text-green-400">
-                          {assetSpreadApr ? formatPercentWithSign(assetSpreadApr.sevenDayApr) : '—'}
+                          {topPairs[0]?.sevenDayApr != null
+                            ? formatPercentWithSign(topPairs[0].sevenDayApr)
+                            : assetSpreadApr
+                              ? formatPercentWithSign(assetSpreadApr.sevenDayApr)
+                              : '—'}
                         </span>
                       </button>
+
+                      {/* Expanded: show next 2 pairs */}
+                      {isExpanded && topPairs.length > 1 && (
+                        <div className="px-5 pb-3">
+                          <div className="mt-1 space-y-1">
+                            {topPairs.slice(1, 3).map((pair, idx) => (
+                              <button
+                                type="button"
+                                key={`${pair.long}-${pair.short}-${idx}`}
+                                className={cn(
+                                  'grid items-center gap-4',
+                                  ARBITRAGE_TABLE_COLS,
+                                  'w-full text-left transition-all duration-200',
+                                  'px-5 py-3.5 rounded-lg',
+                                  'bg-white/5 border border-border-white-10/30',
+                                  'hover:bg-gray-500/10 hover:backdrop-blur-sm cursor-pointer'
+                                )}
+                                onClick={() => handleSelect(asset, { long: pair.long, short: pair.short })}
+                              >
+                                {/* Asset */}
+                                <div className="flex items-center gap-2.5 opacity-80">
+                                  <Image
+                                    src={hyperliquidCoinIconUrl(asset.asset)}
+                                    alt={asset.asset}
+                                    width={24}
+                                    height={24}
+                                    className="rounded-full shrink-0 ring-1 ring-border-white-10/50"
+                                  />
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-sm font-semibold text-text-primary leading-tight">
+                                      {asset.asset}
+                                    </span>
+                                    <span className="text-[11px] text-text-muted-60 leading-tight font-medium">
+                                      Max {asset.maxLeverage}x
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <ProtocolIcon protocol={pair.long} />
+                                  <ArrowUpRight className="h-3 w-3 text-text-muted-40" />
+                                  <ProtocolIcon protocol={pair.short} />
+                                </div>
+                                {/* Price */}
+                                <div className="flex items-center">
+                                  <span className="text-sm text-text-primary tabular-nums opacity-80">
+                                    {formatPrice(
+                                      asset.markPx || asset.hyperliquidMarkPx || 0,
+                                      'USD',
+                                      'en-US',
+                                      2,
+                                      4
+                                    )}
+                                  </span>
+                                </div>
+                                {/* Hyperliquid */}
+                                <div className="flex items-center gap-1.5 opacity-80">
+                                  {((protocolFundingYearly(asset, 'hyperliquid') ?? 0) >= 0) ? (
+                                    <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
+                                  ) : (
+                                    <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
+                                  )}
+                                  <span
+                                    className={cn(
+                                      'text-sm tabular-nums',
+                                      (protocolFundingYearly(asset, 'hyperliquid') ?? 0) >= 0
+                                        ? 'text-green-400'
+                                        : 'text-red-400'
+                                    )}
+                                  >
+                                    {formatPercentWithSign(protocolFundingYearly(asset, 'hyperliquid') ?? 0)}
+                                  </span>
+                                </div>
+                                {/* Pacifica */}
+                                <div className="flex items-center gap-1.5 opacity-80">
+                                  {((protocolFundingYearly(asset, 'pacifica') ?? 0) >= 0) ? (
+                                    <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
+                                  ) : (
+                                    <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
+                                  )}
+                                  <span
+                                    className={cn(
+                                      'text-sm tabular-nums',
+                                      (protocolFundingYearly(asset, 'pacifica') ?? 0) >= 0
+                                        ? 'text-green-400'
+                                        : 'text-red-400'
+                                    )}
+                                  >
+                                    {formatPercentWithSign(protocolFundingYearly(asset, 'pacifica') ?? 0)}
+                                  </span>
+                                </div>
+                                {/* Backpack */}
+                                <div className="flex items-center gap-1.5 opacity-80">
+                                  {protocolFundingYearly(asset, 'backpack') != null
+                                    ? ((protocolFundingYearly(asset, 'backpack') ?? 0) >= 0 ? (
+                                        <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
+                                      ) : (
+                                        <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
+                                      ))
+                                    : null}
+                                  <span
+                                    className={cn(
+                                      'text-sm tabular-nums',
+                                      protocolFundingYearly(asset, 'backpack') == null
+                                        ? 'text-text-muted-60'
+                                        : (protocolFundingYearly(asset, 'backpack') ?? 0) >= 0
+                                          ? 'text-green-400'
+                                          : 'text-red-400'
+                                    )}
+                                  >
+                                    {protocolFundingYearly(asset, 'backpack') != null
+                                      ? formatPercentWithSign(protocolFundingYearly(asset, 'backpack')!)
+                                      : '—'}
+                                  </span>
+                                </div>
+                                <span className="text-sm tabular-nums text-green-400 opacity-80">
+                                  {formatPercentWithSign(pair.netApr)}
+                                </span>
+                                <span className="text-sm tabular-nums text-green-400 opacity-80">
+                                  {pair.sevenDayApr != null
+                                    ? formatPercentWithSign(pair.sevenDayApr)
+                                    : formatPercentWithSign(pair.netApr)}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

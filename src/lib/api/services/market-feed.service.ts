@@ -140,6 +140,7 @@ function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdow
         // Legacy fields for backward compatibility
         hyperliquidFundingRate: protocols.hyperliquid?.fundingRateYearly ?? 0,
         pacificaFundingRate: protocols.pacifica?.fundingRateYearly ?? 0,
+        backpackFundingRate: protocols.backpack?.fundingRateYearly,
         netAPR,
         apr30D,
         markPx:
@@ -149,6 +150,7 @@ function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdow
           0,
         hyperliquidMarkPx: protocols.hyperliquid?.markPx,
         pacificaMarkPx: protocols.pacifica?.markPx,
+        backpackMarkPx: protocols.backpack?.markPx,
       };
     });
 }

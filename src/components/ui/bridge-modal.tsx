@@ -1,6 +1,6 @@
 /**
  * Bridge Modal Component
- * Modal for bridging USDC from Base to Arbitrum
+ * Modal for bridging USDC from Solana to destination chain
  */
 
 'use client';
@@ -11,7 +11,7 @@ import { Input } from './input';
 import { Button } from './button';
 import { useBridge } from '@/lib/bridge';
 import { useTurnkey } from '@/lib/turnkey/hooks';
-import { getEVMAddress } from '@/lib/turnkey/wallet-utils';
+import { getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { cn } from '@/lib/utils';
 import { Loader2, AlertCircle } from 'lucide-react';
 
@@ -55,7 +55,7 @@ export function BridgeModal({ isOpen, onClose, protocol, defaultAmount = 0 }: Br
 
     // Check balance when modal opens
     if (turnkeyState.isLoggedIn) {
-      const walletAddress = getEVMAddress(turnkeyState.userWallets || []);
+      const walletAddress = getSolanaAddress(turnkeyState.userWallets || []);
       if (walletAddress) {
         setIsCheckingBalance(true);
         checkBalance(walletAddress)
@@ -101,13 +101,13 @@ export function BridgeModal({ isOpen, onClose, protocol, defaultAmount = 0 }: Br
       isOpen={isOpen}
       onClose={onClose}
       title={`Fund ${protocolName} Leg`}
-      description={`Bridge USDC from Base to Arbitrum to fund your ${protocolName} position`}
+      description={`Bridge USDC from Solana to fund your ${protocolName} position`}
       maxWidth="md"
     >
       <div className="p-8 md:p-10 pt-6 space-y-6">
         {/* Balance Display */}
         <div className="flex items-center justify-between p-3 rounded-lg bg-card/50 border border-border-white-10/50">
-          <span className="text-xs text-text-muted-60">Available on Base</span>
+          <span className="text-xs text-text-muted-60">Available on Solana</span>
           {isCheckingBalance ? (
             <Loader2 className="w-4 h-4 animate-spin text-text-muted-60" />
           ) : balance !== null ? (
@@ -202,8 +202,7 @@ export function BridgeModal({ isOpen, onClose, protocol, defaultAmount = 0 }: Br
         {/* Info */}
         <div className="pt-2 border-t border-border-white-10/50">
           <p className="text-xs text-text-muted-60">
-            This will bridge USDC from Base to Arbitrum. After bridging, you can deposit to{' '}
-            {protocolName}.
+            This will bridge USDC from Solana to the destination chain for {protocolName}.
           </p>
         </div>
       </div>

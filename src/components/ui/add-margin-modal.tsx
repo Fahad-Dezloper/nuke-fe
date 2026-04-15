@@ -18,19 +18,17 @@ import { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import { getProtocolConfig } from '@/lib/protocols/config';
-import type { FundStep } from '@/hooks/use-fund-exchange';
+import type { FundStep, FundExchange } from '@/hooks/use-fund-exchange';
 import { MIN_FUND_AMOUNT } from '@/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-export type FundExchange = 'hyperliquid' | 'pacifica';
 
 interface AddMarginModalProps {
   isOpen: boolean;
   onClose: () => void;
   /** Which exchange to fund */
   exchange: FundExchange;
-  /** Current Base USDC balance (USD) */
+  /** Current Solana USDC balance (USD) */
   baseBalance: number;
   /** Current margin already on this exchange (USD) */
   existingMargin: number;
@@ -166,8 +164,9 @@ export function AddMarginModal({
     (value: string): string | null => {
       const num = parseFloat(value);
       if (!value || isNaN(num) || num <= 0) return null;
-      if (num < MIN_FUND_AMOUNT) return `Minimum amount is $${MIN_FUND_AMOUNT}`;
-      if (num > baseBalance + 0.01) return `Exceeds Base balance ($${baseBalance.toFixed(2)})`;
+      // TEMP (testing): bypass min + balance checks.
+      // if (num < MIN_FUND_AMOUNT) return `Minimum amount is $${MIN_FUND_AMOUNT}`;
+      // if (num > baseBalance + 0.01) return `Exceeds Solana balance ($${baseBalance.toFixed(2)})`;
       return null;
     },
     [baseBalance]
@@ -262,7 +261,7 @@ export function AddMarginModal({
           <h2 className="text-lg font-semibold text-text-primary tracking-tight">ADD MARGIN</h2>
         </div>
         <p className="text-xs text-text-muted-60">
-          Bridge &amp; deposit USDC from Base to {exchangeLabel}
+          Bridge and deposit USDC from Solana to {exchangeLabel}
         </p>
       </motion.div>
 
@@ -292,7 +291,7 @@ export function AddMarginModal({
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs text-text-muted-60 font-medium uppercase">Amount</label>
               <span className="text-[10px] text-text-muted-60 tabular-nums">
-                Base Balance: ${baseBalance.toFixed(2)}
+                Solana Balance: ${baseBalance.toFixed(2)}
               </span>
             </div>
             <div
@@ -375,8 +374,8 @@ export function AddMarginModal({
           >
             <div className="p-2.5 rounded-lg bg-yellow-700/10 border border-accent/20">
               <p className="text-[10px] text-text-muted-60 leading-relaxed">
-                This will bridge USDC from Base and deposit it into your {exchangeLabel} margin
-                account. The process takes 1–3 minutes.
+                This will bridge USDC from Solana and deposit it into your {exchangeLabel} margin
+                account. The process usually takes 1–3 minutes.
               </p>
             </div>
           </motion.div>

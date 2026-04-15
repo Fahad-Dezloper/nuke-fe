@@ -6,6 +6,10 @@ import { ensureBuffer, uint8ArrayToBase64 } from './base64';
 /**
  * Signs bytes with the user's Turnkey Solana wallet (ed25519) and returns a Base64 signature,
  * as required by Backpack (`X-Signature`).
+ *
+ * Turnkey's `ACTIVITY_TYPE_SIGN_RAW_PAYLOAD_V2` uses `HASH_FUNCTION_NOT_APPLICABLE` on purpose:
+ * Ed25519 signs the payload bytes via EdDSA (RFC 8032), not a separate SHA-256 digest like ECDSA.
+ * The hex you see in DevTools is the UTF-8 signing string (e.g. `instruction=balanceQuery&...`).
  */
 export async function signBackpackMessageWithTurnkey(
   messageBytes: Uint8Array,

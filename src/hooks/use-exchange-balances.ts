@@ -1,8 +1,9 @@
 /**
- * Hook to fetch exchange margin balances (Hyperliquid + Pacifica)
- * and combine with Base USDC wallet balance.
+ * Hook to fetch exchange margin balances (Hyperliquid, Pacifica, Backpack)
+ * and combine with Solana USDC wallet balance.
  *
- * Used by the position controls to validate margin input.
+ * Backpack authenticated reads are DISABLED for demo (Turnkey cost + CORS).
+ * Backpack is display-only; we do not fetch signed Backpack balances in FE.
  */
 
 'use client';
@@ -15,11 +16,12 @@ import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { queryKeys } from '@/lib/query-keys';
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
-import { usdcBalanceBaseAtom } from '@/lib/stores/usdc-balance.store';
+import { usdcBalanceSolanaAtom } from '@/lib/stores/usdc-balance.store';
 import { formatUSDCBalance } from '@/lib/bridge/balance';
 import {
   hlBalanceAtom,
   pacBalanceAtom,
+  bpBalanceAtom,
   baseBalanceAtom,
 } from '@/components/features/position-controls/store';
 
@@ -31,8 +33,10 @@ export interface ExchangeBalances {
   hlBalance: number;
   /** Pacifica available_to_spend (free margin) in USD */
   pacBalance: number;
-  /** Base USDC wallet balance in USD */
-  baseBalance: number;
+  /** Backpack USDC available (perp collateral) in USD */
+  bpBalance: number;
+  /** Solana USDC wallet balance in USD */
+  solanaBalance: number;
   isLoading: boolean;
   error: Error | null;
 }
@@ -42,10 +46,12 @@ export function useExchangeBalances(): ExchangeBalances {
 
   const setHlBalance = useSetAtom(hlBalanceAtom);
   const setPacBalance = useSetAtom(pacBalanceAtom);
+  const setBpBalance = useSetAtom(bpBalanceAtom);
+  const bpBalance = useAtomValue(bpBalanceAtom);
   const setBaseBalance = useSetAtom(baseBalanceAtom);
 
-  // Read Base USDC balance from existing atom (set by useUSDCBalanceBase hook)
-  const baseBalanceRaw = useAtomValue(usdcBalanceBaseAtom);
+  // Read Solana USDC balance from existing atom (set by useUSDCBalanceSolana hook)
+  const solanaBalanceRaw = useAtomValue(usdcBalanceSolanaAtom);
 
   const evmAddress = turnkeyState.userWallets?.length
     ? getEVMAddress(turnkeyState.userWallets)
@@ -54,10 +60,12 @@ export function useExchangeBalances(): ExchangeBalances {
     ? getSolanaAddress(turnkeyState.userWallets)
     : null;
 
+  const orgId = turnkeyState.turnkeySubOrgId ?? '';
   const isEnabled = turnkeyState.isLoggedIn && !!evmAddress && !!solanaAddress;
+  void orgId;
 
-  const query = useQuery({
-    queryKey: queryKeys.balance.exchangeBalances(evmAddress ?? '', solanaAddress ?? ''),
+  const hlPacQuery = useQuery({
+    queryKey: queryKeys.balance.exchangeHlPac(evmAddress ?? '', solanaAddress ?? ''),
     queryFn: async () => {
       const [hlResult, pacResult] = await Promise.allSettled([
         hlService.fetchAccountBalance(evmAddress!),
@@ -80,15 +88,18 @@ export function useExchangeBalances(): ExchangeBalances {
     refetchInterval: 15_000,
   });
 
-  const hlBalance = query.data?.hl ?? 0;
-  const pacBalance = query.data?.pac ?? 0;
+  useEffect(() => {
+    // Backpack is display-only for now (no signed balanceQuery).
+    setBpBalance(0);
+  }, [setBpBalance, solanaAddress, turnkeyState.isLoggedIn]);
 
-  // Convert Base USDC from bigint (6 decimals) to USD number
-  const baseBalance = baseBalanceRaw !== null
-    ? parseFloat(formatUSDCBalance(baseBalanceRaw))
+  const hlBalance = hlPacQuery.data?.hl ?? 0;
+  const pacBalance = hlPacQuery.data?.pac ?? 0;
+
+  const solanaBalance = solanaBalanceRaw !== null
+    ? parseFloat(formatUSDCBalance(solanaBalanceRaw))
     : 0;
 
-  // Sync to Jotai atoms so other components can read without prop drilling
   useEffect(() => {
     setHlBalance(hlBalance);
   }, [hlBalance, setHlBalance]);
@@ -98,14 +109,15 @@ export function useExchangeBalances(): ExchangeBalances {
   }, [pacBalance, setPacBalance]);
 
   useEffect(() => {
-    setBaseBalance(baseBalance);
-  }, [baseBalance, setBaseBalance]);
+    setBaseBalance(solanaBalance);
+  }, [solanaBalance, setBaseBalance]);
 
   return {
     hlBalance,
     pacBalance,
-    baseBalance,
-    isLoading: query.isLoading,
-    error: query.error,
+    bpBalance,
+    solanaBalance,
+    isLoading: hlPacQuery.isLoading,
+    error: hlPacQuery.error,
   };
 }

@@ -6,6 +6,7 @@
 
 import { useAtomValue } from 'jotai';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
+import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
 import type { AssetDropdownItem } from '@/types/positions';
 import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 
@@ -22,10 +23,13 @@ export interface BestPairResult {
  */
 export function getBestPair(
   asset: AssetDropdownItem | null | undefined,
-  spreadAprData: SpreadAprMap
+  spreadAprData: SpreadAprMap,
+  override?: BestPairResult | null
 ): BestPairResult {
   const DEFAULT: BestPairResult = { long: 'hyperliquid', short: 'pacifica' };
   if (!asset) return DEFAULT;
+
+  if (override) return override;
 
   // Prefer spread APR data (7-day average from backend CRON)
   const spreadData = spreadAprData[asset.asset];
@@ -57,10 +61,11 @@ export function getBestPair(
  */
 export function useBestPair() {
   const spreadAprData = useAtomValue(spreadAprDataAtom);
+  const overrides = useAtomValue(bestPairOverrideAtom);
 
   const getBestPairForAsset = (
     asset: AssetDropdownItem | null | undefined
-  ): BestPairResult => getBestPair(asset, spreadAprData);
+  ): BestPairResult => getBestPair(asset, spreadAprData, asset ? overrides[asset.asset] ?? null : null);
 
   return { getBestPairForAsset, spreadAprData };
 }

@@ -7,6 +7,7 @@
 
 'use client';
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   positionsService,
@@ -15,6 +16,8 @@ import {
 } from '@/lib/api/services';
 import { queryKeys } from '@/lib/query-keys';
 import type { ArbitragePosition } from '@/types/positions';
+
+const EMPTY_RAW: PositionApiResponse[] = [];
 
 interface UsePositionsOptions {
   evmAddress?: string;
@@ -49,8 +52,11 @@ export function usePositions(options: UsePositionsOptions = {}): UsePositionsRet
     },
   });
 
-  const rawPositions = query.data ?? [];
-  const positions = rawPositions.map(transformPositionData);
+  const rawPositions = query.data ?? EMPTY_RAW;
+  const positions = useMemo(
+    () => rawPositions.map(transformPositionData),
+    [rawPositions]
+  );
 
   return {
     positions,

@@ -32,7 +32,8 @@ export interface PositionApiResponse {
     leverage: number;
     liquidationPrice: string;
   } | null;
-  backpack: {
+  /** Backpack leg is not included by backend yet; treat as optional. */
+  backpack?: {
     symbol: string;
     size: string;
     side: 'Long' | 'Short';
@@ -94,7 +95,8 @@ function formatPercentage(value: number | string): string {
  * Exported for use in hooks and testing
  */
 export function transformPositionData(apiData: PositionApiResponse): ArbitragePosition {
-  const { symbol, hyperliquid, pacifica, backpack } = apiData;
+  const { symbol, hyperliquid, pacifica } = apiData;
+  const backpack = apiData.backpack ?? null;
 
   // Determine which protocol has long and short positions
   // Normalize protocol names to lowercase IDs for consistency

@@ -42,6 +42,11 @@ export interface DepositContext {
   bridgeRequestId: string;
   /** User's Solana wallet address, if available */
   solanaRecipientAddress?: string;
+  /**
+   * Exact USDC amount (6 decimals) to move on Solana. Used by Backpack.
+   * Other handlers ignore this and use chain balance / backend-built txs.
+   */
+  depositAmountMicros?: bigint;
 }
 
 // ─── Result Types ─────────────────────────────────────────────────────────────

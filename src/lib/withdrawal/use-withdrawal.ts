@@ -62,7 +62,7 @@ function clearActiveIntentId(): void {
 export interface StartWithdrawalParams {
   exchange: WithdrawalExchange;
   amountUsd: number;
-  /** Destination address on Base. Defaults to user's EVM address. */
+  /** Destination address on Solana. Defaults to user's Solana address. */
   recipient?: string;
 }
 
@@ -158,10 +158,13 @@ export function useWithdrawal(): UseWithdrawalReturn {
         if (finalStatus === 'COMPLETED') {
           setPhase('completed');
           setStatusMessage('Withdrawal complete!');
-          queryClient.invalidateQueries({ queryKey: queryKeys.balance.all });
+          const wallet = getWalletContext(turnkeyState);
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.balance.exchangeHlPac(wallet.evmAddress, wallet.solanaAddress),
+          });
 
           toast.success('Withdrawal Complete', {
-            description: 'Funds have been withdrawn to your Base wallet.',
+            description: 'Funds have been withdrawn to your Solana wallet.',
             closeButton: true,
             duration: 6000,
           });
@@ -190,7 +193,7 @@ export function useWithdrawal(): UseWithdrawalReturn {
           .catch(() => { /* non-critical */ });
       },
     }),
-    [queryClient]
+    [queryClient, turnkeyState]
   );
 
   // ── Run the engine ─────────────────────────────────────────
@@ -253,8 +256,8 @@ export function useWithdrawal(): UseWithdrawalReturn {
         const newIntentId = await withdrawalApi.create({
           exchange: toExchangeName(params.exchange),
           amount_usd: params.amountUsd,
-          recipient: params.recipient || context.evmAddress,
-          destination_chain_id: 8453,
+          recipient: params.recipient || context.solanaAddress,
+          destination_chain_id: 792703809,
         });
 
         storeActiveIntentId(newIntentId);
