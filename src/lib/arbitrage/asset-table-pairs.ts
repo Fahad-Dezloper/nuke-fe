@@ -139,19 +139,22 @@ export function getBestPairResolved(
   asset: AssetDropdownItem | null | undefined,
   spreadAprData: SpreadAprMap,
   override: BestPairResult | null | undefined,
-  options: GetBestPairOptions
+  options?: GetBestPairOptions
 ): BestPairResult {
-  const DEFAULT = defaultPair(options.selectedExchanges);
+  const selectedExchanges = options?.selectedExchanges ?? TABLE_EXCHANGE_ORDER;
+  const metric = options?.metric ?? 'seven_day_apr';
+
+  const DEFAULT = defaultPair(selectedExchanges);
   if (!asset) return DEFAULT;
 
-  const sel = new Set(options.selectedExchanges);
+  const sel = new Set(selectedExchanges);
   if (sel.size < 2) return DEFAULT;
 
   if (override && sel.has(override.long) && sel.has(override.short)) {
     return override;
   }
 
-  const top = computeTopPairs(asset, spreadAprData, options.selectedExchanges, options.metric);
+  const top = computeTopPairs(asset, spreadAprData, selectedExchanges, metric);
   if (top[0]) {
     return { long: top[0].long, short: top[0].short };
   }

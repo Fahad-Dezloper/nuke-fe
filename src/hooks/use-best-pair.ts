@@ -36,7 +36,7 @@ export function getBestPair(
   asset: AssetDropdownItem | null | undefined,
   spreadAprData: SpreadAprMap,
   override: BestPairResult | null | undefined,
-  options: GetBestPairOptions
+  options?: GetBestPairOptions
 ): BestPairResult {
   return getBestPairResolved(asset, spreadAprData, override, options);
 }

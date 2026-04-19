@@ -42,6 +42,9 @@ export const pacBalanceAtom = atom<number>(0);
 /** Backpack USDC available (perp collateral) in USD */
 export const bpBalanceAtom = atom<number>(0);
 
+/** Lighter available balance (USDC) in USD — from Lighter account by L1 address */
+export const ltBalanceAtom = atom<number>(0);
+
 /** Funding wallet USDC balance in USD (Solana) */
 export const baseBalanceAtom = atom<number>(0);
 
@@ -91,7 +94,9 @@ export const marginValidationAtom = atom<MarginValidation>((get) => {
         ? get(pacBalanceAtom)
         : long === 'backpack'
           ? get(bpBalanceAtom)
-          : 0;
+          : long === 'lighter'
+            ? get(ltBalanceAtom)
+            : 0;
   const shortFree =
     short === 'hyperliquid'
       ? get(hlBalanceAtom)
@@ -99,7 +104,9 @@ export const marginValidationAtom = atom<MarginValidation>((get) => {
         ? get(pacBalanceAtom)
         : short === 'backpack'
           ? get(bpBalanceAtom)
-          : 0;
+          : short === 'lighter'
+            ? get(ltBalanceAtom)
+            : 0;
 
   const maxPerSide = Math.min(longFree, shortFree);
   const maxMargin = Math.floor(maxPerSide * 2 * 100) / 100;

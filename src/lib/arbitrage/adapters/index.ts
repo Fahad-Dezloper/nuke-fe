@@ -7,4 +7,5 @@
 export { HyperLiquidAdapter } from './hyperliquid-adapter';
 export { PacificaAdapter } from './pacifica-adapter';
 export { BackpackAdapter } from './backpack-adapter';
+export { LighterAdapter } from './lighter-adapter';
 export type { ProtocolAdapter } from './protocol-adapter.interface';
