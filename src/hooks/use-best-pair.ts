@@ -1,71 +1,69 @@
 /**
  * Best Pair Hook
- * Single source of truth for determining the best long/short pair for an asset.
- * Uses 7-day spread APR data when available, falls back to live funding rates.
+ * Uses selected exchanges + Net vs 7D metric from arbitrage table filters.
  */
 
+import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
+import {
+  bestPairMetricAtom,
+  selectedExchangesAtom,
+  selectedVenuesList,
+} from '@/lib/stores/arbitrage-table-filters.store';
 import type { AssetDropdownItem } from '@/types/positions';
 import type { SpreadAprMap } from '@/lib/api/services/apr.service';
+import type { HedgeVenueProtocol } from '@/types/hedge-venues';
+import {
+  getBestPairResolved,
+  type GetBestPairOptions,
+} from '@/lib/arbitrage/asset-table-pairs';
 
-export type Protocol = 'hyperliquid' | 'pacifica' | 'backpack';
+export type Protocol = HedgeVenueProtocol;
 
 export interface BestPairResult {
   long: Protocol;
   short: Protocol;
 }
 
+export type { GetBestPairOptions };
+
 /**
- * Pure function — no hooks, works anywhere.
- * Pass the spreadAprData map + an asset to get the best pair.
+ * Pure helper for non-React callers (e.g. Jotai atoms) when you already have filter state.
  */
 export function getBestPair(
   asset: AssetDropdownItem | null | undefined,
   spreadAprData: SpreadAprMap,
-  override?: BestPairResult | null
+  override: BestPairResult | null | undefined,
+  options: GetBestPairOptions
 ): BestPairResult {
-  const DEFAULT: BestPairResult = { long: 'hyperliquid', short: 'pacifica' };
-  if (!asset) return DEFAULT;
-
-  if (override) return override;
-
-  // Prefer spread APR data (7-day average from backend CRON)
-  const spreadData = spreadAprData[asset.asset];
-  if (spreadData) {
-    return {
-      long: spreadData.longPlatform,
-      short: spreadData.shortPlatform,
-    };
-  }
-
-  // Fallback: compare live funding rates
-  const protocols = asset.protocols ?? {};
-  const entries = Object.entries(protocols)
-    .map(([id, p]) => ({ id: id as Protocol, yearly: p.fundingRateYearly }))
-    .filter((e) => typeof e.yearly === 'number' && Number.isFinite(e.yearly));
-
-  if (entries.length < 2) return DEFAULT;
-
-  entries.sort((a, b) => a.yearly - b.yearly);
-  const long = entries[0]!.id;
-  const short = entries[entries.length - 1]!.id;
-  return { long, short };
+  return getBestPairResolved(asset, spreadAprData, override, options);
 }
 
 /**
- * React hook — reads spreadAprDataAtom automatically.
- * Returns a stable `getBestPairForAsset(asset)` helper + the current
- * spread APR map so callers can grab 7D APR numbers if needed.
+ * React hook — reads spread APR + table filter atoms.
  */
 export function useBestPair() {
   const spreadAprData = useAtomValue(spreadAprDataAtom);
   const overrides = useAtomValue(bestPairOverrideAtom);
+  const selectedMap = useAtomValue(selectedExchangesAtom);
+  const metric = useAtomValue(bestPairMetricAtom);
 
-  const getBestPairForAsset = (
-    asset: AssetDropdownItem | null | undefined
-  ): BestPairResult => getBestPair(asset, spreadAprData, asset ? overrides[asset.asset] ?? null : null);
+  const selectedList = useMemo(() => selectedVenuesList(selectedMap), [selectedMap]);
 
-  return { getBestPairForAsset, spreadAprData };
+  const options: GetBestPairOptions = useMemo(
+    () => ({ selectedExchanges: selectedList, metric }),
+    [selectedList, metric]
+  );
+
+  const getBestPairForAsset = (asset: AssetDropdownItem | null | undefined): BestPairResult =>
+    getBestPairResolved(
+      asset,
+      spreadAprData,
+      asset ? overrides[asset.asset] ?? null : null,
+      options
+    );
+
+  return { getBestPairForAsset, spreadAprData, selectedExchanges: selectedList, metric, options };
 }

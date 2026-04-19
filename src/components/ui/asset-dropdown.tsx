@@ -9,7 +9,21 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import type { CSSProperties } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
+import {
+  TABLE_EXCHANGE_ORDER,
+  computeTopPairs,
+  maxLeverageAmongSelected,
+  protocolFundingYearly,
+  type BestPairMetricMode,
+} from '@/lib/arbitrage/asset-table-pairs';
+import {
+  selectedExchangesAtom,
+  toggleExchangeAtom,
+  bestPairMetricAtom,
+  selectedVenuesList,
+} from '@/lib/stores/arbitrage-table-filters.store';
 import {
   ChevronDown,
   Search,
@@ -33,6 +47,8 @@ import { BestPairTooltip } from './best-pair-tooltip';
 import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 import Image from 'next/image';
 import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
+import { getProtocolConfig } from '@/lib/protocols/config';
+import type { Protocol } from '@/hooks/use-best-pair';
 
 // ─── Sorting Types & Helpers ──────────────────────────────────────────────────
 
@@ -49,9 +65,17 @@ interface SortConfig {
 /** Default sort: 7D APR descending (highest first) */
 const DEFAULT_SORT: SortConfig = { column: '7dApr', direction: 'desc' };
 
-/** Column template: ASSET | BEST PAIR | PRICE | HL | PAC | BACKPACK | NET APR | 7D APR */
-const ARBITRAGE_TABLE_COLS =
-  'grid-cols-[minmax(140px,auto)_minmax(140px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(90px,auto)_minmax(90px,auto)]';
+function tableGridStyle(visibleCount: number): CSSProperties {
+  const parts = [
+    'minmax(140px,auto)',
+    'minmax(140px,auto)',
+    'minmax(100px,auto)',
+    ...Array.from({ length: visibleCount }, () => 'minmax(100px,auto)'),
+    'minmax(90px,auto)',
+    'minmax(90px,auto)',
+  ];
+  return { gridTemplateColumns: parts.join(' ') };
+}
 
 /**
  * Extract the numeric value for a given sort column from an asset.
@@ -60,15 +84,21 @@ const ARBITRAGE_TABLE_COLS =
 function getSortValue(
   asset: AssetDropdownItem,
   column: SortColumn,
-  spreadAprData: SpreadAprMap
+  spreadAprData: SpreadAprMap,
+  selected: readonly Protocol[],
+  metric: BestPairMetricMode
 ): number {
   switch (column) {
     case 'price':
       return asset.markPx || asset.hyperliquidMarkPx || 0;
     case 'netApr':
-      return asset.netAPR || 0;
+      return computeTopPairs(asset, spreadAprData, selected, 'net_apr')[0]?.netApr ?? 0;
     case '7dApr':
-      return spreadAprData[asset.asset]?.sevenDayApr ?? -Infinity;
+      return (
+        computeTopPairs(asset, spreadAprData, selected, 'seven_day_apr')[0]?.sevenDayApr ??
+        spreadAprData[asset.asset]?.sevenDayApr ??
+        -Infinity
+      );
     default:
       return 0;
   }
@@ -82,12 +112,14 @@ function compareAssets(
   a: AssetDropdownItem,
   b: AssetDropdownItem,
   sort: SortConfig,
-  spreadAprData: SpreadAprMap
+  spreadAprData: SpreadAprMap,
+  selected: readonly Protocol[],
+  metric: BestPairMetricMode
 ): number {
   if (!sort.column) return 0;
 
-  const valA = getSortValue(a, sort.column, spreadAprData);
-  const valB = getSortValue(b, sort.column, spreadAprData);
+  const valA = getSortValue(a, sort.column, spreadAprData, selected, metric);
+  const valB = getSortValue(b, sort.column, spreadAprData, selected, metric);
 
   const diff = sort.direction === 'desc' ? valB - valA : valA - valB;
 
@@ -113,84 +145,38 @@ function nextSortState(current: SortConfig, column: SortColumn): SortConfig {
   return DEFAULT_SORT;
 }
 
-type ProtocolId = 'hyperliquid' | 'pacifica' | 'backpack';
-
-type PairRow = {
-  long: ProtocolId;
-  short: ProtocolId;
-  /** Net yearly spread in percentage points */
-  netApr: number;
-  /** Approx 7D APR (best-effort). If spreadAprData is available for the asset, we keep that for the top row. */
-  sevenDayApr: number | null;
-};
-
-function protocolFundingYearly(asset: AssetDropdownItem, protocol: ProtocolId): number | null {
-  const p = asset.protocols?.[protocol];
-  const direct = p?.fundingRateYearly;
-  const fallback =
-    protocol === 'hyperliquid'
-      ? asset.hyperliquidFundingRate
-      : protocol === 'pacifica'
-        ? asset.pacificaFundingRate
-        : asset.backpackFundingRate;
-  const v = typeof direct === 'number' && Number.isFinite(direct) ? direct : fallback;
-  return typeof v === 'number' && Number.isFinite(v) ? v : null;
-}
-
-function computeTopPairs(asset: AssetDropdownItem, spreadAprData: SpreadAprMap): PairRow[] {
-  const spread = spreadAprData[asset.asset];
-  const topPairsFromApi = spread?.topPairs;
-  if (topPairsFromApi && topPairsFromApi.length > 0) {
-    return topPairsFromApi.slice(0, 3).map((e) => {
-      const long = e.long_platform as ProtocolId;
-      const short = e.short_platform as ProtocolId;
-      const longYearly = protocolFundingYearly(asset, long);
-      const shortYearly = protocolFundingYearly(asset, short);
-      const netApr =
-        longYearly != null && shortYearly != null ? shortYearly - longYearly : e.total_spread * 52;
-      return {
-        long,
-        short,
-        netApr,
-        sevenDayApr: e.total_spread * 52,
-      };
-    });
-  }
-
-  const protocols: ProtocolId[] = ['hyperliquid', 'pacifica', 'backpack'];
-  const available = protocols
-    .map((id) => ({ id, yearly: protocolFundingYearly(asset, id) }))
-    .filter((e): e is { id: ProtocolId; yearly: number } => e.yearly !== null);
-
-  if (available.length < 2) return [];
-
-  // Build all unordered pairs; direction is determined by funding (long = lower, short = higher)
-  const pairs: PairRow[] = [];
-  for (let i = 0; i < available.length; i++) {
-    for (let j = i + 1; j < available.length; j++) {
-      const a = available[i]!;
-      const b = available[j]!;
-      const long = a.yearly <= b.yearly ? a : b;
-      const short = a.yearly <= b.yearly ? b : a;
-      const netApr = short.yearly - long.yearly;
-      pairs.push({
-        long: long.id,
-        short: short.id,
-        netApr,
-        // We only have 7D APR from backend for the best pair; for other pairs, approximate with netApr.
-        sevenDayApr: null,
-      });
-    }
-  }
-
-  pairs.sort((x, y) => y.netApr - x.netApr);
-  const top = pairs.slice(0, 3);
-
-  if (spread && top[0]) {
-    top[0] = { ...top[0], sevenDayApr: spread.sevenDayApr };
-  }
-
-  return top;
+function ExchangeFundingCell({
+  asset,
+  protocol,
+  muted,
+}: {
+  asset: AssetDropdownItem;
+  protocol: Protocol;
+  muted?: boolean;
+}) {
+  const y = protocolFundingYearly(asset, protocol);
+  const has = asset.protocols[protocol] != null && y !== null;
+  const positive = has && y !== null && y >= 0;
+  return (
+    <div className={cn('flex items-center gap-1.5', muted && 'opacity-80')}>
+      {has && y != null ? (
+        <>
+          {positive ? (
+            <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
+          ) : (
+            <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
+          )}
+          <span
+            className={cn('text-sm tabular-nums', positive ? 'text-green-400' : 'text-red-400')}
+          >
+            {formatPercentWithSign(y)}
+          </span>
+        </>
+      ) : (
+        <span className="text-sm text-text-muted-60 tabular-nums">—</span>
+      )}
+    </div>
+  );
 }
 
 // ─── Sortable Header Sub-Component ───────────────────────────────────────────
@@ -256,7 +242,17 @@ export function AssetDropdown({
   const setSelectedAsset = useSetAtom(selectedAssetAtom);
   void useAtomValue(selectedAssetSymbolAtom);
   const setBestPairOverride = useSetAtom(bestPairOverrideAtom);
-  const { getBestPairForAsset, spreadAprData } = useBestPair();
+  const { getBestPairForAsset, spreadAprData, metric } = useBestPair();
+  const selectedExchangeMap = useAtomValue(selectedExchangesAtom);
+  const setToggleExchange = useSetAtom(toggleExchangeAtom);
+  const setPairMetric = useSetAtom(bestPairMetricAtom);
+
+  const selectedList = useMemo(
+    () => selectedVenuesList(selectedExchangeMap),
+    [selectedExchangeMap]
+  );
+
+  const tableGrid = useMemo(() => tableGridStyle(selectedList.length), [selectedList.length]);
 
   // URL query param sync
   const { updateUrlWithAsset } = useAssetQueryParam();
@@ -292,8 +288,10 @@ export function AssetDropdown({
     }
 
     // Apply sort
-    return [...filtered].sort((a, b) => compareAssets(a, b, sort, spreadAprData));
-  }, [assets, searchQuery, sort, spreadAprData]);
+    return [...filtered].sort((a, b) =>
+      compareAssets(a, b, sort, spreadAprData, selectedList, metric)
+    );
+  }, [assets, searchQuery, sort, spreadAprData, selectedList, metric]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -314,7 +312,10 @@ export function AssetDropdown({
     };
   }, [isOpen]);
 
-  const handleSelect = (asset: AssetDropdownItem, overridePair?: { long: ProtocolId; short: ProtocolId } | null) => {
+  const handleSelect = (
+    asset: AssetDropdownItem,
+    overridePair?: { long: Protocol; short: Protocol } | null
+  ) => {
     // Update global state
     setSelectedAsset(asset);
     // Set/clear best pair override for this asset
@@ -377,41 +378,17 @@ export function AssetDropdown({
     setTooltipPosition(null);
   };
 
-  // Get protocol logo/icon component
-  const ProtocolIcon = ({
-    protocol,
-  }: {
-    protocol: 'hyperliquid' | 'pacifica' | 'backpack';
-  }) => {
-    if (protocol === 'hyperliquid') {
-      return (
-        <Image
-          src="/tokens/hype.png"
-          alt="Hyperliquid"
-          width={20}
-          height={20}
-          className="rounded-full shrink-0"
-        />
-      );
-    }
-    if (protocol === 'backpack') {
-      return (
-        <Image
-          src="/tokens/backpack.svg"
-          alt="Backpack"
-          width={12}
-          height={12}
-          className="shrink-0"
-        />
-      );
-    }
+  const ProtocolIcon = ({ protocol }: { protocol: Protocol }) => {
+    const cfg = getProtocolConfig(protocol);
+    if (!cfg) return null;
+    const isBackpack = protocol === 'backpack';
     return (
       <Image
-        src="/tokens/pacifica.jpg"
-        alt="Pacifica"
-        width={20}
-        height={20}
-        className="rounded-full shrink-0"
+        src={cfg.logo}
+        alt={cfg.displayName}
+        width={isBackpack ? 12 : 20}
+        height={isBackpack ? 12 : 20}
+        className={cn('shrink-0', protocol !== 'backpack' && 'rounded-full')}
       />
     );
   };
@@ -514,9 +491,110 @@ export function AssetDropdown({
             </div>
           </div>
 
+          {/* Exchange filters + best-pair metric */}
+          <div className="px-5 py-3 border-b border-border-white-10/50 bg-black/20">
+            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+              <div className="flex min-w-0 flex-col gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted-60">
+                  Exchanges
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {TABLE_EXCHANGE_ORDER.map((id) => {
+                    const cfg = getProtocolConfig(id);
+                    if (!cfg) return null;
+                    const on = selectedExchangeMap[id];
+                    const count = TABLE_EXCHANGE_ORDER.filter((p) => selectedExchangeMap[p]).length;
+                    const lockOn = on && count <= 2;
+                    const isBp = id === 'backpack';
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        disabled={lockOn}
+                        aria-pressed={on}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setToggleExchange(id);
+                        }}
+                        className={cn(
+                          'group inline-flex items-center gap-2 rounded-lg border py-2 px-4 text-xs text-left transition-all duration-200 cursor-pointer',
+                          on
+                            ? ' bg-white/[0.07] text-text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]'
+                            : 'border-white/[0.07] bg-transparent text-text-muted-60 hover:border-white/12 hover:bg-white/[0.03] hover:text-text-primary',
+                          lockOn && 'cursor-not-allowed opacity-50'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'flex  shrink-0 items-center justify-center rounded-lg border transition-colors',
+                            on
+                              ? ' bg-black/40'
+                              : 'border-white/[0.06] bg-black/25 group-hover:border-white/10'
+                          )}
+                        >
+                          <Image
+                            src={cfg.logo}
+                            alt=""
+                            width={isBp ? 10 : 14}
+                            height={isBp ? 10 : 14}
+                            className={cn('shrink-0', !isBp && 'rounded-full')}
+                          />
+                        </span>
+                        <span className="text-xs font-semibold tracking-tight">
+                          {cfg.chipLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 sm:items-end">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted-60">
+                  Best pair by
+                </span>
+                <div
+                  className="inline-flex h-10 shrink-0 items-stretch rounded-lg border border-white/[0.1] bg-black/35 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]"
+                  role="group"
+                  aria-label="Best pair metric"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPairMetric('seven_day_apr');
+                    }}
+                    className={cn(
+                      'min-w-[5.75rem] rounded-lg px-3 cursor-pointer text-xs font-semibold tracking-tight transition-all duration-200 cursor-pointer',
+                      metric === 'seven_day_apr'
+                        ? 'bg-white/[0.12] text-white shadow-sm ring-1 ring-inset ring-white/[0.08]'
+                        : 'text-text-muted-60 hover:text-text-primary'
+                    )}
+                  >
+                    7D APR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPairMetric('net_apr');
+                    }}
+                    className={cn(
+                      'min-w-[5.75rem] rounded-lg px-3 cursor-pointer text-xs font-semibold tracking-tight transition-all duration-200',
+                      metric === 'net_apr'
+                        ? 'bg-white/[0.12] text-white shadow-sm ring-1 ring-inset ring-white/[0.08]'
+                        : 'text-text-muted-60 hover:text-text-primary'
+                    )}
+                  >
+                    Net APR
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Table Header */}
           <div className="sticky top-0 z-[10001] px-5 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md shadow-lg shadow-black/20 shrink-0">
-            <div className={cn('grid gap-4', ARBITRAGE_TABLE_COLS)}>
+            <div className="grid gap-4" style={tableGrid}>
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
                 ASSET
               </span>
@@ -524,36 +602,26 @@ export function AssetDropdown({
                 BEST PAIR
               </span>
               <SortableHeader label="PRICE" column="price" sort={sort} onSort={handleSort} />
-              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold flex items-center gap-2">
-                <Image
-                  src="/tokens/hype.png"
-                  alt="Hyperliquid"
-                  width={20}
-                  height={20}
-                  className="rounded shrink-0"
-                />
-                HYPERLIQUID
-              </span>
-              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold flex items-center gap-2">
-                <Image
-                  src="/tokens/pacifica.jpg"
-                  alt="Pacifica"
-                  width={20}
-                  height={20}
-                  className="rounded shrink-0"
-                />
-                PACIFICA
-              </span>
-              <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold flex items-center gap-2">
-                <Image
-                  src="/tokens/backpack.svg"
-                  alt="Backpack"
-                  width={12}
-                  height={12}
-                  className="rounded shrink-0"
-                />
-                BACKPACK
-              </span>
+              {selectedList.map((id) => {
+                const cfg = getProtocolConfig(id);
+                if (!cfg) return null;
+                const isBp = id === 'backpack';
+                return (
+                  <span
+                    key={id}
+                    className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold flex items-center gap-2"
+                  >
+                    <Image
+                      src={cfg.logo}
+                      alt={cfg.displayName}
+                      width={isBp ? 12 : 20}
+                      height={isBp ? 12 : 20}
+                      className={cn('rounded shrink-0', id !== 'backpack' && 'rounded-full')}
+                    />
+                    {cfg.displayName.toUpperCase()}
+                  </span>
+                );
+              })}
               <SortableHeader label="NET APR" column="netApr" sort={sort} onSort={handleSort} />
               <SortableHeader label="7D APR" column="7dApr" sort={sort} onSort={handleSort} />
             </div>
@@ -569,33 +637,36 @@ export function AssetDropdown({
               <div className="divide-y divide-border-white-10/30">
                 {sortedAndFilteredAssets.map((asset) => {
                   const isSelected = selectedAsset?.asset === asset.asset;
-                  const hyperliquidPositive = asset.hyperliquidFundingRate >= 0;
-                  const pacificaPositive = asset.pacificaFundingRate >= 0;
-                  const backpackRate = asset.backpackFundingRate;
-                  const hasBackpack =
-                    backpackRate !== undefined && asset.protocols.backpack != null;
-                  const backpackPositive = hasBackpack && backpackRate >= 0;
-                  const topPairs = computeTopPairs(asset, spreadAprData);
+                  const topPairs = computeTopPairs(asset, spreadAprData, selectedList, metric);
                   const bestPair = topPairs[0]
                     ? { long: topPairs[0].long, short: topPairs[0].short }
                     : getBestPairForAsset(asset);
                   const assetSpreadApr = spreadAprData[asset.asset];
                   const isExpanded = expandedAssets.has(asset.asset);
+                  const maxLev = maxLeverageAmongSelected(asset, selectedList);
 
                   return (
                     <div key={asset.asset} className="relative">
-                      <button
-                        type="button"
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => handleSelect(asset, null)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleSelect(asset, null);
+                          }
+                        }}
                         className={cn(
                           'w-full grid items-center gap-4 px-5 py-3.5',
-                          ARBITRAGE_TABLE_COLS,
                           'text-left transition-all duration-200',
                           'border-l-[3px] border-l-transparent',
                           'hover:border-l-accent/60 hover:bg-gray-500/10 hover:backdrop-blur-sm cursor-pointer',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
                           isSelected && 'bg-card/20 border-l-accent/40',
                           'group'
                         )}
+                        style={tableGrid}
                       >
                         {/* Asset */}
                         <div className="flex items-center gap-2.5">
@@ -634,7 +705,7 @@ export function AssetDropdown({
                               </button>
                             </div>
                             <span className="text-[11px] text-text-muted-60 leading-tight font-medium">
-                              Max {asset.maxLeverage}x
+                              Max {maxLev}x
                             </span>
                           </div>
                         </div>
@@ -668,66 +739,15 @@ export function AssetDropdown({
                           </span>
                         </div>
 
-                        {/* Hyperliquid Funding Rate */}
-                        <div className="flex items-center gap-1.5">
-                          {hyperliquidPositive ? (
-                            <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
-                          ) : (
-                            <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
-                          )}
-                          <span
-                            className={cn(
-                              'text-sm  tabular-nums',
-                              hyperliquidPositive ? 'text-green-400' : 'text-red-400'
-                            )}
-                          >
-                            {formatPercentWithSign(asset.hyperliquidFundingRate)}
-                          </span>
-                        </div>
-
-                        {/* Pacifica Funding Rate */}
-                        <div className="flex items-center gap-1.5">
-                          {pacificaPositive ? (
-                            <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
-                          ) : (
-                            <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
-                          )}
-                          <span
-                            className={cn(
-                              'text-sm  tabular-nums',
-                              pacificaPositive ? 'text-green-400' : 'text-red-400'
-                            )}
-                          >
-                            {formatPercentWithSign(asset.pacificaFundingRate)}
-                          </span>
-                        </div>
-
-                        {/* Backpack funding rate (yearly %, same as HL / Pacifica columns) */}
-                        <div className="flex items-center gap-1.5">
-                          {hasBackpack ? (
-                            <>
-                              {backpackPositive ? (
-                                <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
-                              ) : (
-                                <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
-                              )}
-                              <span
-                                className={cn(
-                                  'text-sm tabular-nums',
-                                  backpackPositive ? 'text-green-400' : 'text-red-400'
-                                )}
-                              >
-                                {formatPercentWithSign(backpackRate)}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-sm text-text-muted-60 tabular-nums">—</span>
-                          )}
-                        </div>
+                        {selectedList.map((ex) => (
+                          <ExchangeFundingCell key={ex} asset={asset} protocol={ex} />
+                        ))}
 
                         {/* NET APR */}
                         <span className="text-sm  tabular-nums text-green-400">
-                          {topPairs[0] ? formatPercentWithSign(topPairs[0].netApr) : formatPercentWithSign(asset.netAPR)}
+                          {topPairs[0]
+                            ? formatPercentWithSign(topPairs[0].netApr)
+                            : formatPercentWithSign(asset.netAPR)}
                         </span>
 
                         {/* 7D APR */}
@@ -738,7 +758,7 @@ export function AssetDropdown({
                               ? formatPercentWithSign(assetSpreadApr.sevenDayApr)
                               : '—'}
                         </span>
-                      </button>
+                      </div>
 
                       {/* Expanded: show next 2 pairs */}
                       {isExpanded && topPairs.length > 1 && (
@@ -748,15 +768,17 @@ export function AssetDropdown({
                               <button
                                 type="button"
                                 key={`${pair.long}-${pair.short}-${idx}`}
+                                style={tableGrid}
                                 className={cn(
                                   'grid items-center gap-4',
-                                  ARBITRAGE_TABLE_COLS,
                                   'w-full text-left transition-all duration-200',
                                   'px-5 py-3.5 rounded-lg',
                                   'bg-white/5 border border-border-white-10/30',
                                   'hover:bg-gray-500/10 hover:backdrop-blur-sm cursor-pointer'
                                 )}
-                                onClick={() => handleSelect(asset, { long: pair.long, short: pair.short })}
+                                onClick={() =>
+                                  handleSelect(asset, { long: pair.long, short: pair.short })
+                                }
                               >
                                 {/* Asset */}
                                 <div className="flex items-center gap-2.5 opacity-80">
@@ -772,7 +794,7 @@ export function AssetDropdown({
                                       {asset.asset}
                                     </span>
                                     <span className="text-[11px] text-text-muted-60 leading-tight font-medium">
-                                      Max {asset.maxLeverage}x
+                                      Max {maxLev}x
                                     </span>
                                   </div>
                                 </div>
@@ -793,66 +815,9 @@ export function AssetDropdown({
                                     )}
                                   </span>
                                 </div>
-                                {/* Hyperliquid */}
-                                <div className="flex items-center gap-1.5 opacity-80">
-                                  {((protocolFundingYearly(asset, 'hyperliquid') ?? 0) >= 0) ? (
-                                    <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
-                                  )}
-                                  <span
-                                    className={cn(
-                                      'text-sm tabular-nums',
-                                      (protocolFundingYearly(asset, 'hyperliquid') ?? 0) >= 0
-                                        ? 'text-green-400'
-                                        : 'text-red-400'
-                                    )}
-                                  >
-                                    {formatPercentWithSign(protocolFundingYearly(asset, 'hyperliquid') ?? 0)}
-                                  </span>
-                                </div>
-                                {/* Pacifica */}
-                                <div className="flex items-center gap-1.5 opacity-80">
-                                  {((protocolFundingYearly(asset, 'pacifica') ?? 0) >= 0) ? (
-                                    <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
-                                  )}
-                                  <span
-                                    className={cn(
-                                      'text-sm tabular-nums',
-                                      (protocolFundingYearly(asset, 'pacifica') ?? 0) >= 0
-                                        ? 'text-green-400'
-                                        : 'text-red-400'
-                                    )}
-                                  >
-                                    {formatPercentWithSign(protocolFundingYearly(asset, 'pacifica') ?? 0)}
-                                  </span>
-                                </div>
-                                {/* Backpack */}
-                                <div className="flex items-center gap-1.5 opacity-80">
-                                  {protocolFundingYearly(asset, 'backpack') != null
-                                    ? ((protocolFundingYearly(asset, 'backpack') ?? 0) >= 0 ? (
-                                        <ArrowUp className="h-3 w-3 text-green-400 shrink-0" />
-                                      ) : (
-                                        <ArrowDown className="h-3 w-3 text-red-400 shrink-0" />
-                                      ))
-                                    : null}
-                                  <span
-                                    className={cn(
-                                      'text-sm tabular-nums',
-                                      protocolFundingYearly(asset, 'backpack') == null
-                                        ? 'text-text-muted-60'
-                                        : (protocolFundingYearly(asset, 'backpack') ?? 0) >= 0
-                                          ? 'text-green-400'
-                                          : 'text-red-400'
-                                    )}
-                                  >
-                                    {protocolFundingYearly(asset, 'backpack') != null
-                                      ? formatPercentWithSign(protocolFundingYearly(asset, 'backpack')!)
-                                      : '—'}
-                                  </span>
-                                </div>
+                                {selectedList.map((ex) => (
+                                  <ExchangeFundingCell key={ex} asset={asset} protocol={ex} muted />
+                                ))}
                                 <span className="text-sm tabular-nums text-green-400 opacity-80">
                                   {formatPercentWithSign(pair.netApr)}
                                 </span>

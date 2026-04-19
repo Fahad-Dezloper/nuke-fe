@@ -9,6 +9,11 @@ import { getBestPair, type Protocol } from '@/hooks/use-best-pair';
 import { selectedAssetAtom as marketSelectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
+import {
+  bestPairMetricAtom,
+  selectedExchangesAtom,
+  selectedVenuesList,
+} from '@/lib/stores/arbitrage-table-filters.store';
 
 // Leverage state (1-5x)
 export const leverageAtom = atom<number>(3);
@@ -54,7 +59,8 @@ export interface MarginValidation {
 function protocolLabel(p: Protocol): string {
   if (p === 'hyperliquid') return 'Hyperliquid';
   if (p === 'pacifica') return 'Pacifica';
-  return 'Backpack';
+  if (p === 'backpack') return 'Backpack';
+  return 'Lighter';
 }
 
 /**
@@ -71,20 +77,29 @@ export const marginValidationAtom = atom<MarginValidation>((get) => {
   const spreadAprData = get(spreadAprDataAtom);
   const overrides = get(bestPairOverrideAtom);
   const override = asset ? overrides[asset.asset] ?? null : null;
-  const { long, short } = getBestPair(asset, spreadAprData, override);
+  const selectedList = selectedVenuesList(get(selectedExchangesAtom));
+  const metric = get(bestPairMetricAtom);
+  const { long, short } = getBestPair(asset, spreadAprData, override, {
+    selectedExchanges: selectedList,
+    metric,
+  });
 
   const longFree =
     long === 'hyperliquid'
       ? get(hlBalanceAtom)
       : long === 'pacifica'
         ? get(pacBalanceAtom)
-        : get(bpBalanceAtom);
+        : long === 'backpack'
+          ? get(bpBalanceAtom)
+          : 0;
   const shortFree =
     short === 'hyperliquid'
       ? get(hlBalanceAtom)
       : short === 'pacifica'
         ? get(pacBalanceAtom)
-        : get(bpBalanceAtom);
+        : short === 'backpack'
+          ? get(bpBalanceAtom)
+          : 0;
 
   const maxPerSide = Math.min(longFree, shortFree);
   const maxMargin = Math.floor(maxPerSide * 2 * 100) / 100;

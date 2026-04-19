@@ -26,6 +26,12 @@ export interface MarketFeedApiResponse {
     funding: number; // Hourly funding rate
     max_leverage: number;
   } | null;
+  /** Present when backend includes Lighter in the feed (`FE_INTEGRATION.md`). */
+  lighter?: {
+    mark_px: number;
+    funding: number;
+    max_leverage: number;
+  } | null;
 }
 
 /**
@@ -76,7 +82,9 @@ function hourlyTo30DayAPR(hourlyRate: number): number {
 function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdownItem[] {
   return apiData
     .filter((item) => {
-      const protocols = [item.hyperliquid, item.pacifica, item.backpack].filter(Boolean);
+      const protocols = [item.hyperliquid, item.pacifica, item.backpack, item.lighter].filter(
+        Boolean
+      );
       return protocols.length >= 2; // Need at least 2 venues to form a hedge
     })
     .map((item) => {
@@ -118,6 +126,18 @@ function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdow
           maxLeverage: item.backpack.max_leverage,
         };
       }
+      if (item.lighter) {
+        const yearly = hourlyToYearlyPercentage(item.lighter.funding);
+        const apr30d = hourlyTo30DayAPR(item.lighter.funding);
+        protocols.lighter = {
+          protocol: 'lighter',
+          markPx: item.lighter.mark_px,
+          fundingRate: item.lighter.funding,
+          fundingRateYearly: yearly,
+          fundingRate30D: apr30d,
+          maxLeverage: item.lighter.max_leverage,
+        };
+      }
 
       const ratesYearly = Object.values(protocols).map((p) => p.fundingRateYearly);
       const rates30d = Object.values(protocols).map((p) => p.fundingRate30D);
@@ -147,10 +167,13 @@ function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdow
           protocols.hyperliquid?.markPx ??
           protocols.pacifica?.markPx ??
           protocols.backpack?.markPx ??
+          protocols.lighter?.markPx ??
           0,
         hyperliquidMarkPx: protocols.hyperliquid?.markPx,
         pacificaMarkPx: protocols.pacifica?.markPx,
         backpackMarkPx: protocols.backpack?.markPx,
+        lighterFundingRate: protocols.lighter?.fundingRateYearly,
+        lighterMarkPx: protocols.lighter?.markPx,
       };
     });
 }

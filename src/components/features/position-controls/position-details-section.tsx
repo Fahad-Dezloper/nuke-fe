@@ -91,12 +91,13 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
     function getExistingBalance(protocol: Protocol): number {
       if (protocol === 'hyperliquid') return hlBalance;
       if (protocol === 'pacifica') return pacBalance;
-      return bpBalance;
+      if (protocol === 'backpack') return bpBalance;
+      return 0;
     }
 
     function fundTarget(protocol: Protocol): FundExchange | null {
-      // Backpack is display-only for now.
-      return protocol === 'backpack' ? null : protocol;
+      if (protocol === 'backpack' || protocol === 'lighter') return null;
+      return protocol;
     }
 
     function legCard(

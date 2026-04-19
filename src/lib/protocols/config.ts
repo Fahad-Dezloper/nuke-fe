@@ -17,6 +17,8 @@ export interface ProtocolConfig {
   bgOpacity?: number;
   /** Border color opacity for badges */
   borderOpacity?: number;
+  /** Compact label for exchange chips (e.g. HL) */
+  chipLabel: string;
 }
 
 /**
@@ -27,6 +29,7 @@ export const PROTOCOL_CONFIGS: Record<string, ProtocolConfig> = {
   hyperliquid: {
     id: 'hyperliquid',
     displayName: 'Hyperliquid',
+    chipLabel: 'Hyperliquid',
     logo: '/tokens/hype.png',
     colorVar: '--chart-hyperliquid',
     bgOpacity: 0.1,
@@ -35,6 +38,7 @@ export const PROTOCOL_CONFIGS: Record<string, ProtocolConfig> = {
   pacifica: {
     id: 'pacifica',
     displayName: 'Pacifica',
+    chipLabel: 'Pacifica',
     logo: '/tokens/pacifica.jpg',
     colorVar: '--chart-pink',
     bgOpacity: 0.1,
@@ -43,8 +47,18 @@ export const PROTOCOL_CONFIGS: Record<string, ProtocolConfig> = {
   backpack: {
     id: 'backpack',
     displayName: 'Backpack',
+    chipLabel: 'Backpack',
     logo: '/tokens/backpack.svg',
     colorVar: '--chart-backpack',
+    bgOpacity: 0.1,
+    borderOpacity: 0.2,
+  },
+  lighter: {
+    id: 'lighter',
+    displayName: 'Lighter',
+    chipLabel: 'Lighter',
+    logo: '/tokens/lighter.jpg',
+    colorVar: '--chart-lighter',
     bgOpacity: 0.1,
     borderOpacity: 0.2,
   },

@@ -142,10 +142,13 @@ export interface AssetDropdownItem {
   pacificaFundingRate: number;
   /** Yearly funding % when Backpack data exists for this symbol */
   backpackFundingRate?: number;
+  /** Yearly funding % when Lighter data exists for this symbol */
+  lighterFundingRate?: number;
   netAPR: number;
   apr30D: number;
   markPx?: number; // Primary mark price (from first protocol)
   hyperliquidMarkPx?: number;
   pacificaMarkPx?: number;
   backpackMarkPx?: number;
+  lighterMarkPx?: number;
 }

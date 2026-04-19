@@ -10,24 +10,30 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartLegend, type ChartConfig } from '@/components/ui/chart';
 import { cn } from '@/lib/utils';
 import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
+import type { Protocol } from '@/hooks/use-best-pair';
 import type { ChartTimeframe } from '@/lib/api/services/chart.service';
 import { getProtocolConfig } from '@/lib/protocols/config';
 
-type ProtocolId = 'hyperliquid' | 'pacifica' | 'backpack';
+const SERIES_KEYS: Record<
+  Protocol,
+  { actual: keyof ChartDataPoint; projected: keyof ChartDataPoint }
+> = {
+  hyperliquid: { actual: 'hyperliquid', projected: 'projectedHyperliquid' },
+  pacifica: { actual: 'pacifica', projected: 'projectedPacifica' },
+  backpack: { actual: 'backpack', projected: 'projectedBackpack' },
+  lighter: { actual: 'lighter', projected: 'projectedLighter' },
+};
 
 function getSeriesValue(
   d: ChartDataPoint,
-  protocolId: ProtocolId,
+  protocolId: Protocol,
   kind: 'actual' | 'projected'
 ): number | null {
-  if (kind === 'projected') {
-    if (protocolId === 'hyperliquid') return d.projectedHyperliquid;
-    if (protocolId === 'pacifica') return d.projectedPacifica;
-    return d.projectedBackpack;
-  }
-  if (protocolId === 'hyperliquid') return d.hyperliquid;
-  if (protocolId === 'pacifica') return d.pacifica;
-  return d.backpack;
+  const keys = SERIES_KEYS[protocolId];
+  const key = (kind === 'projected' ? keys.projected : keys.actual) as keyof ChartDataPoint;
+  const v = d[key];
+  if (v === null || v === undefined) return null;
+  return typeof v === 'number' ? v : null;
 }
 
 /**
@@ -41,7 +47,7 @@ function buildChartConfig(): ChartConfig {
     },
   };
 
-  (['hyperliquid', 'pacifica', 'backpack'] as const).forEach((protocolId) => {
+  (['hyperliquid', 'pacifica', 'backpack', 'lighter'] as const).forEach((protocolId) => {
     const protocolConfig = getProtocolConfig(protocolId);
     if (protocolConfig) {
       config[protocolId] = {
@@ -86,7 +92,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
     return `${sign}${value.toFixed(4)}%`;
   };
 
-  const activePair: ProtocolId[] = [data.longProtocol, data.shortProtocol];
+  const activePair: Protocol[] = [data.longProtocol, data.shortProtocol];
 
   const protocolsWithData = activePair
     .map((protocolId) => {
@@ -183,8 +189,8 @@ export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartPr
   const domain = useMemo(() => {
     if (data.length === 0) return [-60, 120];
 
-    const lp = data[0].longProtocol as ProtocolId;
-    const sp = data[0].shortProtocol as ProtocolId;
+    const lp = data[0].longProtocol;
+    const sp = data[0].shortProtocol;
     const active = [lp, sp];
 
     const allValues: number[] = [];
@@ -244,18 +250,8 @@ export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartPr
           const protocolConfig = getProtocolConfig(protocolId);
           if (!protocolConfig) return [];
 
-          const dataKey =
-            protocolId === 'hyperliquid'
-              ? 'hyperliquid'
-              : protocolId === 'pacifica'
-                ? 'pacifica'
-                : 'backpack';
-          const projectedDataKey =
-            protocolId === 'hyperliquid'
-              ? 'projectedHyperliquid'
-              : protocolId === 'pacifica'
-                ? 'projectedPacifica'
-                : 'projectedBackpack';
+          const dataKey = SERIES_KEYS[protocolId].actual as string;
+          const projectedDataKey = SERIES_KEYS[protocolId].projected as string;
 
           return [
             <Line
