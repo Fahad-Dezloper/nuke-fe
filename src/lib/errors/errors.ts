@@ -65,6 +65,13 @@ export enum ErrorCode {
   HYPERLIQUID_SIGNING_FAILED = 'HYPER_7003',
   HYPERLIQUID_TYPED_DATA_FAILED = 'HYPER_7004',
 
+  // Lighter.xyz (7100-7199) — L2 API key signing; see `src/lib/services/lighter/`
+  LIGHTER_SIGNING_NOT_CONFIGURED = 'LIGHTER_7101',
+  LIGHTER_HTTP_ERROR = 'LIGHTER_7102',
+  LIGHTER_SUBMIT_TX_FAILED = 'LIGHTER_7103',
+  LIGHTER_CREDENTIALS_MISSING = 'LIGHTER_7104',
+  LIGHTER_WASM_INIT_FAILED = 'LIGHTER_7105',
+
   // Turnkey specific errors (8000-8099)
   TURNKEY_INIT_FAILED = 'TURNKEY_8001',
   TURNKEY_SIGNER_CREATE_FAILED = 'TURNKEY_8002',
@@ -465,6 +472,50 @@ const ERROR_DEFINITIONS: Record<ErrorCode, Omit<ErrorMetadata, 'context'>> = {
     category: ErrorCategory.TRADING,
     message: 'Failed to generate HyperLiquid typed data',
     userMessage: 'Failed to prepare transaction. Please try again',
+    statusCode: 500,
+    retryable: true,
+  },
+
+  [ErrorCode.LIGHTER_SIGNING_NOT_CONFIGURED]: {
+    code: ErrorCode.LIGHTER_SIGNING_NOT_CONFIGURED,
+    category: ErrorCategory.WALLET,
+    message: 'Lighter L2 signer not configured',
+    userMessage:
+      'Lighter trading needs WASM signer assets plus L2 API credentials. Configure NEXT_PUBLIC_LIGHTER_* or setLighterL2Credentials().',
+    statusCode: 501,
+    retryable: false,
+  },
+  [ErrorCode.LIGHTER_HTTP_ERROR]: {
+    code: ErrorCode.LIGHTER_HTTP_ERROR,
+    category: ErrorCategory.NETWORK,
+    message: 'Lighter HTTP request failed',
+    userMessage: 'Could not reach Lighter. Check your connection and try again',
+    statusCode: 502,
+    retryable: true,
+  },
+  [ErrorCode.LIGHTER_SUBMIT_TX_FAILED]: {
+    code: ErrorCode.LIGHTER_SUBMIT_TX_FAILED,
+    category: ErrorCategory.TRADING,
+    message: 'Lighter sendTx failed',
+    userMessage: 'Lighter rejected or failed to process the transaction',
+    statusCode: 400,
+    retryable: false,
+  },
+  [ErrorCode.LIGHTER_CREDENTIALS_MISSING]: {
+    code: ErrorCode.LIGHTER_CREDENTIALS_MISSING,
+    category: ErrorCategory.WALLET,
+    message: 'Lighter L2 API credentials missing',
+    userMessage:
+      'Set Lighter L2 credentials (API private key + account index) via env or your app bootstrap code.',
+    statusCode: 401,
+    retryable: false,
+  },
+  [ErrorCode.LIGHTER_WASM_INIT_FAILED]: {
+    code: ErrorCode.LIGHTER_WASM_INIT_FAILED,
+    category: ErrorCategory.WALLET,
+    message: 'Lighter WASM signer failed to initialize',
+    userMessage:
+      'Could not load the Lighter signer. Add `lighter-signer.wasm` and `lighter-wasm-exec.js` under `public/wasm/` (see `npm run lighter:wasm`) or set NEXT_PUBLIC_LIGHTER_WASM_PATH / NEXT_PUBLIC_LIGHTER_WASM_EXEC_PATH.',
     statusCode: 500,
     retryable: true,
   },

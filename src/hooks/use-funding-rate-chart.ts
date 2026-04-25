@@ -15,11 +15,17 @@ import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { getBestPair } from '@/hooks/use-best-pair';
 import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
 import {
+  bestPairMetricAtom,
+  selectedExchangesAtom,
+  selectedVenuesList,
+} from '@/lib/stores/arbitrage-table-filters.store';
+import {
   chartService,
   type ChartApiResponse,
   type ChartTimeframe,
 } from '@/lib/api/services/chart.service';
 import { queryKeys } from '@/lib/query-keys';
+import type { Protocol } from '@/hooks/use-best-pair';
 
 /**
  * Convert hourly funding rate to yearly percentage
@@ -89,14 +95,17 @@ export interface ChartDataPoint {
   hyperliquid: number | null;
   pacifica: number | null;
   backpack: number | null;
+  lighter: number | null;
   hyperliquidRaw: number;
   pacificaRaw: number;
   backpackRaw: number;
+  lighterRaw: number;
   projectedHyperliquid: number | null;
   projectedPacifica: number | null;
   projectedBackpack: number | null;
-  longProtocol: 'hyperliquid' | 'pacifica' | 'backpack';
-  shortProtocol: 'hyperliquid' | 'pacifica' | 'backpack';
+  projectedLighter: number | null;
+  longProtocol: Protocol;
+  shortProtocol: Protocol;
   longRate: number;
   shortRate: number;
   netRate: number;
@@ -110,49 +119,44 @@ interface UseFundingRateChartOptions {
  * Transform raw chart API response into renderable data points.
  * Extracted as a pure function for testability.
  */
+function buildTimestampMap<T extends { timestamp: string }>(
+  items: T[],
+  timeframe: ChartTimeframe
+): Map<string, T> {
+  const map = new Map<string, T>();
+  items.forEach((item) => {
+    const normalized = normalizeTimestamp(item.timestamp, timeframe);
+    const existing = map.get(normalized);
+    if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
+      map.set(normalized, item);
+    }
+  });
+  return map;
+}
+
 function transformChartData(
   chartData: ChartApiResponse,
   timeframe: ChartTimeframe,
-  consistentLong: 'hyperliquid' | 'pacifica' | 'backpack',
-  consistentShort: 'hyperliquid' | 'pacifica' | 'backpack'
+  consistentLong: Protocol,
+  consistentShort: Protocol
 ): ChartDataPoint[] {
   // Backend may omit a platform key entirely when it has no data.
   // Normalize to empty arrays so the chart never crashes on `.forEach`.
   const hyperliquid = chartData.hyperliquid ?? [];
   const pacifica = chartData.pacifica ?? [];
   const backpack = chartData.backpack ?? [];
+  const lighter = chartData.lighter ?? [];
 
-  const hyperliquidMap = new Map<string, (typeof hyperliquid)[0]>();
-  hyperliquid.forEach((item) => {
-    const normalized = normalizeTimestamp(item.timestamp, timeframe);
-    const existing = hyperliquidMap.get(normalized);
-    if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
-      hyperliquidMap.set(normalized, item);
-    }
-  });
-
-  const pacificaMap = new Map<string, (typeof pacifica)[0]>();
-  pacifica.forEach((item) => {
-    const normalized = normalizeTimestamp(item.timestamp, timeframe);
-    const existing = pacificaMap.get(normalized);
-    if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
-      pacificaMap.set(normalized, item);
-    }
-  });
-
-  const backpackMap = new Map<string, (typeof backpack)[0]>();
-  backpack.forEach((item) => {
-    const normalized = normalizeTimestamp(item.timestamp, timeframe);
-    const existing = backpackMap.get(normalized);
-    if (!existing || new Date(item.timestamp) > new Date(existing.timestamp)) {
-      backpackMap.set(normalized, item);
-    }
-  });
+  const hyperliquidMap = buildTimestampMap(hyperliquid, timeframe);
+  const pacificaMap = buildTimestampMap(pacifica, timeframe);
+  const backpackMap = buildTimestampMap(backpack, timeframe);
+  const lighterMap = buildTimestampMap(lighter, timeframe);
 
   const allNormalizedTimestamps = new Set<string>();
   hyperliquidMap.forEach((_, key) => allNormalizedTimestamps.add(key));
   pacificaMap.forEach((_, key) => allNormalizedTimestamps.add(key));
   backpackMap.forEach((_, key) => allNormalizedTimestamps.add(key));
+  lighterMap.forEach((_, key) => allNormalizedTimestamps.add(key));
 
   const sortedTimestamps = Array.from(allNormalizedTimestamps).sort();
   const projectionThreshold = sortedTimestamps.length * 0.95;
@@ -161,18 +165,28 @@ function transformChartData(
     const hlData = hyperliquidMap.get(normalizedTimestamp);
     const pacData = pacificaMap.get(normalizedTimestamp);
     const bpData = backpackMap.get(normalizedTimestamp);
+    const ltData = lighterMap.get(normalizedTimestamp);
     const displayTimestamp =
-      hlData?.timestamp || pacData?.timestamp || bpData?.timestamp || normalizedTimestamp;
+      hlData?.timestamp ||
+      pacData?.timestamp ||
+      bpData?.timestamp ||
+      ltData?.timestamp ||
+      normalizedTimestamp;
 
     const hlYearly = hlData ? hourlyToYearlyPercentage(hlData.rate) : null;
     const pacYearly = pacData ? hourlyToYearlyPercentage(pacData.rate) : null;
     const bpYearly = bpData ? hourlyToYearlyPercentage(bpData.rate) : null;
+    const ltYearly = ltData ? hourlyToYearlyPercentage(ltData.rate) : null;
 
-    const resolveRate = (p: 'hyperliquid' | 'pacifica' | 'backpack'): number =>
-      p === 'hyperliquid' ? (hlYearly ?? 0) : p === 'pacifica' ? (pacYearly ?? 0) : (bpYearly ?? 0);
+    const yearly: Record<Protocol, number | null> = {
+      hyperliquid: hlYearly,
+      pacifica: pacYearly,
+      backpack: bpYearly,
+      lighter: ltYearly,
+    };
 
-    const longRate = resolveRate(consistentLong);
-    const shortRate = resolveRate(consistentShort);
+    const longRate = yearly[consistentLong] ?? 0;
+    const shortRate = yearly[consistentShort] ?? 0;
     const netRate = shortRate - longRate;
     const isProjected = index >= projectionThreshold;
 
@@ -183,12 +197,15 @@ function transformChartData(
       hyperliquid: hlYearly ?? null,
       pacifica: pacYearly ?? null,
       backpack: bpYearly ?? null,
+      lighter: ltYearly ?? null,
       hyperliquidRaw: hlData?.rate || 0,
       pacificaRaw: pacData?.rate || 0,
       backpackRaw: bpData?.rate || 0,
+      lighterRaw: ltData?.rate || 0,
       projectedHyperliquid: isProjected && hlData ? (hlYearly ?? null) : null,
       projectedPacifica: isProjected && pacData ? (pacYearly ?? null) : null,
       projectedBackpack: isProjected && bpData ? (bpYearly ?? null) : null,
+      projectedLighter: isProjected && ltData ? (ltYearly ?? null) : null,
       longProtocol: consistentLong,
       shortProtocol: consistentShort,
       longRate,
@@ -203,6 +220,10 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
   const selectedAsset = useAtomValue(selectedAssetAtom);
   const spreadAprData = useAtomValue(spreadAprDataAtom);
   const overrides = useAtomValue(bestPairOverrideAtom);
+  const selectedMap = useAtomValue(selectedExchangesAtom);
+  const metric = useAtomValue(bestPairMetricAtom);
+
+  const selectedList = useMemo(() => selectedVenuesList(selectedMap), [selectedMap]);
 
   const assetName = selectedAsset?.asset ?? '';
 
@@ -218,9 +239,10 @@ export function useFundingRateChart(options: UseFundingRateChartOptions = {}) {
       getBestPair(
         selectedAsset,
         spreadAprData,
-        selectedAsset ? overrides[selectedAsset.asset] ?? null : null
+        selectedAsset ? overrides[selectedAsset.asset] ?? null : null,
+        { selectedExchanges: selectedList, metric }
       ),
-    [selectedAsset, spreadAprData, overrides]
+    [selectedAsset, spreadAprData, overrides, selectedList, metric]
   );
 
   // Depend on `bestPair.long` / `short` (primitives), not the whole asset object,

@@ -97,7 +97,8 @@ export function isTokenValid(token: AuthToken | null): boolean {
  * Sign an arbitrary string message with the user's EVM wallet via Turnkey.
  * Uses `TurnkeySigner.signMessage()` from `@turnkey/ethers`.
  */
-async function signMessageWithEVM(
+/** Exported for Lighter L2 onboarding (L1 `changePubKey` message signing via Turnkey). */
+export async function signMessageWithEVM(
   message: string,
   evmAddress: string,
   organizationId: string

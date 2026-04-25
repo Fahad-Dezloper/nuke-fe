@@ -9,13 +9,14 @@
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
 import { BackpackService } from '@/lib/services/backpack/backpack.service';
+import { getSharedLighterAdapter } from '@/lib/services/lighter/lighter-shared-adapter';
 import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
 import { BUILDER_CODE } from '@/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CloseLegResult {
-  protocol: 'hyperliquid' | 'pacifica' | 'backpack';
+  protocol: 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
   success: boolean;
   error?: string;
 }
@@ -37,6 +38,9 @@ export interface BackpackPositionData {
   size: string;
   side: 'Long' | 'Short';
 }
+
+/** Lighter leg uses the same aggregate shape as Hyperliquid in our API. */
+export type LighterPositionData = HLPositionData;
 
 // ─── Singleton Services ───────────────────────────────────────────────────────
 
@@ -121,6 +125,31 @@ export async function closePacificaPosition(
   } catch (err) {
     return {
       protocol: 'pacifica',
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Close a Lighter perp leg via the shared Lighter adapter (reduce-only market IOC).
+ */
+export async function closeLighterPosition(
+  lt: LighterPositionData,
+  evmAddress: string,
+  organizationId: string
+): Promise<CloseLegResult> {
+  try {
+    const adapter = getSharedLighterAdapter();
+    const res = await adapter.closePosition(lt.symbol, evmAddress, organizationId);
+    return {
+      protocol: 'lighter',
+      success: res.success,
+      error: res.success ? undefined : res.error || res.message,
+    };
+  } catch (err) {
+    return {
+      protocol: 'lighter',
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error',
     };

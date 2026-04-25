@@ -14,6 +14,7 @@ import { bridgeService } from '@/lib/bridge/bridge.service';
 import { pollBridgeStatus } from '@/lib/bridge/poll-bridge-status';
 import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperliquid.handler';
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
+import { LighterDepositHandler } from '@/lib/bridge/deposit-handlers/lighter.handler';
 // Backpack authenticated actions disabled (display-only demo).
 // import { BackpackDepositHandler } from '@/lib/bridge/deposit-handlers/backpack.handler';
 import { HyperLiquidAdapter } from '@/lib/arbitrage/adapters/hyperliquid-adapter';
@@ -24,7 +25,12 @@ import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
 import { BackpackService } from '@/lib/services/backpack/backpack.service';
 import { MarketPriceHelper } from '@/dex/hyperliquid/utils/market-price';
 import { positionsService } from '@/lib/api/services/positions.service';
-import { closeHLPosition, closePacificaPosition, closeBackpackPosition } from '@/lib/trading/close-position';
+import {
+  closeHLPosition,
+  closePacificaPosition,
+  closeBackpackPosition,
+  closeLighterPosition,
+} from '@/lib/trading/close-position';
 import {
   trackBridgeStarted,
   trackBridgeCompleted,
@@ -50,6 +56,11 @@ import type {
   OpenPositionActionParams,
   ClosePositionActionParams,
 } from './types';
+import { fetchLighterAvailableUsd, fetchLighterLeverageForMarket, fetchLighterPerpRow } from '@/lib/services/lighter/lighter-reads';
+import { getLighterL2Credentials } from '@/lib/services/lighter/lighter-credentials';
+import { finalizeLighterL2KeysAfterDeposit } from '@/lib/services/lighter/lighter-onboarding';
+import { getSharedLighterAdapter, getSharedLighterService } from '@/lib/services/lighter/lighter-shared-adapter';
+import { LighterMarginMode } from '@/lib/services/lighter/utils/tx-constants';
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -90,6 +101,21 @@ const BRIDGE_REQUEST_PREFIX = 'hedge_bridge_';
 const PACIFICA_REFERRAL_PREFIX = 'pacifica_referral_claimed_';
 const PACIFICA_BUILDER_PREFIX = 'pacifica_builder_approved_';
 const HEDGE_ORDER_BUFFER_PCT = 1.0;
+
+function hedgeExchangeLabel(exchange: string): string {
+  switch (exchange) {
+    case 'hyperliquid':
+      return 'HyperLiquid';
+    case 'pacifica':
+      return 'Pacifica';
+    case 'lighter':
+      return 'Lighter';
+    case 'backpack':
+      return 'Backpack';
+    default:
+      return exchange;
+  }
+}
 
 function isPacificaReferralCached(account: string): boolean {
   try {
@@ -158,6 +184,7 @@ function clearBridgeRequestId(legId: string): void {
 export class HedgeActionExecutor {
   private hlDepositHandler: HyperliquidDepositHandler;
   private pacificaDepositHandler: PacificaDepositHandler;
+  private lighterDepositHandler: LighterDepositHandler;
   // private backpackDepositHandler: BackpackDepositHandler;
   private hlAdapter: HyperLiquidAdapter;
   private pacificaAdapter: PacificaAdapter;
@@ -170,6 +197,7 @@ export class HedgeActionExecutor {
   constructor() {
     this.hlDepositHandler = new HyperliquidDepositHandler();
     this.pacificaDepositHandler = new PacificaDepositHandler();
+    this.lighterDepositHandler = new LighterDepositHandler();
     // this.backpackDepositHandler = new BackpackDepositHandler();
     this.hlService = new HyperLiquidService();
     this.pacificaService = new PacificaService();
@@ -195,6 +223,10 @@ export class HedgeActionExecutor {
       case 'BRIDGE_SOL_TO_ARB':
         return this.executeBridge(action, context, 'hyperliquid');
 
+      case 'BRIDGE_SOL_TO_ETH':
+      case 'BRIDGE_BASE_TO_LIGHTER':
+        return this.executeBridge(action, context, 'lighter');
+
       case 'DEPOSIT_TO_HYPERLIQUID':
         return this.executeDeposit(context, 'hyperliquid', action);
 
@@ -209,6 +241,9 @@ export class HedgeActionExecutor {
           error: 'Backpack funding is disabled in this demo build.',
           legResults: null,
         };
+
+      case 'DEPOSIT_TO_LIGHTER':
+        return this.executeDeposit(context, 'lighter', action);
 
       case 'OPEN_HEDGE_POSITION':
         return this.executeOpenPosition(action, context);
@@ -247,8 +282,13 @@ export class HedgeActionExecutor {
     const params = action.params as unknown as BridgeActionParams;
     const legId = params.leg_id;
     const handler =
-      exchange === 'hyperliquid' ? this.hlDepositHandler : this.pacificaDepositHandler;
-    const chainLabel = exchange === 'hyperliquid' ? 'Arbitrum' : 'Solana';
+      exchange === 'pacifica'
+        ? this.pacificaDepositHandler
+        : exchange === 'lighter'
+          ? this.lighterDepositHandler
+          : this.hlDepositHandler;
+    const chainLabel =
+      exchange === 'pacifica' ? 'Solana' : exchange === 'lighter' ? 'Ethereum' : 'Arbitrum';
 
     // ── Check for an in-flight bridge from a previous session ──
     const existingRequestId = loadBridgeRequestId(legId);
@@ -294,7 +334,8 @@ export class HedgeActionExecutor {
 
     // Recipient: destination chain address family (EVM vs Solana)
       const recipient =
-        params.recipient || (exchange === 'hyperliquid' ? context.evmAddress : context.solanaAddress);
+        params.recipient ||
+        (exchange === 'pacifica' ? context.solanaAddress : context.evmAddress);
 
       // 1. Get bridge quote
       const quoteRequest: QuoteRequest = {
@@ -434,13 +475,17 @@ export class HedgeActionExecutor {
         ? this.hlDepositHandler
         : exchange === 'pacifica'
           ? this.pacificaDepositHandler
-          : this.pacificaDepositHandler;
+          : exchange === 'lighter'
+            ? this.lighterDepositHandler
+            : this.pacificaDepositHandler;
     const exchangeLabel =
       exchange === 'hyperliquid'
         ? 'Hyperliquid'
         : exchange === 'pacifica'
           ? 'Pacifica'
-          : 'Backpack';
+          : exchange === 'lighter'
+            ? 'Lighter'
+            : 'Backpack';
 
     const depositParams = action.params as unknown as DepositActionParams;
     const legId = depositParams.leg_id || '';
@@ -474,6 +519,17 @@ export class HedgeActionExecutor {
           error: `Deposit to ${exchangeLabel} returned no transaction hash — deposit may not have completed`,
           legResults: null,
         };
+      }
+
+      if (exchange === 'lighter') {
+        try {
+          await finalizeLighterL2KeysAfterDeposit({
+            evmAddress: context.evmAddress,
+            organizationId: context.organizationId,
+          });
+        } catch (finalizeErr) {
+          console.error('[HedgeExecutor] Lighter L2 keys after deposit:', finalizeErr);
+        }
       }
 
       trackDepositCompleted(exchange, depositResult.txHash);
@@ -634,11 +690,11 @@ export class HedgeActionExecutor {
       getDirection = (exchange: Exchange) =>
         exchange === spreadData.longPlatform ? 'long' : 'short';
     } else {
-      // Fallback: hyperliquid long, pacifica short
+      const primary = legs[0]?.exchange ?? 'hyperliquid';
       console.warn(
-        `[HedgeExecutor] No spread APR data for ${asset}, defaulting HL=long, Pacifica=short`
+        `[HedgeExecutor] No spread APR data for ${asset}, defaulting first leg (${primary})=long`
       );
-      getDirection = (exchange: Exchange) => (exchange === 'hyperliquid' ? 'long' : 'short');
+      getDirection = (exchange: Exchange) => (exchange === primary ? 'long' : 'short');
     }
 
     // ── Step 2: Check current leverage and update only if different ──
@@ -656,6 +712,14 @@ export class HedgeActionExecutor {
           const res = await this.pacificaService.fetchLeverage(context.solanaAddress, asset.toUpperCase());
           return { exchange: ex, current: res.success ? res.leverage : null, success: res.success, error: res.error };
         }
+        if (ex === 'lighter') {
+          const row = await fetchLighterPerpRow(asset.toUpperCase());
+          if (!row) {
+            return { exchange: ex, current: null, success: false, error: 'Lighter market not found' };
+          }
+          const current = await fetchLighterLeverageForMarket(context.evmAddress, row.market_id);
+          return { exchange: ex, current, success: true, error: undefined };
+        }
         // backpack (disabled for display-only demo)
         return { exchange: ex, current: null, success: true, error: undefined };
       })
@@ -667,10 +731,7 @@ export class HedgeActionExecutor {
       if (settled.status !== 'fulfilled') continue;
       const { exchange: ex, current } = settled.value;
 
-      const needsUpdate =
-        ex === 'pacifica'
-          ? current === null || current !== leverage
-          : current === null || current !== leverage;
+      const needsUpdate = current === null || current !== leverage;
 
       if (!needsUpdate) continue;
 
@@ -687,6 +748,37 @@ export class HedgeActionExecutor {
             .updateLeverage(asset.toUpperCase(), leverage, context.solanaAddress, context.organizationId)
             .then((r) => ({ exchangeLabel: 'Pacifica', ok: r.success, error: r.error }))
             .catch((err) => ({ exchangeLabel: 'Pacifica', ok: false, error: err instanceof Error ? err.message : String(err) }))
+        );
+      } else if (ex === 'lighter') {
+        leverageUpdates.push(
+          (async () => {
+            const row = await fetchLighterPerpRow(asset.toUpperCase());
+            if (!row) {
+              return { exchangeLabel: 'Lighter', ok: false, error: 'Lighter market not found' };
+            }
+            const creds = getLighterL2Credentials();
+            if (!creds) {
+              return { exchangeLabel: 'Lighter', ok: false, error: 'Lighter L2 credentials not configured' };
+            }
+            try {
+              await getSharedLighterService().updateLeverage(
+                {
+                  marketIndex: row.market_id,
+                  leverage,
+                  marginMode: LighterMarginMode.CROSS,
+                  apiKeyIndex: creds.apiKeyIndex,
+                },
+                { priceProtection: true }
+              );
+              return { exchangeLabel: 'Lighter', ok: true, error: undefined };
+            } catch (err) {
+              return {
+                exchangeLabel: 'Lighter',
+                ok: false,
+                error: err instanceof Error ? err.message : String(err),
+              };
+            }
+          })()
         );
       } else {
         leverageUpdates.push(
@@ -745,6 +837,24 @@ export class HedgeActionExecutor {
       console.warn('[HedgeExecutor] Could not fetch Pacifica balance, using effective_margin_usd:', err);
     }
 
+    try {
+      const needsLighterCap = legs.some((l) => l.exchange === 'lighter');
+      if (needsLighterCap) {
+        const ltAvail = await fetchLighterAvailableUsd(context.evmAddress);
+        if (ltAvail > 0) {
+          const available = ltAvail * 0.995;
+          if (available < marginForLegs) {
+            console.log(
+              `[HedgeExecutor] Lighter available ($${available.toFixed(2)}) < effective_margin ($${marginForLegs.toFixed(2)}) — capping both legs`
+            );
+            marginForLegs = available;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[HedgeExecutor] Could not fetch Lighter balance, using effective_margin_usd:', err);
+    }
+
     // Apply a final shared buffer before opening positions so both legs keep the same size
     // while reducing risk of per-exchange insufficient-balance rejections.
     const bufferedMarginForLegs = marginForLegs * (1 - HEDGE_ORDER_BUFFER_PCT / 100);
@@ -780,6 +890,21 @@ export class HedgeActionExecutor {
               organizationId: context.organizationId,
               isMarket: true,
               price: marketPrice,
+            });
+            return { exchange: leg.exchange, result };
+          }
+
+          if (leg.exchange === 'lighter') {
+            const result = await getSharedLighterAdapter().openPosition({
+              asset,
+              direction,
+              margin: marginForLegs.toString(),
+              leverage,
+              walletAddress: context.evmAddress,
+              organizationId: context.organizationId,
+              isMarket: true,
+              price: marketPrice,
+              slippagePercent: '0.5',
             });
             return { exchange: leg.exchange, result };
           }
@@ -824,7 +949,7 @@ export class HedgeActionExecutor {
     let errorMsg: string | null = null;
     if (!allSucceeded) {
       const failedNames = failedLegs
-        .map((lr) => `${lr.exchange === 'hyperliquid' ? 'HyperLiquid' : 'Pacifica'}: ${lr.error || 'unknown'}`)
+        .map((lr) => `${hedgeExchangeLabel(lr.exchange)}: ${lr.error || 'unknown'}`)
         .join('; ');
       errorMsg = `Position opening failed — ${failedNames}`;
       trackPositionOpenFailed(asset, errorMsg);
@@ -880,11 +1005,14 @@ export class HedgeActionExecutor {
       }
 
       // Step 3: Close the specific exchange's leg
-      const closeResult = exchange === 'hyperliquid'
-        ? await this.closeHLPositionAction(position.hyperliquid, asset, context)
-        : exchange === 'pacifica'
-          ? await this.closePacificaPositionAction(position.pacifica, asset, context)
-          : await this.closeBackpackPositionAction(position.backpack ?? null, asset, context);
+      const closeResult =
+        exchange === 'hyperliquid'
+          ? await this.closeHLPositionAction(position.hyperliquid, asset, context)
+          : exchange === 'pacifica'
+            ? await this.closePacificaPositionAction(position.pacifica, asset, context)
+            : exchange === 'lighter'
+              ? await this.closeLighterPositionAction(position.lighter ?? null, asset, context)
+              : await this.closeBackpackPositionAction(position.backpack ?? null, asset, context);
 
       if (closeResult.success) {
         trackPositionClosed(asset);
@@ -939,6 +1067,34 @@ export class HedgeActionExecutor {
   /**
    * Close a Pacifica position using the shared utility.
    */
+  private async closeLighterPositionAction(
+    ltPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
+    asset: string,
+    context: ExecutorContext
+  ): Promise<ActionResult> {
+    if (!ltPosition) {
+      return {
+        success: false,
+        txHash: null,
+        error: `No Lighter position found for ${asset}`,
+        legResults: null,
+      };
+    }
+
+    console.log(
+      `[HedgeExecutor] Closing Lighter position: ${ltPosition.symbol} ${ltPosition.side} size=${ltPosition.size}`
+    );
+
+    const result = await closeLighterPosition(ltPosition, context.evmAddress, context.organizationId);
+
+    return {
+      success: result.success,
+      txHash: null,
+      error: result.success ? null : result.error || 'Failed to close Lighter position',
+      legResults: null,
+    };
+  }
+
   private async closePacificaPositionAction(
     pacPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
     asset: string,

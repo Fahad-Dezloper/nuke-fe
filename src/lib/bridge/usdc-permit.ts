@@ -4,7 +4,7 @@
  */
 
 import { createPublicClient, http, type Address } from 'viem';
-import { arbitrum } from 'viem/chains';
+import { arbitrum, mainnet } from 'viem/chains';
 import { TURNKEY_API_BASE_URL } from '@/lib/turnkey/constants';
 import { ErrorCode, createError, toAppError } from '@/lib/errors';
 import { TOKEN_ADDRESSES, CHAIN_IDS } from './types';
@@ -97,6 +97,116 @@ function createArbitrumPublicClient() {
  * @param userAddress - User's wallet address
  * @returns User's current nonce
  */
+function getEthereumRpcUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL ||
+    process.env.NEXT_PUBLIC_MAINNET_RPC_URL ||
+    'https://ethereum.publicnode.com'
+  );
+}
+
+function createEthereumMainnetPublicClient() {
+  const rpcUrl = getEthereumRpcUrl();
+  return createPublicClient({
+    chain: {
+      ...mainnet,
+      rpcUrls: {
+        default: {
+          http: [rpcUrl],
+        },
+      },
+    },
+    transport: http(rpcUrl),
+  });
+}
+
+/** USDC `nonces(owner)` on Ethereum mainnet (for `POST /lighter/deposit` permits). */
+export async function getEthereumMainnetUsdcNonce(userAddress: string): Promise<number> {
+  try {
+    const client = createEthereumMainnetPublicClient();
+    const nonce = await client.readContract({
+      address: TOKEN_ADDRESSES.ETHEREUM_USDC as Address,
+      abi: [
+        {
+          name: 'nonces',
+          type: 'function',
+          inputs: [{ name: 'owner', type: 'address' }],
+          outputs: [{ name: 'nonce', type: 'uint256' }],
+          stateMutability: 'view',
+        },
+      ],
+      functionName: 'nonces',
+      args: [userAddress as `0x${string}`],
+    });
+    return Number(nonce);
+  } catch (error) {
+    console.error('Error getting Ethereum mainnet USDC nonce:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to get USDC nonce on Ethereum');
+  }
+}
+
+/**
+ * EIP-2612 permit typed data for **native USDC on Ethereum mainnet** (Lighter `POST /lighter/deposit`).
+ * @see LIGHTER_DEPOSIT_FE_INTEGRATION.md
+ */
+export async function createEthereumMainnetUsdcPermit(
+  amount: string,
+  userAddress: string,
+  spenderAddress: string,
+  deadlineMinutes: number = 30
+): Promise<PermitResult> {
+  try {
+    if (!userAddress) throw new Error('User address is required');
+    if (!spenderAddress) throw new Error('Spender address is required');
+
+    const amountInSmallestUnit = BigInt(Math.floor(parseFloat(amount) * 1_000_000)).toString();
+    const deadline = Math.floor(Date.now() / 1000) + deadlineMinutes * 60;
+    const nonce = await getEthereumMainnetUsdcNonce(userAddress);
+
+    const permitData: UsdcPermitData = {
+      domain: {
+        name: 'USD Coin',
+        version: '2',
+        chainId: CHAIN_IDS.ETHEREUM,
+        verifyingContract: TOKEN_ADDRESSES.ETHEREUM_USDC as `0x${string}`,
+      },
+      types: {
+        Permit: [
+          { name: 'owner', type: 'address' },
+          { name: 'spender', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'nonce', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'version', type: 'string' },
+          { name: 'chainId', type: 'uint256' },
+          { name: 'verifyingContract', type: 'address' },
+        ],
+      },
+      primaryType: 'Permit',
+      message: {
+        owner: userAddress,
+        spender: spenderAddress,
+        value: amountInSmallestUnit,
+        nonce,
+        deadline,
+      },
+    };
+
+    return {
+      success: true,
+      typedData: permitData,
+      deadline: deadline.toString(),
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('Error creating Ethereum mainnet USDC permit:', error);
+    return { success: false, error: errorMessage };
+  }
+}
+
 export async function getUsdcNonce(userAddress: string): Promise<number> {
   try {
     const client = createArbitrumPublicClient();

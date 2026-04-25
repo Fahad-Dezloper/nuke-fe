@@ -1,5 +1,5 @@
 /**
- * Hook to fetch exchange margin balances (Hyperliquid, Pacifica, Backpack)
+ * Hook to fetch exchange margin balances (Hyperliquid, Pacifica, Backpack, Lighter)
  * and combine with Solana USDC wallet balance.
  *
  * Backpack authenticated reads are DISABLED for demo (Turnkey cost + CORS).
@@ -16,12 +16,15 @@ import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { queryKeys } from '@/lib/query-keys';
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
+import { fetchLighterAvailableUsd } from '@/lib/services/lighter/lighter-reads';
+import { tryApplyStoredLighterCredentials } from '@/lib/services/lighter/lighter-onboarding';
 import { usdcBalanceSolanaAtom } from '@/lib/stores/usdc-balance.store';
 import { formatUSDCBalance } from '@/lib/bridge/balance';
 import {
   hlBalanceAtom,
   pacBalanceAtom,
   bpBalanceAtom,
+  ltBalanceAtom,
   baseBalanceAtom,
 } from '@/components/features/position-controls/store';
 
@@ -35,6 +38,8 @@ export interface ExchangeBalances {
   pacBalance: number;
   /** Backpack USDC available (perp collateral) in USD */
   bpBalance: number;
+  /** Lighter available USDC (perp collateral) in USD */
+  ltBalance: number;
   /** Solana USDC wallet balance in USD */
   solanaBalance: number;
   isLoading: boolean;
@@ -48,6 +53,7 @@ export function useExchangeBalances(): ExchangeBalances {
   const setPacBalance = useSetAtom(pacBalanceAtom);
   const setBpBalance = useSetAtom(bpBalanceAtom);
   const bpBalance = useAtomValue(bpBalanceAtom);
+  const setLtBalance = useSetAtom(ltBalanceAtom);
   const setBaseBalance = useSetAtom(baseBalanceAtom);
 
   // Read Solana USDC balance from existing atom (set by useUSDCBalanceSolana hook)
@@ -64,12 +70,17 @@ export function useExchangeBalances(): ExchangeBalances {
   const isEnabled = turnkeyState.isLoggedIn && !!evmAddress && !!solanaAddress;
   void orgId;
 
+  useEffect(() => {
+    if (evmAddress) tryApplyStoredLighterCredentials(evmAddress);
+  }, [evmAddress]);
+
   const hlPacQuery = useQuery({
     queryKey: queryKeys.balance.exchangeHlPac(evmAddress ?? '', solanaAddress ?? ''),
     queryFn: async () => {
-      const [hlResult, pacResult] = await Promise.allSettled([
+      const [hlResult, pacResult, ltResult] = await Promise.allSettled([
         hlService.fetchAccountBalance(evmAddress!),
         pacService.fetchAccountBalance(solanaAddress!),
+        fetchLighterAvailableUsd(evmAddress!),
       ]);
 
       const hl =
@@ -80,8 +91,9 @@ export function useExchangeBalances(): ExchangeBalances {
         pacResult.status === 'fulfilled' && pacResult.value.success
           ? pacResult.value.availableToSpend
           : 0;
+      const lt = ltResult.status === 'fulfilled' ? ltResult.value : 0;
 
-      return { hl, pac };
+      return { hl, pac, lt };
     },
     enabled: isEnabled,
     staleTime: 10_000,
@@ -95,6 +107,7 @@ export function useExchangeBalances(): ExchangeBalances {
 
   const hlBalance = hlPacQuery.data?.hl ?? 0;
   const pacBalance = hlPacQuery.data?.pac ?? 0;
+  const ltBalance = hlPacQuery.data?.lt ?? 0;
 
   const solanaBalance = solanaBalanceRaw !== null
     ? parseFloat(formatUSDCBalance(solanaBalanceRaw))
@@ -109,6 +122,10 @@ export function useExchangeBalances(): ExchangeBalances {
   }, [pacBalance, setPacBalance]);
 
   useEffect(() => {
+    setLtBalance(ltBalance);
+  }, [ltBalance, setLtBalance]);
+
+  useEffect(() => {
     setBaseBalance(solanaBalance);
   }, [solanaBalance, setBaseBalance]);
 
@@ -116,6 +133,7 @@ export function useExchangeBalances(): ExchangeBalances {
     hlBalance,
     pacBalance,
     bpBalance,
+    ltBalance,
     solanaBalance,
     isLoading: hlPacQuery.isLoading,
     error: hlPacQuery.error,

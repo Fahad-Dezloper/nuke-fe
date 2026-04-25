@@ -3,6 +3,8 @@
  *
  * - Hyperliquid: Solana USDC → bridge to Arbitrum → HL deposit API
  * - Pacifica: Solana USDC → bridge to Solana (relay) → Pacifica deposit tx
+ * - Lighter: Solana USDC → bridge to **Ethereum mainnet** → `POST /lighter/deposit` (see
+ *   LIGHTER_DEPOSIT_FE_INTEGRATION.md) → then poll for L2 account + WASM + L1 `changePubKey` when keys missing.
  * - Backpack: Solana USDC → SPL transfer to Backpack deposit address (no bridge)
  */
 
@@ -17,6 +19,9 @@ import { bridgeService } from '@/lib/bridge/bridge.service';
 import { pollBridgeStatus } from '@/lib/bridge/poll-bridge-status';
 import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperliquid.handler';
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
+import { LighterDepositHandler } from '@/lib/bridge/deposit-handlers/lighter.handler';
+import { getLighterL2Credentials } from '@/lib/services/lighter/lighter-credentials';
+import { finalizeLighterL2KeysAfterDeposit } from '@/lib/services/lighter/lighter-onboarding';
 // Backpack funding disabled (display-only demo).
 // import { BackpackDepositHandler } from '@/lib/bridge/deposit-handlers/backpack.handler';
 import { CHAIN_IDS } from '@/lib/bridge/types';
@@ -32,7 +37,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type FundExchange = 'hyperliquid' | 'pacifica';
+export type FundExchange = 'hyperliquid' | 'pacifica' | 'lighter';
 
 export type FundStep =
   | 'idle'
@@ -41,6 +46,7 @@ export type FundStep =
   | 'bridging'
   | 'waiting-bridge'
   | 'depositing'
+  | 'lighter-api-keys'
   | 'success'
   | 'error';
 
@@ -66,24 +72,30 @@ export interface UseFundExchangeReturn extends FundExchangeState {
 
 const hlHandler = new HyperliquidDepositHandler();
 const pacHandler = new PacificaDepositHandler();
+const ltHandler = new LighterDepositHandler();
 
 function getHandler(exchange: FundExchange) {
   if (exchange === 'hyperliquid') return hlHandler;
+  if (exchange === 'lighter') return ltHandler;
   return pacHandler;
 }
 
 function getExchangeLabel(exchange: FundExchange): string {
   if (exchange === 'hyperliquid') return 'HyperLiquid';
+  if (exchange === 'lighter') return 'Lighter';
   return 'Pacifica';
 }
 
 function getDestinationChainId(exchange: FundExchange): number {
+  if (exchange === 'lighter') return CHAIN_IDS.ETHEREUM;
   if (exchange === 'hyperliquid') return CHAIN_IDS.ARBITRUM;
   return CHAIN_IDS.SOLANA;
 }
 
 function getChainLabel(exchange: FundExchange): string {
-  return exchange === 'hyperliquid' ? 'Arbitrum' : 'Solana';
+  if (exchange === 'pacifica') return 'Solana';
+  if (exchange === 'lighter') return 'Ethereum';
+  return 'Arbitrum';
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -121,7 +133,7 @@ export function useFundExchange(): UseFundExchangeReturn {
       try {
         const wallet = getWalletContext(turnkeyState);
         const recipient =
-          exchange === 'hyperliquid' ? wallet.evmAddress : wallet.solanaAddress;
+          exchange === 'pacifica' ? wallet.solanaAddress : wallet.evmAddress;
 
         // Backpack funding disabled (display-only demo).
 
@@ -188,6 +200,15 @@ export function useFundExchange(): UseFundExchangeReturn {
           bridgeRequestId: requestId,
           solanaRecipientAddress: wallet.solanaAddress,
         });
+
+        if (exchange === 'lighter' && !getLighterL2Credentials()) {
+          setStep('lighter-api-keys');
+          setStatusMessage('Linking Lighter trading keys (waits for your account after deposit)...');
+          await finalizeLighterL2KeysAfterDeposit({
+            evmAddress: wallet.evmAddress,
+            organizationId: wallet.organizationId,
+          });
+        }
 
         // ── Done ──────────────────────────────────────────────────
         trackDepositCompleted(exchange);

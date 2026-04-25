@@ -12,6 +12,7 @@
  */
 
 import type { Address } from 'viem';
+import { CHAIN_IDS } from './types';
 
 interface EvmBalanceResponse {
   balance: string;
@@ -49,7 +50,8 @@ export async function getTokenBalance(
   tokenAddress: Address,
   chainId: number
 ): Promise<bigint> {
-  const chain = chainId === 8453 ? 'base' : 'arbitrum';
+  const chain =
+    chainId === CHAIN_IDS.BASE ? 'base' : chainId === CHAIN_IDS.ETHEREUM ? 'ethereum' : 'arbitrum';
   const data = (await fetchBalance({
     chain,
     walletAddress: address,
@@ -63,7 +65,8 @@ export async function getTokenDecimals(
   tokenAddress: Address,
   chainId: number
 ): Promise<number> {
-  const chain = chainId === 8453 ? 'base' : 'arbitrum';
+  const chain =
+    chainId === CHAIN_IDS.BASE ? 'base' : chainId === CHAIN_IDS.ETHEREUM ? 'ethereum' : 'arbitrum';
   const data = (await fetchBalance({
     chain,
     walletAddress: '0x0000000000000000000000000000000000000000',
@@ -87,6 +90,16 @@ export async function getUSDCBalanceOnArbitrum(
 ): Promise<bigint> {
   const data = (await fetchBalance({
     chain: 'arbitrum',
+    walletAddress: address,
+  })) as EvmBalanceResponse;
+
+  return BigInt(data.balance);
+}
+
+/** Native USDC on Ethereum mainnet (for `POST /lighter/deposit`). */
+export async function getUSDCBalanceOnEthereum(address: Address): Promise<bigint> {
+  const data = (await fetchBalance({
+    chain: 'ethereum',
     walletAddress: address,
   })) as EvmBalanceResponse;
 

@@ -43,6 +43,16 @@ export interface PositionApiResponse {
     leverage: number;
     liquidationPrice: string;
   } | null;
+  lighter?: {
+    symbol: string;
+    size: string;
+    side: 'Long' | 'Short';
+    pnl: string;
+    funding: string;
+    margin: string;
+    leverage: number;
+    liquidationPrice: string;
+  } | null;
 }
 
 /**
@@ -82,101 +92,81 @@ function formatCurrency(value: number | string): string {
 }
 
 /**
- * Format number as percentage
- */
-function formatPercentage(value: number | string): string {
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (isNaN(num)) return '0%';
-  return `${num.toFixed(1)}%`;
-}
-
-/**
  * Transform API response to ArbitragePosition format
  * Exported for use in hooks and testing
  */
 export function transformPositionData(apiData: PositionApiResponse): ArbitragePosition {
   const { symbol, hyperliquid, pacifica } = apiData;
   const backpack = apiData.backpack ?? null;
+  const lighter = apiData.lighter ?? null;
 
-  // Determine which protocol has long and short positions
-  // Normalize protocol names to lowercase IDs for consistency
-  const longProtocolId =
-    hyperliquid?.side === 'Long'
-      ? 'hyperliquid'
-      : pacifica?.side === 'Long'
-        ? 'pacifica'
-        : backpack?.side === 'Long'
-          ? 'backpack'
-          : 'hyperliquid';
+  type Leg = NonNullable<PositionApiResponse['hyperliquid']>;
+  const legs: { id: string; data: Leg }[] = [];
+  if (hyperliquid) legs.push({ id: 'hyperliquid', data: hyperliquid });
+  if (pacifica) legs.push({ id: 'pacifica', data: pacifica });
+  if (backpack) legs.push({ id: 'backpack', data: backpack });
+  if (lighter) legs.push({ id: 'lighter', data: lighter });
 
-  const shortProtocolId =
-    hyperliquid?.side === 'Short'
-      ? 'hyperliquid'
-      : pacifica?.side === 'Short'
-        ? 'pacifica'
-        : backpack?.side === 'Short'
-          ? 'backpack'
-          : 'pacifica';
+  const longLeg = legs.find((l) => l.data.side === 'Long');
+  const shortLeg = legs.find((l) => l.data.side === 'Short');
+  const longProtocol = longLeg?.id ?? 'hyperliquid';
+  const shortProtocol = shortLeg?.id ?? 'pacifica';
 
-  // Get display names (will be resolved in components using protocol config)
-  const longProtocol = longProtocolId;
-  const shortProtocol = shortProtocolId;
+  let totalSize = 0;
+  let totalPricePnl = 0;
+  let totalFundingPnl = 0;
+  let totalMargin = 0;
+  let levWeighted = 0;
 
-  // Calculate total size (sum of both positions)
-  const hyperliquidSize = hyperliquid ? parseFloat(hyperliquid.size) : 0;
-  const pacificaSize = pacifica ? parseFloat(pacifica.size) : 0;
-  const backpackSize = backpack ? parseFloat(backpack.size) : 0;
-  const totalSize = hyperliquidSize + pacificaSize + backpackSize;
+  for (const { data } of legs) {
+    const sz = parseFloat(data.size);
+    totalSize += sz;
+    totalPricePnl += parseFloat(data.pnl);
+    totalFundingPnl += parseFloat(data.funding);
+    totalMargin += parseFloat(data.margin);
+    levWeighted += sz * data.leverage;
+  }
 
-  // Calculate total PNL (sum of both positions)
+  const avgLeverage =
+    totalSize > 0 ? Math.round(levWeighted / totalSize) : legs[0]?.data.leverage ?? 0;
+
   const hyperliquidPnl = hyperliquid ? parseFloat(hyperliquid.pnl) : 0;
   const pacificaPnl = pacifica ? parseFloat(pacifica.pnl) : 0;
   const backpackPnl = backpack ? parseFloat(backpack.pnl) : 0;
-  const totalPricePnl = hyperliquidPnl + pacificaPnl + backpackPnl;
-
-  // Calculate total funding PNL (sum of both positions)
+  const lighterPnl = lighter ? parseFloat(lighter.pnl) : 0;
   const hyperliquidFunding = hyperliquid ? parseFloat(hyperliquid.funding) : 0;
   const pacificaFunding = pacifica ? parseFloat(pacifica.funding) : 0;
   const backpackFunding = backpack ? parseFloat(backpack.funding) : 0;
-  const totalFundingPnl = hyperliquidFunding + pacificaFunding + backpackFunding;
-
-  // Calculate total PNL
-  const totalPnl = totalPricePnl + totalFundingPnl;
-
-  // Calculate average leverage (weighted by size)
-  let avgLeverage = 0;
-  if (totalSize > 0) {
-    const hlLeverage = hyperliquid ? hyperliquid.leverage : 0;
-    const pacLeverage = pacifica ? pacifica.leverage : 0;
-    const bpLeverage = backpack ? backpack.leverage : 0;
-    avgLeverage = Math.round(
-      (hyperliquidSize * hlLeverage + pacificaSize * pacLeverage + backpackSize * bpLeverage) /
-        totalSize
-    );
-  } else if (hyperliquid) {
-    avgLeverage = hyperliquid.leverage;
-  } else if (pacifica) {
-    avgLeverage = pacifica.leverage;
-  } else if (backpack) {
-    avgLeverage = backpack.leverage;
-  }
-
-  // Calculate total margin
+  const lighterFunding = lighter ? parseFloat(lighter.funding) : 0;
   const hyperliquidMargin = hyperliquid ? parseFloat(hyperliquid.margin) : 0;
   const pacificaMargin = pacifica ? parseFloat(pacifica.margin) : 0;
   const backpackMargin = backpack ? parseFloat(backpack.margin) : 0;
-  const totalMargin = hyperliquidMargin + pacificaMargin + backpackMargin;
+  const lighterMargin = lighter ? parseFloat(lighter.margin) : 0;
+
+  const toProtocolRow = (
+    row: Leg | null,
+    pnl: number,
+    funding: number,
+    margin: number
+  ): ProtocolPositionData | null =>
+    row
+      ? {
+          size: row.size,
+          pnl: formatCurrency(pnl),
+          funding: formatCurrency(funding),
+          margin: `$${margin.toFixed(2)}`,
+          liquidationPrice: row.liquidationPrice
+            ? `$${parseFloat(row.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+            : '',
+        }
+      : null;
 
   return {
     asset: symbol,
     leverage: `${avgLeverage}x`,
     assetLogo: getAssetLogo(symbol),
-    long: {
-      platform: longProtocol,
-    },
-    short: {
-      platform: shortProtocol,
-    },
+    long: { platform: longProtocol },
+    short: { platform: shortProtocol },
     size: totalSize.toFixed(4),
     margin: `$${totalMargin.toFixed(2)}`,
     pricePnl: formatCurrency(totalPricePnl),
@@ -184,43 +174,13 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
       current: formatCurrency(totalFundingPnl),
       estimated: '',
     },
-    totalPnl: formatCurrency(totalPnl),
-    // Store protocol-specific data for tooltips and inline display
+    totalPnl: formatCurrency(totalPricePnl + totalFundingPnl),
     protocolData: {
-      hyperliquid: hyperliquid
-        ? ({
-            size: hyperliquid.size,
-            pnl: formatCurrency(hyperliquidPnl),
-            funding: formatCurrency(hyperliquidFunding),
-            margin: `$${hyperliquidMargin.toFixed(2)}`,
-            liquidationPrice: hyperliquid.liquidationPrice
-              ? `$${parseFloat(hyperliquid.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-              : '',
-          } as ProtocolPositionData)
-        : null,
-      pacifica: pacifica
-        ? ({
-            size: pacifica.size,
-            pnl: formatCurrency(pacificaPnl),
-            funding: formatCurrency(pacificaFunding),
-            margin: `$${pacificaMargin.toFixed(2)}`,
-            liquidationPrice: pacifica.liquidationPrice
-              ? `$${parseFloat(pacifica.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-              : '',
-          } as ProtocolPositionData)
-        : null,
-      backpack: backpack
-        ? ({
-            size: backpack.size,
-            pnl: formatCurrency(backpackPnl),
-            funding: formatCurrency(backpackFunding),
-            margin: `$${backpackMargin.toFixed(2)}`,
-            liquidationPrice: backpack.liquidationPrice
-              ? `$${parseFloat(backpack.liquidationPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-              : '',
-          } as ProtocolPositionData)
-        : null,
-    } as Record<string, ProtocolPositionData | null>,
+      hyperliquid: toProtocolRow(hyperliquid, hyperliquidPnl, hyperliquidFunding, hyperliquidMargin),
+      pacifica: toProtocolRow(pacifica, pacificaPnl, pacificaFunding, pacificaMargin),
+      backpack: toProtocolRow(backpack, backpackPnl, backpackFunding, backpackMargin),
+      lighter: toProtocolRow(lighter, lighterPnl, lighterFunding, lighterMargin),
+    },
   };
 }
 
