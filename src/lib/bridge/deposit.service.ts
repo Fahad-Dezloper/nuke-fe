@@ -34,4 +34,27 @@ export const depositService = {
       throw new Error(error instanceof Error ? error.message : 'Failed to deposit to Hyperliquid');
     }
   },
+
+  /**
+   * Deposit USDC to Lighter (same permit payload shape as Hyperliquid; backend must expose `/lighter/deposit`).
+   */
+  async depositToLighter(request: DepositRequest): Promise<string> {
+    try {
+      const response = await apiClient.post<string>('/lighter/deposit', {
+        amount: request.amount,
+        permit: {
+          v: request.permit.v,
+          r: Array.from(request.permit.r),
+          s: Array.from(request.permit.s),
+          deadline: request.permit.deadline,
+        },
+        asset_index: 3,
+        route_type: 0,
+      });
+      return response;
+    } catch (error) {
+      console.error('Error depositing to Lighter:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to deposit to Lighter');
+    }
+  },
 };

@@ -12,13 +12,13 @@
 /**
  * Exchange identifiers (lowercase) — used in most API responses and leg results.
  */
-export type Exchange = 'hyperliquid' | 'pacifica' | 'backpack';
+export type Exchange = 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
 
 /**
  * Exchange names (PascalCase) — used ONLY in the create-intent request body.
  * The backend expects this exact casing in the `exchanges` array.
  */
-export type ExchangeName = 'Hyperliquid' | 'Pacifica' | 'Backpack';
+export type ExchangeName = 'Hyperliquid' | 'Pacifica' | 'Backpack' | 'Lighter';
 
 /** Hedge intent lifecycle status (owned by backend) */
 export type HedgeIntentStatus =
@@ -49,9 +49,14 @@ export type HedgeAction =
   | 'BRIDGE_BASE_TO_ARB' // legacy
   | 'BRIDGE_BASE_TO_SOL' // legacy
   | 'BRIDGE_SOL_TO_ARB'
+  /** Backend `PerpetualExchange::Lighter` bridge action (Solana → Ethereum for Lighter leg). */
+  | 'BRIDGE_SOL_TO_ETH'
+  /** Legacy / internal alias — treat like `BRIDGE_SOL_TO_ETH` when reporting `action-result`. */
+  | 'BRIDGE_BASE_TO_LIGHTER'
   | 'DEPOSIT_TO_HYPERLIQUID'
   | 'DEPOSIT_TO_PACIFICA'
   | 'DEPOSIT_TO_BACKPACK'
+  | 'DEPOSIT_TO_LIGHTER'
   | 'OPEN_HEDGE_POSITION'
   | 'CLOSE_POSITION'
   | 'WAIT'
@@ -159,7 +164,7 @@ export interface BridgeActionParams {
   existing_onchain_usd: number;
 }
 
-/** Params shape for DEPOSIT_TO_HYPERLIQUID / DEPOSIT_TO_PACIFICA / DEPOSIT_TO_BACKPACK */
+/** Params shape for DEPOSIT_TO_HYPERLIQUID / DEPOSIT_TO_PACIFICA / DEPOSIT_TO_BACKPACK / DEPOSIT_TO_LIGHTER */
 export interface DepositActionParams {
   protocol: string; // Lowercase exchange name
   chain: number; // Chain ID (42161 or 792703809)

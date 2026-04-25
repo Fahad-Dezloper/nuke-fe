@@ -1,13 +1,13 @@
 /**
  * Balance API Route
  *
- * Server-side balance checking for all chains (Base, Arbitrum, Solana).
+ * Server-side balance checking for all chains (Base, Arbitrum, Ethereum, Solana).
  * Keeps RPC URLs private — clients never see them.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http, type Address, type Chain } from 'viem';
-import { base, arbitrum } from 'viem/chains';
+import { base, arbitrum, mainnet } from 'viem/chains';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { CHAIN_IDS, TOKEN_ADDRESSES } from '@/lib/bridge/types';
@@ -45,6 +45,12 @@ function getEvmRpcUrl(chainId: number): string {
         process.env.NEXT_PUBLIC_ARBITRUM_JSON_RPC_URL ||
         'https://arb1.arbitrum.io/rpc'
       );
+    case CHAIN_IDS.ETHEREUM:
+      return (
+        process.env.ETHEREUM_RPC_URL ||
+        process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL ||
+        'https://ethereum.publicnode.com'
+      );
     default:
       throw new Error(`Unsupported EVM chain ID: ${chainId}`);
   }
@@ -64,6 +70,8 @@ function getEvmChain(chainId: number): Chain {
       return base;
     case CHAIN_IDS.ARBITRUM:
       return arbitrum;
+    case CHAIN_IDS.ETHEREUM:
+      return mainnet;
     default:
       throw new Error(`Unsupported EVM chain ID: ${chainId}`);
   }
@@ -130,7 +138,7 @@ async function getSolanaUsdcBalance(walletAddress: string): Promise<bigint> {
 
 type BalanceRequest =
   | { chain: 'solana'; walletAddress: string }
-  | { chain: 'base' | 'arbitrum'; walletAddress: string; tokenAddress?: string };
+  | { chain: 'base' | 'arbitrum' | 'ethereum'; walletAddress: string; tokenAddress?: string };
 
 export async function POST(request: NextRequest) {
   try {
@@ -170,12 +178,18 @@ export async function POST(request: NextRequest) {
     }
 
     const chainId =
-      body.chain === 'base' ? CHAIN_IDS.BASE : CHAIN_IDS.ARBITRUM;
+      body.chain === 'base'
+        ? CHAIN_IDS.BASE
+        : body.chain === 'ethereum'
+          ? CHAIN_IDS.ETHEREUM
+          : CHAIN_IDS.ARBITRUM;
     const tokenAddress =
       (body.tokenAddress as Address) ??
       (body.chain === 'base'
         ? TOKEN_ADDRESSES.BASE_USDC
-        : TOKEN_ADDRESSES.ARBITRUM_USDC);
+        : body.chain === 'ethereum'
+          ? TOKEN_ADDRESSES.ETHEREUM_USDC
+          : TOKEN_ADDRESSES.ARBITRUM_USDC);
 
     try {
       const [balance, decimals] = await Promise.all([
@@ -192,7 +206,8 @@ export async function POST(request: NextRequest) {
         decimals,
       });
     } catch (error) {
-      const chainName = body.chain === 'base' ? 'Base' : 'Arbitrum';
+      const chainName =
+        body.chain === 'base' ? 'Base' : body.chain === 'ethereum' ? 'Ethereum' : 'Arbitrum';
       console.error(`Error getting token balance on ${chainName}:`, error);
       return NextResponse.json(
         {

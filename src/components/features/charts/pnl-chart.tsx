@@ -15,6 +15,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
+import type { Protocol } from '@/hooks/use-best-pair';
 
 const NOTIONAL_SIZE = 10000; // $10,000 assumed position size
 
@@ -52,12 +53,25 @@ interface PnLChartProps {
 /**
  * Calculate single-candle PnL from a data point.
  */
-function calcPointPnL(
-  point: ChartDataPoint,
-  longProtocol: 'hyperliquid' | 'pacifica' | 'backpack'
-): number {
-  const rateFor = (p: 'hyperliquid' | 'pacifica' | 'backpack'): number =>
-    p === 'hyperliquid' ? point.hyperliquidRaw : p === 'pacifica' ? point.pacificaRaw : point.backpackRaw;
+function rawRateFor(point: ChartDataPoint, p: Protocol): number {
+  switch (p) {
+    case 'hyperliquid':
+      return point.hyperliquidRaw;
+    case 'pacifica':
+      return point.pacificaRaw;
+    case 'backpack':
+      return point.backpackRaw;
+    case 'lighter':
+      return point.lighterRaw;
+    default: {
+      const _x: never = p;
+      return _x;
+    }
+  }
+}
+
+function calcPointPnL(point: ChartDataPoint, longProtocol: Protocol): number {
+  const rateFor = (p: Protocol) => rawRateFor(point, p);
 
   const shortProtocol = point.shortProtocol;
   const longRate = rateFor(longProtocol);
@@ -107,10 +121,7 @@ function computePnLBars(
 /**
  * 1D: last 23 hourly candles + 5 projected (1h step) = 28 bars
  */
-function compute1DBars(
-  data: ChartDataPoint[],
-  longProtocol: 'hyperliquid' | 'pacifica' | 'backpack'
-): PnLBarData[] {
+function compute1DBars(data: ChartDataPoint[], longProtocol: Protocol): PnLBarData[] {
   const historicalPoints = data.slice(-23);
 
   const bars: PnLBarData[] = historicalPoints.map((point) => ({
@@ -145,10 +156,7 @@ function compute1DBars(
 /**
  * 1W / 1M: sample every 5th hourly candle → 30 historical bars + 5 projected (5h step) = 35 bars
  */
-function compute1WBars(
-  data: ChartDataPoint[],
-  longProtocol: 'hyperliquid' | 'pacifica' | 'backpack'
-): PnLBarData[] {
+function compute1WBars(data: ChartDataPoint[], longProtocol: Protocol): PnLBarData[] {
   const SAMPLE_INTERVAL = 5; // every 5th hourly candle
   const NUM_HISTORICAL = 30;
   const neededCandles = NUM_HISTORICAL * SAMPLE_INTERVAL; // 150

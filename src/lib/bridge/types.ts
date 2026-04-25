@@ -8,6 +8,8 @@
  */
 export const CHAIN_IDS = {
   BASE: 8453,
+  /** Ethereum mainnet — used for `POST /lighter/deposit` (see LIGHTER_DEPOSIT_FE_INTEGRATION.md). */
+  ETHEREUM: 1,
   ARBITRUM: 42161,
   SOLANA: 792703809,
 } as const;
@@ -17,6 +19,8 @@ export const CHAIN_IDS = {
  */
 export const TOKEN_ADDRESSES = {
   BASE_USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  /** Native USDC on Ethereum mainnet (Circle). */
+  ETHEREUM_USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
   ARBITRUM_USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
   SOLANA_USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Base58 encoded Solana mint address
 } as const;

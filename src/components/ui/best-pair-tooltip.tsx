@@ -20,6 +20,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   hyperliquid: 'HyperLiquid',
   pacifica: 'Pacifica',
   backpack: 'Backpack',
+  lighter: 'Lighter',
 };
 
 export function BestPairTooltip({ asset, isVisible, position }: BestPairTooltipProps) {

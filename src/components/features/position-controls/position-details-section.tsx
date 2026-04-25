@@ -19,6 +19,7 @@ import {
   hlBalanceAtom,
   pacBalanceAtom,
   bpBalanceAtom,
+  ltBalanceAtom,
   baseBalanceAtom,
 } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
@@ -38,6 +39,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
   const hlBalance = useAtomValue(hlBalanceAtom);
   const pacBalance = useAtomValue(pacBalanceAtom);
   const bpBalance = useAtomValue(bpBalanceAtom);
+  const ltBalance = useAtomValue(ltBalanceAtom);
   const baseBalance = useAtomValue(baseBalanceAtom);
   const { getBestPairForAsset } = useBestPair();
 
@@ -91,12 +93,15 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
     function getExistingBalance(protocol: Protocol): number {
       if (protocol === 'hyperliquid') return hlBalance;
       if (protocol === 'pacifica') return pacBalance;
-      return bpBalance;
+      if (protocol === 'backpack') return bpBalance;
+      if (protocol === 'lighter') return ltBalance;
+      return 0;
     }
 
     function fundTarget(protocol: Protocol): FundExchange | null {
-      // Backpack is display-only for now.
-      return protocol === 'backpack' ? null : protocol;
+      if (protocol === 'backpack') return null;
+      if (protocol === 'lighter') return 'lighter';
+      return protocol;
     }
 
     function legCard(
@@ -130,6 +135,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
     hlBalance,
     pacBalance,
     bpBalance,
+    ltBalance,
   ]);
 
   // Derive context for the currently-selected exchange's modal

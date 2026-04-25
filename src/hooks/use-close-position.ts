@@ -14,7 +14,12 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { closeHLPosition, closePacificaPosition, closeBackpackPosition } from '@/lib/trading/close-position';
+import {
+  closeHLPosition,
+  closePacificaPosition,
+  closeBackpackPosition,
+  closeLighterPosition,
+} from '@/lib/trading/close-position';
 import { queryKeys } from '@/lib/query-keys';
 // Backpack authenticated balance refresh disabled (display-only demo).
 // import { refreshBackpackMarginBalance } from '@/lib/stores/backpack-margin.store';
@@ -30,7 +35,7 @@ const RETRY_DELAY_MS = 1500;
 export type CloseStatus = 'idle' | 'closing' | 'success' | 'partial' | 'error';
 
 export interface CloseLegResult {
-  protocol: 'hyperliquid' | 'pacifica' | 'backpack';
+  protocol: 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
   success: boolean;
   error?: string;
 }
@@ -123,6 +128,11 @@ export function useClosePosition(options: UseClosePositionOptions) {
         if (rawPosition.backpack) {
           const bp = rawPosition.backpack;
           tasks.push(() => closeBackpackPosition(bp, solanaAddress, organizationId));
+        }
+
+        if (rawPosition.lighter) {
+          const lt = rawPosition.lighter;
+          tasks.push(() => closeLighterPosition(lt, evmAddress, organizationId));
         }
 
         if (tasks.length === 0) {

@@ -10,16 +10,19 @@ import { API_ENDPOINTS } from '../endpoints';
 /**
  * Spread APR entry for a single asset
  */
+/** Venue keys returned by `/aggregated/average/apr` (lowercase). */
+export type AprVenueKey = 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
+
 export interface SpreadAprEntry {
-  long_platform: 'hyperliquid' | 'pacifica' | 'backpack';
-  short_platform: 'hyperliquid' | 'pacifica' | 'backpack';
+  long_platform: AprVenueKey;
+  short_platform: AprVenueKey;
   total_spread: number;
 }
 
 /**
  * Seven-day average APR per protocol for a single asset
  */
-export type SevenDayAvgAprEntry = Partial<Record<'hyperliquid' | 'pacifica' | 'backpack', number>>;
+export type SevenDayAvgAprEntry = Partial<Record<AprVenueKey, number>>;
 
 /**
  * Full API response from /aggregated/average/apr
@@ -33,13 +36,17 @@ export interface AverageAprApiResponse {
  * Processed spread APR data for a single asset (used in UI)
  */
 export interface AssetSpreadApr {
-  longPlatform: 'hyperliquid' | 'pacifica' | 'backpack';
-  shortPlatform: 'hyperliquid' | 'pacifica' | 'backpack';
+  longPlatform: AprVenueKey;
+  shortPlatform: AprVenueKey;
   totalSpread: number; // Weekly spread
   sevenDayApr: number; // Annualized: totalSpread * 52
   /**
-   * Top spread pairs for the asset, sorted by total_spread desc.
-   * Includes the best pair at index 0.
+   * All spread pairs for the asset, sorted by total_spread desc (full API list).
+   * Used to pick best pair when only a subset of exchanges is selected.
+   */
+  sortedSpreadPairs: SpreadAprEntry[];
+  /**
+   * Top 3 by total_spread (unfiltered). Prefer building from `sortedSpreadPairs` + selection in UI.
    */
   topPairs?: SpreadAprEntry[];
 }
@@ -65,6 +72,7 @@ function transformSpreadAprData(response: AverageAprApiResponse): SpreadAprMap {
         shortPlatform: entry.short_platform,
         totalSpread: entry.total_spread,
         sevenDayApr: entry.total_spread * 52, // Annualized from weekly
+        sortedSpreadPairs: sorted,
         topPairs: sorted.slice(0, 3),
       };
     }

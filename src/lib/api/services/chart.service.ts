@@ -9,9 +9,11 @@ import { API_ENDPOINTS } from '../endpoints';
 /**
  * API Response Types
  */
+export type ChartVenueKey = 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
+
 export interface ChartDataPoint {
   id: string;
-  platform: 'hyperliquid' | 'pacifica' | 'backpack';
+  platform: ChartVenueKey;
   symbol: string;
   rate: number; // Hourly funding rate
   mark_px: number;
@@ -22,6 +24,7 @@ export interface ChartApiResponse {
   hyperliquid: ChartDataPoint[];
   pacifica: ChartDataPoint[];
   backpack: ChartDataPoint[];
+  lighter?: ChartDataPoint[];
 }
 
 /**
@@ -49,7 +52,12 @@ export const chartService = {
       const response = await apiClient.get<ChartApiResponse>(
         API_ENDPOINTS.market.chart(assetName, timeframe)
       );
-      return response;
+      return {
+        hyperliquid: response.hyperliquid ?? [],
+        pacifica: response.pacifica ?? [],
+        backpack: response.backpack ?? [],
+        lighter: response.lighter ?? [],
+      };
     } catch (error) {
       console.error(`Error fetching chart data for ${assetName} (${timeframe}):`, error);
       throw error;

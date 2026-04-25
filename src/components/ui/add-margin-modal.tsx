@@ -58,8 +58,19 @@ interface ProgressStep {
 }
 
 function getProgressSteps(exchange: FundExchange): ProgressStep[] {
-  const chain = exchange === 'hyperliquid' ? 'Arbitrum' : 'Solana';
-  const label = exchange === 'hyperliquid' ? 'HyperLiquid' : 'Pacifica';
+  const chain =
+    exchange === 'pacifica' ? 'Solana' : exchange === 'lighter' ? 'Ethereum' : 'Arbitrum';
+  const label =
+    exchange === 'hyperliquid'
+      ? 'HyperLiquid'
+      : exchange === 'lighter'
+        ? 'Lighter'
+        : 'Pacifica';
+
+  const suffix: ProgressStep[] =
+    exchange === 'lighter'
+      ? [{ label: 'Linking Lighter trading keys', fundSteps: ['lighter-api-keys'] }]
+      : [];
 
   return [
     { label: 'Getting bridge quote', fundSteps: ['getting-quote'] },
@@ -67,6 +78,7 @@ function getProgressSteps(exchange: FundExchange): ProgressStep[] {
     { label: `Bridging to ${chain}`, fundSteps: ['bridging'] },
     { label: 'Waiting for confirmation', fundSteps: ['waiting-bridge'] },
     { label: `Depositing to ${label}`, fundSteps: ['depositing'] },
+    ...suffix,
   ];
 }
 
@@ -92,6 +104,7 @@ function getStepState(
     'bridging',
     'waiting-bridge',
     'depositing',
+    'lighter-api-keys',
     'success',
   ];
   const currentOrder = allFundSteps.indexOf(currentFundStep);
