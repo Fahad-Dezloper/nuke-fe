@@ -31,6 +31,13 @@ const exchangeLogoMap: Record<
     width: 14,
     height: 14,
   },
+  Lighter: {
+    src: '/tokens/lighter.jpg',
+    alt: 'Lighter logo',
+    width: 18,
+    height: 18,
+    className: 'rounded-full',
+  },
 };
 
 export function ExchangeLogo({ name, mark }: ExchangeLogoProps) {

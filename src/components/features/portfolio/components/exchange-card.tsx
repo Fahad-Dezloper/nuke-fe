@@ -7,7 +7,7 @@ interface ExchangeCardProps {
   name: string;
   mark: string | null;
   availableBalance: string;
-  totalEquity: string;
+  accountValue: string;
   highlighted?: boolean;
 }
 
@@ -15,7 +15,7 @@ export function ExchangeCard({
   name,
   mark,
   availableBalance,
-  totalEquity,
+  accountValue,
   highlighted,
 }: ExchangeCardProps) {
   return (
@@ -33,8 +33,8 @@ export function ExchangeCard({
         <p className="mt-1 text-[16px] font-medium text-text-primary">{availableBalance}</p>
       </div>
       <div className="border-t border-border-white-5 px-4 py-3">
-        <p className="text-[11px] text-text-muted-60">Total Equity</p>
-        <p className="mt-1 text-[16px] font-medium text-text-primary">{totalEquity}</p>
+        <p className="text-[11px] text-text-muted-60">Account Value</p>
+        <p className="mt-1 text-[16px] font-medium text-text-primary">{accountValue}</p>
       </div>
     </div>
   );

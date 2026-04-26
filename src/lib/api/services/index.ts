@@ -16,3 +16,14 @@ export type {
   AssetSpreadApr,
   SpreadAprMap,
 } from './apr.service';
+export { portfolioService } from './portfolio.service';
+export type {
+  VenueKey,
+  PerformanceTimeframe,
+  PerformanceBucket,
+  PerformanceResponse,
+  PnlChartPoint,
+  PnlChartResponse,
+  ExchangeRow,
+  ExchangesResponse,
+} from './portfolio.service';

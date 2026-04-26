@@ -9,3 +9,6 @@ export { useClosePosition } from './use-close-position';
 export type { CloseStatus, CloseLegResult, ClosePositionResult } from './use-close-position';
 export { useUSDCBalanceBase } from './use-usdc-balance-base';
 export { useUSDCBalanceSolana } from './use-usdc-balance-solana';
+export { usePortfolioPerformance } from './use-portfolio-performance';
+export { usePortfolioPnlChart } from './use-portfolio-pnl-chart';
+export { usePortfolioExchanges } from './use-portfolio-exchanges';

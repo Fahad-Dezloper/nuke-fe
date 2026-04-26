@@ -72,7 +72,13 @@ class ApiClient {
 
     const isAuthEndpoint = endpoint.startsWith('/auth/') || endpoint.startsWith('/auth');
     const isProtectedWithdrawGet = method === 'GET' && endpoint.startsWith('/withdraw-intents');
-    if (!skipAuth && !isAuthEndpoint && (method !== 'GET' || isProtectedWithdrawGet)) {
+    const isProtectedPortfolioGet =
+      method === 'GET' && endpoint.startsWith('/aggregated/portfolio');
+    if (
+      !skipAuth &&
+      !isAuthEndpoint &&
+      (method !== 'GET' || isProtectedWithdrawGet || isProtectedPortfolioGet)
+    ) {
       const jwt = getJWT();
       if (jwt) {
         resolvedHeaders['Authorization'] = `Bearer ${jwt}`;
