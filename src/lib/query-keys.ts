@@ -48,4 +48,14 @@ export const queryKeys = {
     detail: (id: string) => ['withdrawal', id] as const,
     user: (userId: string) => ['withdrawal', 'user', userId] as const,
   },
+
+  portfolio: {
+    all: ['portfolio'] as const,
+    performance: (evmAddress: string, solanaAddress: string) =>
+      ['portfolio', 'performance', evmAddress, solanaAddress] as const,
+    pnlChart: (evmAddress: string, solanaAddress: string, timeframe: string) =>
+      ['portfolio', 'pnl-chart', evmAddress, solanaAddress, timeframe] as const,
+    exchanges: (evmAddress: string, solanaAddress: string) =>
+      ['portfolio', 'exchanges', evmAddress, solanaAddress] as const,
+  },
 } as const;

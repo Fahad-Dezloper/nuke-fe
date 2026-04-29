@@ -65,6 +65,9 @@ interface SortConfig {
 /** Default sort: 7D APR descending (highest first) */
 const DEFAULT_SORT: SortConfig = { column: '7dApr', direction: 'desc' };
 
+const ARBITRAGE_TABLE_COLS =
+  'grid-cols-[minmax(140px,auto)_minmax(140px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(90px,auto)_minmax(90px,auto)]';
+
 function tableGridStyle(visibleCount: number): CSSProperties {
   const parts = [
     'minmax(140px,auto)',
@@ -394,7 +397,7 @@ export function AssetDropdown({
   };
 
   return (
-    <div ref={dropdownRef} className={cn('relative z-[10000]', className)}>
+    <div ref={dropdownRef} className={cn('relative z-10000', className)}>
       {/* Trigger Button */}
       <button
         type="button"
@@ -404,7 +407,7 @@ export function AssetDropdown({
           'bg-card/40 backdrop-blur-sm border border-border-white-10/50',
           'shadow-md shadow-black/10 transition-all',
           'cursor-pointer group hover:bg-card/60 hover:border-border-white-20',
-          'min-w-[140px] relative z-[10001]'
+          'min-w-[140px] relative z-10001'
         )}
       >
         {selectedAsset ? (
@@ -433,7 +436,7 @@ export function AssetDropdown({
       {isOpen && (
         <div
           className={cn(
-            'absolute top-full left-0 mt-2 z-[10002]',
+            'absolute top-full left-0 mt-2 z-10002',
             'w-auto min-w-[1280px] max-w-[1580px] min-h-[500px] max-h-[600px] overflow-hidden',
             'bg-background/95 backdrop-blur-xl border border-border-white-20/50',
             'rounded-2xl shadow-2xl shadow-black/60',
@@ -442,7 +445,7 @@ export function AssetDropdown({
           )}
         >
           {/* Header with Legend */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-white-10/50 bg-gradient-to-r from-card/70 via-card/60 to-card/70 backdrop-blur-md">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-white-10/50 bg-linear-to-r from-card/70 via-card/60 to-card/70 backdrop-blur-md">
             <div className="flex items-center gap-2.5">
               <div className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
               <span className="text-xs font-semibold text-text-primary uppercase tracking-wider">
@@ -451,13 +454,13 @@ export function AssetDropdown({
             </div>
             <div className="flex items-center gap-5">
               <div className="flex items-center gap-1.5">
-                <ArrowUp className="h-3.5 w-3.5 text-[var(--chart-hyperliquid)]" />
+                <ArrowUp className="h-3.5 w-3.5 text-chart-hyperliquid" />
                 <span className="text-[11px] text-text-muted-60 uppercase tracking-wide font-medium">
                   LONG
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <ArrowDown className="h-3.5 w-3.5 text-[var(--chart-pink)]" />
+                <ArrowDown className="h-3.5 w-3.5 text-chart-pink" />
                 <span className="text-[11px] text-text-muted-60 uppercase tracking-wide font-medium">
                   SHORT
                 </span>
@@ -593,8 +596,8 @@ export function AssetDropdown({
           </div>
 
           {/* Table Header */}
-          <div className="sticky top-0 z-[10001] px-5 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md shadow-lg shadow-black/20 shrink-0">
-            <div className="grid gap-4" style={tableGrid}>
+          <div className="sticky top-0 z-10001 px-5 py-3 border-b border-border-white-10/50 bg-linear-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md shadow-lg shadow-black/20 shrink-0">
+            <div className={cn('grid gap-4', ARBITRAGE_TABLE_COLS)}>
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
                 ASSET
               </span>

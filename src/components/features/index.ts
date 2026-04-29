@@ -3,6 +3,7 @@
  */
 
 export * from './positions';
+export * from './portfolio';
 export { MarketOverview } from './market-overview';
 export {
   TradingDashboard,

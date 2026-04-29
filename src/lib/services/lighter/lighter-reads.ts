@@ -77,11 +77,22 @@ export async function fetchLighterAvailableUsd(evmAddress: string): Promise<numb
   const { InfoClient } = await import('lighter-sdk-client');
   const client = new InfoClient({ baseURL: LIGHTER_HTTP_MAINNET });
   const addr = getAddress(evmAddress as `0x${string}`);
-  const res = await client.getAccountInfo({ by: 'l1_address', value: addr });
-  const first = res.accounts?.[0];
-  if (!first?.available_balance) return 0;
-  const n = Number.parseFloat(first.available_balance);
-  return Number.isFinite(n) ? n : 0;
+  try {
+    const res = await client.getAccountInfo({ by: 'l1_address', value: addr });
+    const first = res.accounts?.[0];
+    if (!first?.available_balance) return 0;
+    const n = Number.parseFloat(first.available_balance);
+    return Number.isFinite(n) ? n : 0;
+  } catch (error) {
+    // Wallets that have never used Lighter return HTTP 400 from the accounts
+    // endpoint. Treat that case as zero balance rather than a thrown error so
+    // callers like Promise.allSettled don't surface it as a failure.
+    const message = error instanceof Error ? error.message : String(error);
+    if (/\b400\b|not\s*found|no\s*account/i.test(message)) {
+      return 0;
+    }
+    throw error;
+  }
 }
 
 export async function fetchLighterLeverageForMarket(

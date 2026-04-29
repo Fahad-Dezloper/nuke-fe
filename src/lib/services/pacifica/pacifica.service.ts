@@ -727,6 +727,12 @@ export class PacificaService {
         headers: { Accept: '*/*' },
       });
 
+      // Wallets that have never used Pacifica return 404. Treat as zero balance
+      // rather than a noisy error.
+      if (response.status === 404) {
+        return { success: true, availableToSpend: 0 };
+      }
+
       if (!response.ok) {
         throw createError(ErrorCode.API_BAD_REQUEST, {
           status: response.status,

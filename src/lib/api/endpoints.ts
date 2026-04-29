@@ -41,6 +41,14 @@ export const API_ENDPOINTS = {
     claim: '/user/claim/pacifica',
     status: (userId: string) => `/user/claim-status/pacifica/${userId}`,
   },
+  portfolio: {
+    performance: (evmAddress: string, solanaAddress: string) =>
+      `/aggregated/portfolio/performance/${evmAddress}/${solanaAddress}`,
+    pnlChart: (evmAddress: string, solanaAddress: string) =>
+      `/aggregated/portfolio/pnl-chart/${evmAddress}/${solanaAddress}`,
+    exchanges: (evmAddress: string, solanaAddress: string) =>
+      `/aggregated/portfolio/exchanges/${evmAddress}/${solanaAddress}`,
+  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;
