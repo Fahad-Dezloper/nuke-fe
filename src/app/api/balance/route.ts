@@ -127,13 +127,23 @@ async function getSolanaUsdcBalance(walletAddress: string): Promise<bigint> {
   const usdcMint = new PublicKey(TOKEN_ADDRESSES.SOLANA_USDC);
 
   const ataAddress = await getAssociatedTokenAddress(usdcMint, walletPubkey);
-  const tokenAccountInfo = await connection.getTokenAccountBalance(ataAddress);
 
-  if (!tokenAccountInfo.value) {
-    return BigInt(0);
+  try {
+    const tokenAccountInfo = await connection.getTokenAccountBalance(ataAddress);
+    if (!tokenAccountInfo.value) {
+      return BigInt(0);
+    }
+    return BigInt(tokenAccountInfo.value.amount);
+  } catch (error) {
+    // Wallets that have never held USDC don't have an associated token account,
+    // and getTokenAccountBalance throws "could not find account". Treat as a 0
+    // balance instead of bubbling up a noisy error.
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('could not find account')) {
+      return BigInt(0);
+    }
+    throw error;
   }
-
-  return BigInt(tokenAccountInfo.value.amount);
 }
 
 type BalanceRequest =
