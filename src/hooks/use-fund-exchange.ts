@@ -26,6 +26,7 @@ import { finalizeLighterL2KeysAfterDeposit } from '@/lib/services/lighter/lighte
 // import { BackpackDepositHandler } from '@/lib/bridge/deposit-handlers/backpack.handler';
 import { CHAIN_IDS } from '@/lib/bridge/types';
 import type { QuoteRequest } from '@/lib/bridge/types';
+import { signAndSubmitRelaySolanaTransaction } from '@/lib/bridge/solana-utils';
 import { queryKeys } from '@/lib/query-keys';
 import {
   trackBridgeStarted,
@@ -154,33 +155,63 @@ export function useFundExchange(): UseFundExchangeReturn {
 
         const quoteResponse = await bridgeService.getQuote(quoteRequest);
 
+        const txStep = quoteResponse.steps.find((s) => s.kind === 'transaction');
         const signatureStep = quoteResponse.steps.find((s) => s.kind === 'signature');
-        if (!signatureStep) {
-          throw new Error(`No signature step found in bridge quote for ${chainLabel}`);
+
+        const requestId = (txStep ?? signatureStep)?.requestId;
+        if (!requestId) {
+          throw new Error(`No executable step found in bridge quote for ${chainLabel}`);
         }
 
-        const requestId = signatureStep.requestId;
-
-        // ── Step 2: Sign bridge transaction ───────────────────────
+        // ── Step 2: Execute bridge (new Solana tx step OR legacy signature step) ──
         setStep('signing');
         setStatusMessage(`Signing bridge transaction...`);
 
-        const signResult = await handler.signBridgeTransaction(
-          signatureStep,
-          wallet.evmAddress,
-          wallet.organizationId
-        );
+        if (txStep) {
+          setStep('bridging');
+          setStatusMessage(`Confirming Solana transaction...`);
 
-        // ── Step 3: Execute permit (submit to relay) ──────────────
-        setStep('bridging');
-        setStatusMessage(`Bridging USDC to ${chainLabel}...`);
+          const data = txStep.items?.[0]?.data as
+            | {
+                addressLookupTableAddresses?: string[];
+                instructions?: Array<{
+                  programId: string;
+                  keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
+                  data: string;
+                }>;
+              }
+            | undefined;
 
-        await bridgeService.executePermit({
-          signature: signResult.signature,
-          kind: signResult.executeKind,
-          requestId,
-          api: signResult.executeApi,
-        });
+          if (!data?.instructions?.length) {
+            throw new Error(`Bridge quote transaction step missing Solana instructions`);
+          }
+
+          await signAndSubmitRelaySolanaTransaction(
+            { addressLookupTableAddresses: data.addressLookupTableAddresses, instructions: data.instructions },
+            wallet.solanaAddress,
+            wallet.organizationId
+          );
+        } else {
+          if (!signatureStep) {
+            throw new Error(`No signature step found in bridge quote for ${chainLabel}`);
+          }
+
+          const signResult = await handler.signBridgeTransaction(
+            signatureStep,
+            wallet.evmAddress,
+            wallet.organizationId
+          );
+
+          setStep('bridging');
+          setStatusMessage(`Bridging USDC to ${chainLabel}...`);
+
+          await bridgeService.executePermit({
+            signature: signResult.signature,
+            kind: signResult.executeKind,
+            requestId,
+            api: signResult.executeApi,
+          });
+        }
 
         // ── Step 4: Wait for bridge finality ──────────────────────
         setStep('waiting-bridge');
