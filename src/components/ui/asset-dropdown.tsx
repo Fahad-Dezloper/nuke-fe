@@ -65,9 +65,6 @@ interface SortConfig {
 /** Default sort: 7D APR descending (highest first) */
 const DEFAULT_SORT: SortConfig = { column: '7dApr', direction: 'desc' };
 
-const ARBITRAGE_TABLE_COLS =
-  'grid-cols-[minmax(140px,auto)_minmax(140px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(100px,auto)_minmax(90px,auto)_minmax(90px,auto)]';
-
 function tableGridStyle(visibleCount: number): CSSProperties {
   const parts = [
     'minmax(140px,auto)',
@@ -597,7 +594,7 @@ export function AssetDropdown({
 
           {/* Table Header */}
           <div className="sticky top-0 z-10001 px-5 py-3 border-b border-border-white-10/50 bg-linear-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md shadow-lg shadow-black/20 shrink-0">
-            <div className={cn('grid gap-4', ARBITRAGE_TABLE_COLS)}>
+            <div className="grid gap-4" style={tableGrid}>
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
                 ASSET
               </span>
