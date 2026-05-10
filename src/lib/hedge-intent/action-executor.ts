@@ -103,8 +103,13 @@ const PACIFICA_REFERRAL_PREFIX = 'pacifica_referral_claimed_';
 const PACIFICA_BUILDER_PREFIX = 'pacifica_builder_approved_';
 const HEDGE_ORDER_BUFFER_PCT = 1.0;
 
+/** Backend may send mixed-case exchange ids; leverage + open branches use strict lowercase. */
+function normalizeHedgeExchange(raw: string): Exchange {
+  return String(raw).trim().toLowerCase() as Exchange;
+}
+
 function hedgeExchangeLabel(exchange: string): string {
-  switch (exchange) {
+  switch (normalizeHedgeExchange(exchange)) {
     case 'hyperliquid':
       return 'HyperLiquid';
     case 'pacifica':
@@ -727,7 +732,11 @@ export class HedgeActionExecutor {
     context: ExecutorContext
   ): Promise<ActionResult> {
     const params = action.params as unknown as OpenPositionActionParams;
-    const { asset, leverage, effective_margin_usd, legs } = params;
+    const { asset, leverage, effective_margin_usd, legs: rawLegs } = params;
+    const legs = rawLegs.map((l) => ({
+      ...l,
+      exchange: normalizeHedgeExchange(l.exchange),
+    }));
 
     // ── Step 1: Determine long/short direction from spread APR data ──
     const spreadData = context.spreadAprData[asset];
@@ -735,13 +744,14 @@ export class HedgeActionExecutor {
 
     if (spreadData) {
       getDirection = (exchange: Exchange) =>
-        exchange === spreadData.longPlatform ? 'long' : 'short';
+        normalizeHedgeExchange(exchange) === spreadData.longPlatform ? 'long' : 'short';
     } else {
       const primary = legs[0]?.exchange ?? 'hyperliquid';
       console.warn(
         `[HedgeExecutor] No spread APR data for ${asset}, defaulting first leg (${primary})=long`
       );
-      getDirection = (exchange: Exchange) => (exchange === primary ? 'long' : 'short');
+      getDirection = (exchange: Exchange) =>
+        normalizeHedgeExchange(exchange) === primary ? 'long' : 'short';
     }
 
     // ── Step 2: Check current leverage and update only if different ──
@@ -749,36 +759,68 @@ export class HedgeActionExecutor {
 
     const exchangesInLegs = Array.from(new Set(legs.map((l) => l.exchange)));
 
-    const leverageChecks = await Promise.allSettled(
+    const leverageChecks = await Promise.all(
       exchangesInLegs.map(async (ex) => {
-        if (ex === 'hyperliquid') {
-          const res = await this.hlService.fetchUserLeverage(context.evmAddress, asset.toUpperCase());
-          return { exchange: ex, current: res.success ? res.leverage ?? null : null, success: res.success, error: res.error };
-        }
-        if (ex === 'pacifica') {
-          const res = await this.pacificaService.fetchLeverage(context.solanaAddress, asset.toUpperCase());
-          return { exchange: ex, current: res.success ? res.leverage : null, success: res.success, error: res.error };
-        }
-        if (ex === 'lighter') {
-          const row = await fetchLighterPerpRow(asset.toUpperCase());
-          if (!row) {
-            return { exchange: ex, current: null, success: false, error: 'Lighter market not found' };
+        try {
+          if (ex === 'hyperliquid') {
+            const res = await this.hlService.fetchUserLeverage(
+              context.evmAddress,
+              asset.toUpperCase()
+            );
+            return {
+              exchange: ex,
+              current: res.success ? res.leverage ?? null : null,
+              success: res.success,
+              error: res.error,
+            };
           }
-          const current = await fetchLighterLeverageForMarket(context.evmAddress, row.market_id);
-          return { exchange: ex, current, success: true, error: undefined };
+          if (ex === 'pacifica') {
+            const res = await this.pacificaService.fetchLeverage(
+              context.solanaAddress,
+              asset.toUpperCase()
+            );
+            return {
+              exchange: ex,
+              current: res.success ? res.leverage : null,
+              success: res.success,
+              error: res.error,
+            };
+          }
+          if (ex === 'lighter') {
+            const row = await fetchLighterPerpRow(asset.toUpperCase());
+            if (!row) {
+              return { exchange: ex, current: null, success: false, error: 'Lighter market not found' };
+            }
+            const current = await fetchLighterLeverageForMarket(context.evmAddress, row.market_id);
+            return { exchange: ex, current, success: true, error: undefined };
+          }
+          // backpack (disabled for display-only demo)
+          return { exchange: ex, current: null, success: true, error: undefined };
+        } catch (err) {
+          console.error('[HedgeExecutor] leverage check failed for', ex, err);
+          return {
+            exchange: ex,
+            current: null,
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+          };
         }
-        // backpack (disabled for display-only demo)
-        return { exchange: ex, current: null, success: true, error: undefined };
       })
     );
 
     const leverageUpdates: Promise<{ exchangeLabel: string; ok: boolean; error?: string }>[] = [];
 
-    for (const settled of leverageChecks) {
-      if (settled.status !== 'fulfilled') continue;
-      const { exchange: ex, current } = settled.value;
+    for (const check of leverageChecks) {
+      const { exchange: ex, current } = check;
 
-      const needsUpdate = current === null || current !== leverage;
+      const targetLev = Math.round(Number(leverage));
+      const currentNum =
+        current == null || !Number.isFinite(Number(current)) ? null : Number(current);
+      const matchesTarget =
+        currentNum != null && Math.round(currentNum) === targetLev;
+
+      // Pacifica leverage is always set again immediately before create_market (Step 5).
+      const needsUpdate = ex === 'pacifica' ? false : currentNum == null || !matchesTarget;
 
       if (!needsUpdate) continue;
 
@@ -928,11 +970,39 @@ export class HedgeActionExecutor {
           return { exchange: leg.exchange, result };
         } else {
           if (leg.exchange === 'pacifica') {
+            // Always set leverage immediately before market open so POST /account/leverage
+            // cannot be skipped (e.g. casing bugs routing Step 2 to the wrong handler, or
+            // rejected Promise.allSettled entries). Pacifica defaults to max lev until set.
+            const pacificaLev = Math.max(1, Math.min(20, Math.round(Number(leverage))));
+            const levRes = await this.pacificaService.updateLeverage(
+              asset.toUpperCase(),
+              pacificaLev,
+              context.solanaAddress,
+              context.organizationId
+            );
+            if (!levRes.success) {
+              return {
+                exchange: leg.exchange,
+                result: {
+                  success: false,
+                  positionId: '',
+                  protocol: 'pacifica',
+                  asset,
+                  direction,
+                  size: '0',
+                  entryPrice: marketPrice ?? '0',
+                  margin: marginForLegs.toString(),
+                  leverage: pacificaLev,
+                  error: levRes.error || 'Failed to set leverage on Pacifica before open',
+                  message: levRes.message,
+                },
+              };
+            }
             const result = await this.pacificaAdapter.openPosition({
               asset,
               direction,
               margin: marginForLegs.toString(),
-              leverage,
+              leverage: pacificaLev,
               walletAddress: context.solanaAddress,
               organizationId: context.organizationId,
               isMarket: true,

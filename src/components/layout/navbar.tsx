@@ -7,6 +7,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { ConnectWalletButton } from '@/components/ui/connect-wallet-button';
@@ -30,6 +31,7 @@ interface NavbarProps {
 
 const defaultNavItems: NavItem[] = [
   { label: 'FUNDING ARBITRAGE', href: '/' },
+  { label: 'AUTOMATION', href: '/automation' },
   { label: 'TRADE', href: '/trade', soon: true },
   { label: 'PORTFOLIO', href: '/portfolio' },
 ];
@@ -41,6 +43,7 @@ export function Navbar({
   className,
 }: NavbarProps) {
   const { state } = useTurnkey();
+  const pathname = usePathname();
 
   return (
     <motion.header
@@ -94,6 +97,34 @@ export function Navbar({
             <ConnectWalletButton onClick={onConnectWallet} size="sm" />
           )}
         </motion.div>
+      </div>
+      <div className="md:hidden border-t border-border-white-10 bg-background/95 px-2 py-1.5 overflow-x-auto">
+        <div className="flex gap-1 min-w-max justify-center">
+          {navItems.map((item) =>
+            item.soon ? (
+              <span
+                key={item.href}
+                className="px-3 py-1.5 text-[11px] font-medium text-text-muted-40 whitespace-nowrap"
+              >
+                {item.label}
+                <span className="ml-1 text-[10px]">SOON</span>
+              </span>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'px-3 py-1.5 text-[11px] font-medium rounded-md whitespace-nowrap transition-colors',
+                  pathname === item.href
+                    ? 'text-text-primary bg-card/60 border border-border-white-10'
+                    : 'text-text-muted-60 hover:text-text-primary hover:bg-card/50'
+                )}
+              >
+                {item.label}
+              </Link>
+            )
+          )}
+        </div>
       </div>
     </motion.header>
   );

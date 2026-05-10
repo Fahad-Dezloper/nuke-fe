@@ -10,6 +10,9 @@ const TurnkeyEnvSchema = z.object({
   TURNKEY_API_PRIVATE_KEY: z.string().min(1, 'TURNKEY_API_PRIVATE_KEY is required'),
   TURNKEY_API_PUBLIC_KEY: z.string().min(1, 'TURNKEY_API_PUBLIC_KEY is required'),
   TURNKEY_ORGANIZATION_ID: z.string().min(1, 'TURNKEY_ORGANIZATION_ID is required'),
+  TURNKEY_DA_API_PUBLIC_KEY: z.string().min(1, 'TURNKEY_DA_API_PUBLIC_KEY is required'),
+
+
 });
 
 type TurnkeyEnv = z.infer<typeof TurnkeyEnvSchema>;
@@ -28,6 +31,7 @@ export function getValidatedTurnkeyEnv(): TurnkeyEnv {
     TURNKEY_API_PRIVATE_KEY: process.env.TURNKEY_API_PRIVATE_KEY,
     TURNKEY_API_PUBLIC_KEY: process.env.TURNKEY_API_PUBLIC_KEY,
     TURNKEY_ORGANIZATION_ID: process.env.TURNKEY_ORGANIZATION_ID,
+    TURNKEY_DA_API_PUBLIC_KEY: process.env.TURNKEY_DA_API_PUBLIC_KEY,
   });
 
   if (!result.success) {
