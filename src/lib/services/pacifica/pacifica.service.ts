@@ -698,10 +698,17 @@ export class PacificaService {
       (s) => s.symbol.toUpperCase() === symbol.toUpperCase()
     );
 
+    let parsedLeverage: number | null = null;
+    const raw = entry?.leverage;
+    if (raw != null) {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) parsedLeverage = n;
+    }
+
     return {
       success: true,
-      // null means default (max leverage) — symbol not customized
-      leverage: entry ? entry.leverage : null,
+      // null: no per-symbol row (Pacifica uses default / max until explicitly set)
+      leverage: parsedLeverage,
     };
   }
 
