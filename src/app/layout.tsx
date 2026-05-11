@@ -20,7 +20,7 @@ const robotoMono = Roboto_Mono({
 
 export const metadata: Metadata = {
   title: 'Nuke | Perpetual Arbitrage Terminal',
-  description: 'Chain agnostic delta-neutral funding arbitrage terminal',
+  description: 'Solana native delta-neutral funding arbitrage terminal',
   icons: {
     icon: [
       {
