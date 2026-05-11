@@ -1,216 +1,116 @@
-# Nuke - Perpetual Arbitrage Terminal
+# Nuke
 
-Chain agnostic delta-neutral funding arbitrage terminal.
+**Nuke** is a **funding rate arbitrage** stack: a trading terminal and automation surface for running **delta-neutral** strategies across perpetual venues, capturing spread between funding, fees, and execution—without directional exposure to the underlying.
 
-## Project Structure
+**Live app:** [https://nuketrade.xyz](https://nuketrade.xyz)
 
-```
-src/
-├── app/                    # Next.js app router
-│   ├── layout.tsx         # Root layout with header/footer
-│   ├── page.tsx           # Home page
-│   └── globals.css        # Global styles and theme
-├── components/            # React components
-│   ├── ui/               # Reusable UI components (Button, Card, Input, etc.)
-│   ├── layout/           # Layout components (Header, Footer)
-│   └── features/         # Feature-specific components
-├── hooks/                # Custom React hooks
-│   ├── use-api.ts        # API call hook with loading/error states
-│   ├── use-debounce.ts  # Debounce hook
-│   └── use-local-storage.ts # LocalStorage hook
-├── lib/                  # Utilities and configurations
-│   ├── api/              # API client and services
-│   │   ├── client.ts     # API client configuration
-│   │   ├── endpoints.ts  # API endpoint definitions
-│   │   └── services/     # API service functions
-│   ├── utils.ts          # Utility functions
-│   └── constants.ts      # Application constants
-└── types/                # TypeScript type definitions
-    └── index.ts          # Shared types and interfaces
-```
+This repository is the **Nuke frontend** (`nuke-fe`): a Next.js application that connects wallets, shows cross-venue spreads and positions, opens and closes hedged legs, and (optionally) coordinates with backend automation services.
 
-## Getting Started
+---
+
+## What Nuke does
+
+- **Funding arbitrage** — Surfaces opportunities where long and short perpetual legs on different venues net a positive carry (funding, APR views, execution constraints).
+- **Delta-neutral execution** — Opens and closes **paired** positions (e.g. long on one venue, short on another) with shared margin and leverage intent so exposure stays hedged.
+- **Custody & signing** — Uses **[Turnkey](https://www.turnkey.com/)** for embedded wallets and policy-bound signing across EVM (e.g. Hyperliquid) and Solana (e.g. Pacifica) flows.
+- **Automation (optional)** — An automation engine where user delegates the opening and closing of position to Nuke, and Nuke finds best asset-pairs across exchanges to farm better APRs 24/7.
+
+---
+
+## Product surface (in this app)
+
+| Area | Purpose |
+|------|--------|
+| **Funding Arbitrage** | Main dashboard: market overview, charts, position controls, hedged open/close, positions table. |
+| **Automation** | Configure rules and limits; optional integration with Rust + Nest automation backends;
+| **Portfolio** | Aggregated view of balances and positions relevant to the product. |
+
+Supported / integrated venues in the codebase include **Hyperliquid**, **Pacifica**, and related bridge / deposit paths; other venues may appear in the UI as the roadmap expands.
+
+---
+
+## Tech stack
+
+| Layer | Choice |
+|--------|--------|
+| Framework | **Next.js 16** (App Router) |
+| UI | **React 19**, **Tailwind CSS v4** |
+| State | **Jotai**, **TanStack React Query** |
+| Wallets / auth | **Turnkey** (browser SDK, EVM + Solana) |
+| Types | **TypeScript 5** |
+
+---
+
+## Getting started (developers)
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm (recommended) or npm/yarn
+- **Node.js 18+**
+- **pnpm** (recommended) or npm
 
-### Installation
-
-1. Install dependencies:
+### Install and run
 
 ```bash
 pnpm install
-```
-
-2. Set up environment variables:
-
-```bash
-cp .env.example .env
-```
-
-3. Update `.env` with your API URL and other configuration
-
-4. Run the development server:
-
-```bash
 pnpm dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+Open [http://localhost:3000](http://localhost:3000).
 
-## Features
+### Environment
 
-### API Client
+Configure variables for your deployment (API base URLs, Turnkey org context, automation endpoints, etc.). Use your team’s internal checklist or `.env` template—**do not commit secrets**.
 
-The API client (`src/lib/api/client.ts`) provides a centralized way to make HTTP requests:
+Typical categories of configuration:
 
-```typescript
-import { apiClient } from '@/lib/api';
+- Main **backend API** (positions, APR, hedge intents).
+- **Turnkey** (organization / sub-org, origins).
+- Optional **automation** (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_AUTOMATION_API_URL`, auth tokens or header mode).
 
-// GET request
-const data = await apiClient.get('/endpoint', { page: 1 });
-
-// POST request
-const result = await apiClient.post('/endpoint', { name: 'Strategy' });
-```
-
-### Custom Hooks
-
-#### useApi Hook
-
-Make API calls with built-in loading and error states:
-
-```typescript
-import { useApi } from '@/hooks';
-import { arbitrageService } from '@/lib/api';
-
-function MyComponent() {
-  const { data, loading, error, execute } = useApi(
-    () => arbitrageService.getPositions(),
-    {
-      onSuccess: (data) => console.log('Success!', data),
-      onError: (error) => console.error('Error!', error),
-    }
-  );
-
-  return (
-    <div>
-      {loading && <p>Loading...</p>}
-      {error && <p>Error: {error.message}</p>}
-      {data && <div>{/* Render data */}</div>}
-    </div>
-  );
-}
-```
-
-#### useDebounce Hook
-
-Debounce values for search inputs:
-
-```typescript
-import { useDebounce } from '@/hooks';
-
-function SearchComponent() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 500);
-
-  useEffect(() => {
-    // API call with debounced value
-    search(debouncedSearch);
-  }, [debouncedSearch]);
-}
-```
-
-### UI Components
-
-All UI components are located in `src/components/ui/` and follow a consistent design system:
-
-```typescript
-import { Button, Card, Input } from '@/components/ui';
-
-<Button variant="primary" size="md">Click me</Button>
-<Card variant="bordered">Content here</Card>
-<Input placeholder="Enter text..." />
-```
-
-### Color Palette
-
-The application uses a custom color palette defined in `globals.css`:
-
-- **Background**: `#020202` (near-black)
-- **Card/Surface**: `#111` (dark gray)
-- **Accent**: `#89CFF0` (light blue/cyan)
-- **Accent Secondary**: `#3a5866`
-- **Text**: White with various opacity levels (10%, 30%, 40%, 60%, 80%, 100%)
-
-Use Tailwind classes like:
-
-- `bg-background`, `bg-card`
-- `text-text-primary`, `text-text-muted-60`
-- `text-accent`, `bg-accent-secondary`
-- `border-border-white-10`
-
-## Development
-
-### Adding New Components
-
-1. Create component in appropriate folder:
-   - `components/ui/` for reusable UI components
-   - `components/features/` for feature-specific components
-   - `components/layout/` for layout components
-
-2. Export from the appropriate `index.ts` file
-
-3. Use the component with proper TypeScript types
-
-### Adding New API Endpoints
-
-1. Add endpoint to `src/lib/api/endpoints.ts`:
-
-```typescript
-export const API_ENDPOINTS = {
-  myFeature: {
-    list: '/my-feature/list',
-    create: '/my-feature/create',
-  },
-};
-```
-
-2. Create service in `src/lib/api/services/`:
-
-```typescript
-export const myFeatureService = {
-  async getList() {
-    return apiClient.get(API_ENDPOINTS.myFeature.list);
-  },
-};
-```
-
-3. Export from `src/lib/api/services/index.ts`
-
-### Adding New Hooks
-
-1. Create hook in `src/hooks/`
-2. Export from `src/hooks/index.ts`
-3. Use throughout the application
-
-## Building for Production
+### Production build
 
 ```bash
 pnpm build
 pnpm start
 ```
 
-## Tech Stack
+### Other scripts
 
-- **Framework**: Next.js 16
-- **React**: 19
-- **Styling**: Tailwind CSS v4
-- **TypeScript**: 5
-- **Font**: Roboto Mono
+```bash
+pnpm lint
+# Lighter WASM sync (when working on Lighter integration)
+pnpm run lighter:wasm
+```
+
+---
+
+## Repository layout (overview)
+
+```
+src/
+├── app/                 # Routes: home, automation, portfolio, API routes
+├── components/          # UI primitives + feature modules (trading, layout, automation)
+├── hooks/               # React hooks (positions, close, debounce, etc.)
+├── lib/                 # API client, venue services (HL, Pacifica, …), hedge-intent engine, stores
+├── dex/                 # Venue-specific helpers (e.g. Hyperliquid, Pacifica constants)
+└── types/               # Shared TypeScript types
+```
+
+---
+
+## Security and compliance
+
+- Treat all **private keys and API secrets** as production credentials; keep them out of git and client bundles where possible.
+- Review **Turnkey policies** and **venue limits** before enabling automation or delegated signing for end users.
+
+---
 
 ## License
 
-Private
+**Private** — All rights reserved unless otherwise agreed.
+
+---
+
+## Links
+
+- **Production:** [https://nuketrade.xyz](https://nuketrade.xyz)
