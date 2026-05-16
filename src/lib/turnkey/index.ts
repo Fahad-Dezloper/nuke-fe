@@ -18,7 +18,13 @@ export { SessionManager } from './session-manager';
 export { OAuthHandler } from './oauth-handler';
 export { WalletManager } from './wallet-manager';
 
-export { loginWithEVMWallet, loginWithSolanaWallet, PhantomSolanaWallet } from './wallet-helpers';
+export {
+  loginWithEVMWallet,
+  loginWithSolanaWallet,
+  InjectedSolanaWallet,
+  PhantomSolanaWallet,
+} from './wallet-helpers';
+export type { SolanaWalletKind } from './wallet-helpers';
 export { calculateSha256, isOAuthRedirectInProgress, extractOAuthParams } from './utils';
 export { getEVMAddress, getSolanaAddress } from './wallet-utils';
 

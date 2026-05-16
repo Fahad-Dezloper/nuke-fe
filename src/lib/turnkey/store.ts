@@ -8,6 +8,9 @@
 import { atom } from 'jotai';
 import { turnkeyClient } from './client';
 import type { TurnkeyState } from './types';
+import type { Eip1193Requester } from '@/lib/wallet-discovery/eip6963';
+import type { SolanaWalletKind } from '@/lib/wallet-discovery/solana-injected';
+import type { LoginResult } from './types';
 import { loginWithEVMWallet, loginWithSolanaWallet } from './wallet-helpers';
 
 // Initial state
@@ -100,55 +103,67 @@ export const checkSessionAtom = atom(null, async (_get, set) => {
   }
 });
 
-export const loginWithEVMWalletAtom = atom(null, async (_get, set) => {
-  try {
-    turnkeyClient.updateState({ isLoggingIn: true });
-    set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: true }));
+export const loginWithEVMWalletAtom = atom(
+  null,
+  async (_get, set, provider?: Eip1193Requester): Promise<LoginResult> => {
+    try {
+      turnkeyClient.updateState({ isLoggingIn: true });
+      set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: true }));
 
-    const result = await loginWithEVMWallet();
+      const result = await loginWithEVMWallet(provider);
 
-    if (result.success && result.subOrgId) {
-      await turnkeyClient.loadUserData(result.subOrgId);
-      const newState = turnkeyClient.getState();
-      set(turnkeyStateAtom, newState);
-      return true;
+      if (result.success && result.subOrgId) {
+        await turnkeyClient.loadUserData(result.subOrgId);
+        const newState = turnkeyClient.getState();
+        set(turnkeyStateAtom, newState);
+        return result;
+      }
+
+      turnkeyClient.updateState({ isLoggingIn: false });
+      set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: false }));
+      return result;
+    } catch (error) {
+      console.error('EVM wallet login error:', error);
+      turnkeyClient.updateState({ isLoggingIn: false });
+      set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: false }));
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Wallet login failed',
+      };
     }
-
-    turnkeyClient.updateState({ isLoggingIn: false });
-    set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: false }));
-    return false;
-  } catch (error) {
-    console.error('EVM wallet login error:', error);
-    turnkeyClient.updateState({ isLoggingIn: false });
-    set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: false }));
-    return false;
   }
-});
+);
 
-export const loginWithSolanaWalletAtom = atom(null, async (_get, set) => {
-  try {
-    turnkeyClient.updateState({ isLoggingIn: true });
-    set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: true }));
+export const loginWithSolanaWalletAtom = atom(
+  null,
+  async (_get, set, kind?: SolanaWalletKind): Promise<LoginResult> => {
+    try {
+      turnkeyClient.updateState({ isLoggingIn: true });
+      set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: true }));
 
-    const result = await loginWithSolanaWallet();
+      const result = await loginWithSolanaWallet(kind);
 
-    if (result.success && result.subOrgId) {
-      await turnkeyClient.loadUserData(result.subOrgId);
-      const newState = turnkeyClient.getState();
-      set(turnkeyStateAtom, newState);
-      return true;
+      if (result.success && result.subOrgId) {
+        await turnkeyClient.loadUserData(result.subOrgId);
+        const newState = turnkeyClient.getState();
+        set(turnkeyStateAtom, newState);
+        return result;
+      }
+
+      turnkeyClient.updateState({ isLoggingIn: false });
+      set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: false }));
+      return result;
+    } catch (error) {
+      console.error('Solana wallet login error:', error);
+      turnkeyClient.updateState({ isLoggingIn: false });
+      set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: false }));
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Solana wallet login failed',
+      };
     }
-
-    turnkeyClient.updateState({ isLoggingIn: false });
-    set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: false }));
-    return false;
-  } catch (error) {
-    console.error('Solana wallet login error:', error);
-    turnkeyClient.updateState({ isLoggingIn: false });
-    set(turnkeyStateAtom, (prev) => ({ ...prev, isLoggingIn: false }));
-    return false;
   }
-});
+);
 
 // Initialize atom - syncs turnkeyClient state with Jotai
 export const initializeTurnkeyAtom = atom(null, async (_get, set) => {
