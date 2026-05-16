@@ -2,18 +2,42 @@
 
 /**
  * Connect Wallet Modal Component
- * Modal for wallet connection with Google Sign-in, EVM, and Solana wallet options.
+ * Modal for wallet connection with Google Sign-in plus EVM (EIP-6963) and Solana injects.
  * Gated behind an access code validated server-side before Turnkey is touched.
  */
 
 import { motion } from 'framer-motion';
-import { Loader2, ShieldCheck } from 'lucide-react';
+import { Loader2, ShieldCheck, Wallet } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import { useTurnkey } from '@/lib/turnkey';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { storeAccessCode } from '@/lib/auth/access-code';
+import {
+  subscribeEip6963Providers,
+  type Eip6963ProviderDetail,
+} from '@/lib/wallet-discovery/eip6963';
+import {
+  listDetectedSolanaWallets,
+  type SolanaWalletKind,
+} from '@/lib/wallet-discovery/solana-injected';
+
+const WALLET_GRID_BTN = cn(
+  'flex min-h-[3.25rem] w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+  'border-border-white-15/60 bg-card/50 hover:bg-card/70',
+  'text-xs font-medium text-text-primary cursor-pointer'
+);
+
+const WALLET_GRID_ICON_WRAP = cn(
+  'flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/5'
+);
+
+const SOLANA_BRAND_ICON: Record<SolanaWalletKind, string> = {
+  phantom: '/wallets/phantom.jpg',
+  solflare: '/wallets/solflare.jpg',
+  backpack: '/tokens/backpack.svg',
+};
 
 interface ConnectWalletModalProps {
   isOpen: boolean;
@@ -22,17 +46,39 @@ interface ConnectWalletModalProps {
   onEOAConnect?: () => void;
 }
 
+type LoadingKey = 'google' | 'validating' | null;
+
+function evmConnectingKey(uuid: string) {
+  return `evm:${uuid}`;
+}
+
+function solConnectingKey(kind: SolanaWalletKind) {
+  return `sol:${kind}`;
+}
+
 export function ConnectWalletModal({
   isOpen,
   onClose,
   onGoogleSignIn,
   onEOAConnect,
 }: ConnectWalletModalProps) {
-  const { loginWithGoogle, state } = useTurnkey();
-  const [loading, setLoading] = useState<'google' | 'validating' | null>(null);
+  const { loginWithGoogle, loginWithEVMWallet, loginWithSolanaWallet, state } = useTurnkey();
+  const [loading, setLoading] = useState<LoadingKey>(null);
+  const [walletConnectKey, setWalletConnectKey] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [accessCode, setAccessCode] = useState('');
   const [isCodeValidated, setIsCodeValidated] = useState(false);
+  const [evmProviders, setEvmProviders] = useState<Eip6963ProviderDetail[]>([]);
+
+  useEffect(() => {
+    if (!isOpen || !isCodeValidated) {
+      setEvmProviders([]);
+      return;
+    }
+    return subscribeEip6963Providers(setEvmProviders);
+  }, [isOpen, isCodeValidated]);
+
+  const solanaWallets = isOpen && isCodeValidated ? listDetectedSolanaWallets() : [];
 
   const handleValidateCode = useCallback(async () => {
     if (!accessCode.trim()) {
@@ -77,13 +123,53 @@ export function ConnectWalletModal({
     }
   };
 
+  const handleEvmWallet = async (detail: Eip6963ProviderDetail) => {
+    const key = evmConnectingKey(detail.info.uuid);
+    setWalletConnectKey(key);
+    setError('');
+    try {
+      const result = await loginWithEVMWallet(detail.provider);
+      if (!result.success) {
+        setError(result.error ?? 'Could not connect Ethereum wallet');
+        return;
+      }
+      onEOAConnect?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not connect Ethereum wallet');
+    } finally {
+      setWalletConnectKey(null);
+    }
+  };
+
+  const handleSolanaWallet = async (kind: SolanaWalletKind) => {
+    const key = solConnectingKey(kind);
+    setWalletConnectKey(key);
+    setError('');
+    try {
+      const result = await loginWithSolanaWallet(kind);
+      if (!result.success) {
+        setError(result.error ?? 'Could not connect Solana wallet');
+        return;
+      }
+      onEOAConnect?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not connect Solana wallet');
+    } finally {
+      setWalletConnectKey(null);
+    }
+  };
+
   const handleClose = useCallback(() => {
     setAccessCode('');
     setError('');
     setIsCodeValidated(false);
     setLoading(null);
+    setWalletConnectKey(null);
     onClose();
   }, [onClose]);
+
+  const optionsDisabled =
+    walletConnectKey !== null || state.isLoggingIn || state.isLoading || loading === 'google';
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} maxWidth="md" contentClassName="p-8 md:p-10">
@@ -151,6 +237,7 @@ export function ConnectWalletModal({
           </div>
 
           <button
+            type="button"
             onClick={handleValidateCode}
             disabled={!accessCode.trim() || loading !== null}
             className={cn(
@@ -173,13 +260,13 @@ export function ConnectWalletModal({
         </motion.div>
       ) : (
         /* ── Sign-in Options ─────────────────────────────────── */
-        <div className="space-y-3">
-          {/* Google Sign In Button */}
+        <div className="space-y-5">
           <motion.button
+            type="button"
             onClick={handleGoogleSignIn}
-            disabled={loading !== null || state.isLoading}
-            whileHover={loading === null ? { scale: 1.01, y: -1 } : {}}
-            whileTap={loading === null ? { scale: 0.99 } : {}}
+            disabled={optionsDisabled}
+            whileHover={!optionsDisabled ? { scale: 1.01, y: -1 } : {}}
+            whileTap={!optionsDisabled ? { scale: 0.99 } : {}}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className={cn(
@@ -192,7 +279,7 @@ export function ConnectWalletModal({
               'transition-all duration-300',
               'shadow-md shadow-black/30 hover:shadow-lg hover:shadow-black/40',
               'group',
-              (loading !== null || state.isLoading) && 'opacity-50 cursor-not-allowed'
+              optionsDisabled && 'opacity-50 cursor-not-allowed'
             )}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
@@ -214,6 +301,111 @@ export function ConnectWalletModal({
               )}
             </div>
           </motion.button>
+
+          <div className="relative flex items-center gap-4 py-1">
+            <div className="h-px flex-1 bg-border-white-15/50" />
+            <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted-50 whitespace-nowrap">
+              Or wallet
+            </span>
+            <div className="h-px flex-1 bg-border-white-15/50" />
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted-50 mb-2">
+                Ethereum
+              </p>
+              {evmProviders.length === 0 ? (
+                <p className="text-xs text-text-muted-50 leading-relaxed">
+                  No Ethereum browser wallet detected yet. Install MetaMask or Rabby, then reopen
+                  this screen.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {evmProviders.map((p) => (
+                    <div key={p.info.uuid} className="min-w-0">
+                      <button
+                        type="button"
+                        disabled={optionsDisabled}
+                        onClick={() => handleEvmWallet(p)}
+                        className={cn(
+                          WALLET_GRID_BTN,
+                          optionsDisabled && 'cursor-not-allowed opacity-45'
+                        )}
+                      >
+                        <span className={WALLET_GRID_ICON_WRAP}>
+                          {p.info.icon ? (
+                            /* EIP-6963 icons are arbitrary data URIs — use plain img */
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={p.info.icon}
+                              alt=""
+                              className="size-7 object-contain"
+                              width={28}
+                              height={28}
+                            />
+                          ) : (
+                            <Wallet className="size-5 text-text-muted-50" />
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {walletConnectKey === evmConnectingKey(p.info.uuid)
+                            ? `${p.info.name}…`
+                            : p.info.name}
+                        </span>
+                        {walletConnectKey === evmConnectingKey(p.info.uuid) && (
+                          <Loader2 className="size-4 shrink-0 animate-spin text-text-muted-50" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted-50 mb-2">
+                Solana
+              </p>
+              {solanaWallets.length === 0 ? (
+                <p className="text-xs text-text-muted-50 leading-relaxed">
+                  No Solana wallet extension detected (Phantom, Solflare, Backpack).
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {solanaWallets.map((w) => (
+                    <div key={w.kind} className="min-w-0">
+                      <button
+                        type="button"
+                        disabled={optionsDisabled}
+                        onClick={() => handleSolanaWallet(w.kind)}
+                        className={cn(
+                          WALLET_GRID_BTN,
+                          optionsDisabled && 'cursor-not-allowed opacity-45'
+                        )}
+                      >
+                        <span className={WALLET_GRID_ICON_WRAP}>
+                          <Image
+                            src={SOLANA_BRAND_ICON[w.kind]}
+                            alt=""
+                            width={28}
+                            height={28}
+                            className="size-7 object-contain"
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {walletConnectKey === solConnectingKey(w.kind) ? `${w.name}…` : w.name}
+                        </span>
+                        {walletConnectKey === solConnectingKey(w.kind) && (
+                          <Loader2 className="size-4 shrink-0 animate-spin text-text-muted-50" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

@@ -11,7 +11,13 @@ import {
   loginWithEVMWalletAtom,
   loginWithSolanaWalletAtom,
 } from './store';
-import type { WalletCreationResult, SignTransactionResult } from './types';
+import type {
+  WalletCreationResult,
+  SignTransactionResult,
+  LoginResult,
+} from './types';
+import type { Eip1193Requester } from '@/lib/wallet-discovery/eip6963';
+import type { SolanaWalletKind } from '@/lib/wallet-discovery/solana-injected';
 
 export function useTurnkey() {
   const state = useAtomValue(turnkeyStateAtom);
@@ -43,11 +49,11 @@ export function useTurnkey() {
     checkSession: async () => {
       await checkSession();
     },
-    loginWithEVMWallet: async () => {
-      return await loginWithEVMWallet();
+    loginWithEVMWallet: async (provider?: Eip1193Requester): Promise<LoginResult> => {
+      return await loginWithEVMWallet(provider);
     },
-    loginWithSolanaWallet: async () => {
-      return await loginWithSolanaWallet();
+    loginWithSolanaWallet: async (kind?: SolanaWalletKind): Promise<LoginResult> => {
+      return await loginWithSolanaWallet(kind);
     },
   };
 }

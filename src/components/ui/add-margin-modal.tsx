@@ -58,14 +58,17 @@ interface ProgressStep {
 }
 
 function getProgressSteps(exchange: FundExchange): ProgressStep[] {
-  const chain =
-    exchange === 'pacifica' ? 'Solana' : exchange === 'lighter' ? 'Ethereum' : 'Arbitrum';
+  const chain = exchange === 'lighter' ? 'Ethereum' : 'Arbitrum';
   const label =
     exchange === 'hyperliquid'
       ? 'HyperLiquid'
       : exchange === 'lighter'
         ? 'Lighter'
         : 'Pacifica';
+
+  if (exchange === 'pacifica') {
+    return [{ label: `Depositing to ${label}`, fundSteps: ['depositing'] }];
+  }
 
   const suffix: ProgressStep[] =
     exchange === 'lighter'
@@ -274,7 +277,9 @@ export function AddMarginModal({
           <h2 className="text-lg font-semibold text-text-primary tracking-tight">ADD MARGIN</h2>
         </div>
         <p className="text-xs text-text-muted-60">
-          Bridge and deposit USDC from Solana to {exchangeLabel}
+          {exchange === 'pacifica'
+            ? `Deposit USDC from your Solana wallet to ${exchangeLabel}`
+            : `Bridge and deposit USDC from Solana to ${exchangeLabel}`}
         </p>
       </motion.div>
 
@@ -379,7 +384,7 @@ export function AddMarginModal({
           )}
 
           {/* Info Note */}
-          <motion.div
+            <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.22 }}
@@ -387,8 +392,9 @@ export function AddMarginModal({
           >
             <div className="p-2.5 rounded-lg bg-yellow-700/10 border border-accent/20">
               <p className="text-[10px] text-text-muted-60 leading-relaxed">
-                This will bridge USDC from Solana and deposit it into your {exchangeLabel} margin
-                account. The process usually takes 1–3 minutes.
+                {exchange === 'pacifica'
+                  ? `This will deposit USDC from your Solana wallet into your ${exchangeLabel} margin account. You may need to approve the transaction in your wallet.`
+                  : `This will bridge USDC from Solana and deposit it into your ${exchangeLabel} margin account. The process usually takes 1–3 minutes.`}
               </p>
             </div>
           </motion.div>

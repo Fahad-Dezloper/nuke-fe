@@ -44,6 +44,21 @@ const CreateSuborgRequestSchema = z.object({
 });
 
 /**
+ * Turnkey requires rootUsers[0].userEmail to be syntactically valid (wallet-only
+ * flows have no OIDC email — empty string fails with INVALID_ARGUMENT).
+ */
+function resolveEndUserEmail(oauthEmail: string | undefined, apiKeys: unknown[]): string {
+  const trimmed = oauthEmail?.trim();
+  if (trimmed && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const first = apiKeys[0] as { publicKey?: string } | undefined;
+  const pkHex = first?.publicKey?.replace(/^0x/i, '').toLowerCase() ?? '';
+  const slug = (pkHex.slice(0, 48) || `anon-${Date.now().toString(36)}`).replace(/[^a-z0-9]/g, '');
+  return `wallet.${slug}@example.com`;
+}
+/**
  * Verify a Google OIDC token and extract user metadata.
  * If verification fails we still proceed — Turnkey will re-validate the token
  * itself. We just won't have display metadata (name, picture).
@@ -109,7 +124,7 @@ export async function POST(request: NextRequest) {
                 time: String(Date.now()),
               })
             : `user-${String(Date.now())}`,
-          userEmail: verifiedClaims?.email ?? '',
+          userEmail: resolveEndUserEmail(verifiedClaims?.email, apiKeys),
           apiKeys: (apiKeys as never[]) || [],
           authenticators: [],
           oauthProviders: oauthProviders || [],

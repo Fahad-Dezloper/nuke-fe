@@ -84,9 +84,13 @@ export class PacificaDepositHandler implements DepositHandler {
    * 1. Check USDC balance on Solana
    * 2. Get partially signed tx from backend
    * 3. Sign with user's wallet and submit to Solana
+   *
+   * When `depositAmountMicros` is set (e.g. Add Margin), deposits that amount from Solana.
+   * Otherwise deposits the full Solana USDC balance (post-bridge fund leg).
    */
   async executeDeposit(context: DepositContext): Promise<DepositResult> {
-    const { organizationId, bridgeRequestId, solanaRecipientAddress } = context;
+    const { organizationId, bridgeRequestId, solanaRecipientAddress, depositAmountMicros } =
+      context;
 
     if (!solanaRecipientAddress) {
       throw new Error(
@@ -94,19 +98,36 @@ export class PacificaDepositHandler implements DepositHandler {
       );
     }
 
-    // 1. Check Solana USDC balance
     const solanaBalance = await getUSDCBalanceOnSolana(solanaRecipientAddress);
+    const gasBuffer = BigInt(PACIFICA_GAS_REIMBURSEMENT);
 
-    const minRequired = BigInt(MIN_DEPOSIT_AMOUNT) + BigInt(PACIFICA_GAS_REIMBURSEMENT);
-    if (solanaBalance < minRequired) {
-      throw new Error(
-        `Insufficient balance for Pacifica deposit. Need at least ${formatUSDCBalanceSolana(minRequired)} USDC (including 0.2 USDC gas reimbursement), but balance is ${formatUSDCBalanceSolana(solanaBalance)} USDC`
-      );
+    let amountToDeposit: bigint;
+
+    if (depositAmountMicros !== undefined && depositAmountMicros > BigInt(0)) {
+      if (depositAmountMicros < BigInt(MIN_DEPOSIT_AMOUNT)) {
+        throw new Error(
+          `Minimum Pacifica deposit is ${formatUSDCBalanceSolana(BigInt(MIN_DEPOSIT_AMOUNT))} USDC`
+        );
+      }
+      const requiredBalance = depositAmountMicros + gasBuffer;
+      if (solanaBalance < requiredBalance) {
+        throw new Error(
+          `Insufficient Solana USDC. Need ${formatUSDCBalanceSolana(requiredBalance)} (deposit + 0.2 USDC gas), but balance is ${formatUSDCBalanceSolana(solanaBalance)} USDC`
+        );
+      }
+      amountToDeposit = depositAmountMicros;
+    } else {
+      const minRequired = BigInt(MIN_DEPOSIT_AMOUNT) + gasBuffer;
+      if (solanaBalance < minRequired) {
+        throw new Error(
+          `Insufficient balance for Pacifica deposit. Need at least ${formatUSDCBalanceSolana(minRequired)} USDC (including 0.2 USDC gas reimbursement), but balance is ${formatUSDCBalanceSolana(solanaBalance)} USDC`
+        );
+      }
+      amountToDeposit = solanaBalance;
     }
 
-    // 2. Get partially signed transaction from backend
     const partiallySignedTx = await pacificaDepositService.getPartiallySignedTransaction({
-      amount: solanaBalance.toString(),
+      amount: amountToDeposit.toString(),
     });
 
     // 3. Sign with user's wallet and submit to Solana

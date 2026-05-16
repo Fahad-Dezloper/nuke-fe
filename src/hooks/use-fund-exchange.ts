@@ -2,7 +2,7 @@
  * useFundExchange — Bridge + deposit (or direct Solana deposit) per exchange
  *
  * - Hyperliquid: Solana USDC → bridge to Arbitrum → HL deposit API
- * - Pacifica: Solana USDC → bridge to Solana (relay) → Pacifica deposit tx
+ * - Pacifica: direct Solana USDC → Pacifica deposit tx (no bridge; user already on Solana)
  * - Lighter: Solana USDC → bridge to **Ethereum mainnet** → `POST /lighter/deposit` (see
  *   LIGHTER_DEPOSIT_FE_INTEGRATION.md) → then poll for L2 account + WASM + L1 `changePubKey` when keys missing.
  * - Backpack: Solana USDC → SPL transfer to Backpack deposit address (no bridge)
@@ -132,8 +132,39 @@ export function useFundExchange(): UseFundExchangeReturn {
 
       try {
         const wallet = getWalletContext(turnkeyState);
-        const recipient =
-          exchange === 'pacifica' ? wallet.solanaAddress : wallet.evmAddress;
+
+        // Pacifica: user already holds USDC on Solana — deposit directly (no relay bridge).
+        if (exchange === 'pacifica') {
+          trackDepositStarted(exchange);
+          setStep('depositing');
+          setStatusMessage(`Depositing USDC into ${label}...`);
+
+          const depositAmountMicros = BigInt(Math.floor(amountUsd * 1_000_000));
+
+          await pacHandler.executeDeposit({
+            walletAddress: wallet.evmAddress,
+            organizationId: wallet.organizationId,
+            bridgeRequestId: `direct-solana-${Date.now()}`,
+            solanaRecipientAddress: wallet.solanaAddress,
+            depositAmountMicros,
+          });
+
+          trackDepositCompleted(exchange);
+          setStep('success');
+          setStatusMessage(`Successfully funded ${label}!`);
+
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.balance.exchangeHlPac(wallet.evmAddress, wallet.solanaAddress),
+          });
+
+          toast.success(`${label} Funded`, {
+            description: `$${amountUsd.toFixed(2)} USDC deposited to ${label}.`,
+            duration: 5000,
+          });
+          return;
+        }
+
+        const recipient = wallet.evmAddress;
 
         // Backpack funding disabled (display-only demo).
 
