@@ -142,6 +142,112 @@ export async function submitSolanaTransaction(
     return txSignature;
 }
 
+export interface SolanaRelayInstructionKey {
+  pubkey: string;
+  isSigner: boolean;
+  isWritable: boolean;
+}
+
+export interface SolanaRelayInstruction {
+  programId: string;
+  keys: SolanaRelayInstructionKey[];
+  /** Hex string */
+  data: string;
+}
+
+export interface SolanaRelayTransactionData {
+  addressLookupTableAddresses?: string[];
+  instructions: SolanaRelayInstruction[];
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
+  if (clean.length % 2 !== 0) throw new Error('Invalid hex: odd length');
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = Number.parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+/**
+ * Build, sign (Turnkey), and submit a Solana v0 transaction from Relay quote data.
+ *
+ * Relay returns a list of instructions plus Address Lookup Table addresses.
+ * We fetch those ALTs from RPC, compile a v0 message, sign the message, and submit.
+ */
+export async function signAndSubmitRelaySolanaTransaction(
+  data: SolanaRelayTransactionData,
+  userWalletAddress: string,
+  organizationId: string
+): Promise<string> {
+  const { Connection, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction, AddressLookupTableAccount } =
+    await import('@solana/web3.js');
+
+  const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+
+  const payer = new PublicKey(userWalletAddress);
+
+  const instructions = (data.instructions ?? []).map((ix) => {
+    const programId = new PublicKey(ix.programId);
+    const keys = (ix.keys ?? []).map((k) => ({
+      pubkey: new PublicKey(k.pubkey),
+      isSigner: Boolean(k.isSigner),
+      isWritable: Boolean(k.isWritable),
+    }));
+    const ixData = hexToBytes(ix.data ?? '');
+    return new TransactionInstruction({ programId, keys, data: Buffer.from(ixData) });
+  });
+
+  if (instructions.length === 0) {
+    throw new Error('Relay Solana quote had no instructions');
+  }
+
+  const blockhash = await connection.getLatestBlockhash('confirmed');
+
+  const alts: InstanceType<typeof AddressLookupTableAccount>[] = [];
+  for (const altAddr of data.addressLookupTableAddresses ?? []) {
+    const key = new PublicKey(altAddr);
+    const res = await connection.getAddressLookupTable(key);
+    if (res.value) {
+      alts.push(res.value);
+    } else {
+      throw new Error(`Missing address lookup table: ${altAddr}`);
+    }
+  }
+
+  const messageV0 = new TransactionMessage({
+    payerKey: payer,
+    recentBlockhash: blockhash.blockhash,
+    instructions,
+  }).compileToV0Message(alts);
+
+  const tx = new VersionedTransaction(messageV0);
+
+  // Turnkey signs the message bytes (not the full transaction).
+  const signature = await signSolanaMessageWithTurnkey(
+    tx.message.serialize(),
+    userWalletAddress,
+    organizationId
+  );
+  tx.addSignature(payer, signature);
+
+  const txSig = await connection.sendRawTransaction(tx.serialize(), {
+    skipPreflight: false,
+    preflightCommitment: 'confirmed',
+  });
+
+  const confirmation = await connection.confirmTransaction(
+    { signature: txSig, ...blockhash },
+    'confirmed'
+  );
+  if (confirmation.value.err) {
+    throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+  }
+
+  return txSig;
+}
+
 /**
  * Sign a Solana transaction message using Turnkey
  * @param serializedMessage - The serialized message to sign

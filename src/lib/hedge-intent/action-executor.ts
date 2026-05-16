@@ -12,6 +12,7 @@
 
 import { bridgeService } from '@/lib/bridge/bridge.service';
 import { pollBridgeStatus } from '@/lib/bridge/poll-bridge-status';
+import { signAndSubmitRelaySolanaTransaction } from '@/lib/bridge/solana-utils';
 import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperliquid.handler';
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
 import { LighterDepositHandler } from '@/lib/bridge/deposit-handlers/lighter.handler';
@@ -364,58 +365,104 @@ export class HedgeActionExecutor {
         };
       }
 
-      // 2. Find signature step
+      // 2. Find executable step (new: Solana tx step, legacy: signature step)
+      const txStep = quoteResponse.steps.find((step) => step.kind === 'transaction');
       const signatureStep = quoteResponse.steps.find((step) => step.kind === 'signature');
-      if (!signatureStep) {
+
+      const requestId = (txStep ?? signatureStep)?.requestId;
+      if (!requestId) {
         return {
           success: false,
           txHash: null,
-          error: `Bridge to ${chainLabel}: no signature step found in quote response`,
+          error: `Bridge to ${chainLabel}: no executable step found in quote response`,
           legResults: null,
         };
       }
-
-      const requestId = signatureStep.requestId;
 
       // Store for resumability
       storeBridgeRequestId(legId, requestId);
 
-      // 3. Sign (protocol-specific via existing DepositHandler)
-      let signResult;
-      try {
-        signResult = await handler.signBridgeTransaction(
-          signatureStep,
-          context.evmAddress,
-          context.organizationId
-        );
-      } catch (signErr) {
-        clearBridgeRequestId(legId);
-        const errMsg = signErr instanceof Error ? signErr.message : String(signErr);
-        return {
-          success: false,
-          txHash: null,
-          error: `Failed to sign bridge transaction for ${chainLabel}: ${errMsg}`,
-          legResults: null,
-        };
-      }
+      if (txStep) {
+        // New Solana-origin quote: sign + send a Solana transaction directly.
+        try {
+          const data = txStep.items?.[0]?.data as
+            | {
+                addressLookupTableAddresses?: string[];
+                instructions?: Array<{
+                  programId: string;
+                  keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
+                  data: string;
+                }>;
+              }
+            | undefined;
 
-      // 4. Execute permit via Relay
-      try {
-        await bridgeService.executePermit({
-          signature: signResult.signature,
-          kind: signResult.executeKind,
-          requestId,
-          api: signResult.executeApi,
-        });
-      } catch (permitErr) {
-        clearBridgeRequestId(legId);
-        const errMsg = permitErr instanceof Error ? permitErr.message : String(permitErr);
-        return {
-          success: false,
-          txHash: requestId,
-          error: `Bridge to ${chainLabel} permit execution failed: ${errMsg}`,
-          legResults: null,
-        };
+          if (!data?.instructions?.length) {
+            throw new Error('Bridge quote transaction step missing Solana instructions');
+          }
+
+          await signAndSubmitRelaySolanaTransaction(
+            { addressLookupTableAddresses: data.addressLookupTableAddresses, instructions: data.instructions },
+            context.solanaAddress,
+            context.organizationId
+          );
+        } catch (txErr) {
+          clearBridgeRequestId(legId);
+          const errMsg = txErr instanceof Error ? txErr.message : String(txErr);
+          return {
+            success: false,
+            txHash: requestId,
+            error: `Bridge to ${chainLabel} Solana tx failed: ${errMsg}`,
+            legResults: null,
+          };
+        }
+      } else {
+        if (!signatureStep) {
+          clearBridgeRequestId(legId);
+          return {
+            success: false,
+            txHash: requestId,
+            error: `Bridge to ${chainLabel}: no signature step found in quote response`,
+            legResults: null,
+          };
+        }
+
+        // 3. Sign (protocol-specific via existing DepositHandler)
+        let signResult;
+        try {
+          signResult = await handler.signBridgeTransaction(
+            signatureStep,
+            context.evmAddress,
+            context.organizationId
+          );
+        } catch (signErr) {
+          clearBridgeRequestId(legId);
+          const errMsg = signErr instanceof Error ? signErr.message : String(signErr);
+          return {
+            success: false,
+            txHash: null,
+            error: `Failed to sign bridge transaction for ${chainLabel}: ${errMsg}`,
+            legResults: null,
+          };
+        }
+
+        // 4. Execute permit via Relay
+        try {
+          await bridgeService.executePermit({
+            signature: signResult.signature,
+            kind: signResult.executeKind,
+            requestId,
+            api: signResult.executeApi,
+          });
+        } catch (permitErr) {
+          clearBridgeRequestId(legId);
+          const errMsg = permitErr instanceof Error ? permitErr.message : String(permitErr);
+          return {
+            success: false,
+            txHash: requestId,
+            error: `Bridge to ${chainLabel} permit execution failed: ${errMsg}`,
+            legResults: null,
+          };
+        }
       }
 
       // 5. Poll until bridge completes

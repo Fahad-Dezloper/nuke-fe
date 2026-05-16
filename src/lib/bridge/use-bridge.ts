@@ -19,6 +19,7 @@ import { getUSDCBalanceOnBase } from './balance-api';
 import { formatUSDCBalance } from './balance';
 import { createDefaultDepositHandlerRegistry } from './deposit-handlers';
 import { pollBridgeStatus } from './poll-bridge-status';
+import { signAndSubmitRelaySolanaTransaction } from './solana-utils';
 import type { BridgeSignResult } from './deposit-handlers';
 import type {
   BridgeStatus,
@@ -138,6 +139,9 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
         // Resolve Solana address (used by Solana-based protocols)
         const solanaRecipientAddress =
           solanaRecipient || options?.solanaRecipient || getSolanaAddress(turnkeyState.userWallets);
+        if (!solanaRecipientAddress) {
+          throw new Error('No Solana wallet address found');
+        }
 
         // ── Step 2: Resolve deposit handler ───────────────────────
         const depositProtocol = protocol || options?.protocol;
@@ -178,37 +182,59 @@ export function useBridge(options?: UseBridgeOptions): UseBridgeReturn {
 
         const quoteResponse = await bridgeService.getQuote(quoteRequest);
 
-        // ── Step 6: Find signature step ───────────────────────────
+        // ── Step 6: Find executable step (new: Solana tx step, legacy: signature step) ──
+        const txStep = quoteResponse.steps.find((step) => step.kind === 'transaction');
         const signatureStep = quoteResponse.steps.find((step) => step.kind === 'signature');
 
-        if (!signatureStep) {
-          throw new Error('No signature step found in quote response');
+        const requestId = (txStep ?? signatureStep)?.requestId;
+        if (!requestId) {
+          throw new Error('No executable step found in quote response');
         }
 
-        const requestId = signatureStep.requestId;
-
-        // ── Step 7: Sign bridge transaction ───────────────────────
+        // ── Step 7: Execute bridge ────────────────────────────────
         setStatus('signing-permit');
-        let signResult: BridgeSignResult;
+        if (txStep) {
+          const data = txStep.items?.[0]?.data as
+            | {
+                addressLookupTableAddresses?: string[];
+                instructions?: Array<{
+                  programId: string;
+                  keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
+                  data: string;
+                }>;
+              }
+            | undefined;
 
-        if (handler) {
-          signResult = await handler.signBridgeTransaction(
-            signatureStep,
-            evmAddress,
+          if (!data?.instructions?.length) {
+            throw new Error('Bridge quote transaction step missing Solana instructions');
+          }
+
+          await signAndSubmitRelaySolanaTransaction(
+            { addressLookupTableAddresses: data.addressLookupTableAddresses, instructions: data.instructions },
+            solanaRecipientAddress,
             organizationId
           );
         } else {
-          signResult = await signBridgeDefault(signatureStep, evmAddress, organizationId);
-        }
+          if (!signatureStep) {
+            throw new Error('No signature step found in quote response');
+          }
 
-        // ── Step 8: Execute permit ────────────────────────────────
-        setStatus('executing-permit');
-        await bridgeService.executePermit({
-          signature: signResult.signature,
-          kind: signResult.executeKind,
-          requestId,
-          api: signResult.executeApi,
-        });
+          let signResult: BridgeSignResult;
+          if (handler) {
+            signResult = await handler.signBridgeTransaction(signatureStep, evmAddress, organizationId);
+          } else {
+            signResult = await signBridgeDefault(signatureStep, evmAddress, organizationId);
+          }
+
+          // Legacy path: Execute permit
+          setStatus('executing-permit');
+          await bridgeService.executePermit({
+            signature: signResult.signature,
+            kind: signResult.executeKind,
+            requestId,
+            api: signResult.executeApi,
+          });
+        }
 
         requestIdRef.current = requestId;
 
