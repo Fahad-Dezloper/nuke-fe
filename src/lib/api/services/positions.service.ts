@@ -107,10 +107,33 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
   if (backpack) legs.push({ id: 'backpack', data: backpack });
   if (lighter) legs.push({ id: 'lighter', data: lighter });
 
+  const PROTOCOL_ORDER = ['hyperliquid', 'pacifica', 'backpack', 'lighter'] as const;
+  const legsByProtocolOrder = [...legs].sort(
+    (a, b) => PROTOCOL_ORDER.indexOf(a.id as (typeof PROTOCOL_ORDER)[number]) -
+      PROTOCOL_ORDER.indexOf(b.id as (typeof PROTOCOL_ORDER)[number])
+  );
+
   const longLeg = legs.find((l) => l.data.side === 'Long');
   const shortLeg = legs.find((l) => l.data.side === 'Short');
-  const longProtocol = longLeg?.id ?? 'hyperliquid';
-  const shortProtocol = shortLeg?.id ?? 'pacifica';
+
+  // Map venues to LONG/SHORT column slots. When both legs share the same side (e.g. both
+  // "Short" from the API), avoid defaulting missing long → hyperliquid and short → first
+  // Short leg (also hyperliquid), which showed Hyperliquid twice.
+  let longProtocol: string;
+  let shortProtocol: string;
+  if (longLeg && shortLeg) {
+    longProtocol = longLeg.id;
+    shortProtocol = shortLeg.id;
+  } else if (legsByProtocolOrder.length >= 2) {
+    longProtocol = legsByProtocolOrder[0]!.id;
+    shortProtocol = legsByProtocolOrder[1]!.id;
+  } else if (legsByProtocolOrder.length === 1) {
+    longProtocol = legsByProtocolOrder[0]!.id;
+    shortProtocol = legsByProtocolOrder[0]!.id;
+  } else {
+    longProtocol = 'hyperliquid';
+    shortProtocol = 'pacifica';
+  }
 
   let totalSize = 0;
   let totalPricePnl = 0;

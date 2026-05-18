@@ -15,6 +15,7 @@
 export type {
   Exchange,
   ExchangeName,
+  HedgePair,
   HedgeIntentStatus,
   HedgeLegStatus,
   HedgeAction,
@@ -34,7 +35,7 @@ export type {
   StepStatus,
   ExecutionPhase,
 } from './types';
-export { ACTIVE_HEDGE_INTENT_KEY } from './types';
+export { ACTIVE_HEDGE_INTENT_KEY, ACTIVE_HEDGE_PAIR_KEY } from './types';
 
 // ── API ──────────────────────────────────────────────────────────────────────
 export { hedgeIntentApi } from './api';

@@ -10,7 +10,7 @@ import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.servi
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
 import { BackpackService } from '@/lib/services/backpack/backpack.service';
 import { getSharedLighterAdapter } from '@/lib/services/lighter/lighter-shared-adapter';
-import { perpTickerToIndex } from '@/dex/hyperliquid/utils/asset-index-converter';
+import { HyperLiquidAdapter } from '@/lib/arbitrage/adapters/hyperliquid-adapter';
 import { BUILDER_CODE } from '@/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -45,6 +45,7 @@ export type LighterPositionData = HLPositionData;
 // ─── Singleton Services ───────────────────────────────────────────────────────
 
 const hlService = new HyperLiquidService();
+const hlAdapter = new HyperLiquidAdapter(hlService);
 const pacificaService = new PacificaService();
 const backpackService = new BackpackService();
 
@@ -52,6 +53,8 @@ const backpackService = new BackpackService();
 
 /**
  * Close a HyperLiquid position for a given asset.
+ * Uses HL clearinghouse state for side/size — do not trust aggregate API leg fields
+ * (they can disagree with on-chain state after mis-opened hedges).
  */
 export async function closeHLPosition(
   hl: HLPositionData,
@@ -59,24 +62,8 @@ export async function closeHLPosition(
   organizationId: string
 ): Promise<CloseLegResult> {
   try {
-    const assetIndex = await perpTickerToIndex(hl.symbol.toUpperCase());
-    if (assetIndex === -1) {
-      return { protocol: 'hyperliquid', success: false, error: `Unknown asset: ${hl.symbol}` };
-    }
-
-    const result = await hlService.closePosition(
-      {
-        assetIndex,
-        assetName: hl.symbol.toUpperCase(),
-        price: 0, // Market order — price is ignored
-        size: hl.size,
-        isLong: hl.side === 'Long',
-        isMarket: true,
-        userAddress: evmAddress,
-      },
-      evmAddress,
-      organizationId
-    );
+    const symbol = hl.symbol.toUpperCase();
+    const result = await hlAdapter.closePosition(symbol, evmAddress, organizationId);
 
     return {
       protocol: 'hyperliquid',

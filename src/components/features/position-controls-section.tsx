@@ -32,6 +32,7 @@ import {
   marginValidationAtom,
 } from './position-controls/store';
 import { useHedgeIntent } from '@/lib/hedge-intent';
+import { useBestPair } from '@/hooks/use-best-pair';
 import { useExchangeBalances } from '@/hooks/use-exchange-balances';
 import { marketFeedDataAtom } from '@/lib/stores/market-feed.store';
 import { PositionControlsSkeleton } from '@/components/ui/skeletons';
@@ -66,6 +67,7 @@ export function PositionControlsSectionContent({
     currentAction,
     detail,
   } = useHedgeIntent();
+  const { getBestPairForAsset } = useBestPair();
 
   // ── Handlers ───────────────────────────────────────────────
   const handleOpenPosition = async () => {
@@ -90,11 +92,14 @@ export function PositionControlsSectionContent({
       return;
     }
 
-    // Open hedged position via intent system
+    const assetItem = marketFeedData.find((a) => a.asset === selectedAsset) ?? null;
+    const bestPair = getBestPairForAsset(assetItem);
     await openHedge({
       asset: selectedAsset,
       marginUsd: parseFloat(margin),
       leverage,
+      longExchange: bestPair.long,
+      shortExchange: bestPair.short,
     });
   };
 

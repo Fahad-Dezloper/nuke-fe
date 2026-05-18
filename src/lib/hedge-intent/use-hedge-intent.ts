@@ -9,7 +9,7 @@
  *   const { openHedge, status, phase, detail, ... } = useHedgeIntent();
  *
  *   // User clicks "Open Hedged Position":
- *   await openHedge({ asset: 'BTC', margin: 1000, leverage: 5 });
+ *   await openHedge({ asset: 'BTC', marginUsd: 1000, leverage: 5, longExchange: 'pacifica', shortExchange: 'hyperliquid' });
  *
  *   // On page reload: hook auto-resumes if there's an active intent
  */
@@ -24,6 +24,14 @@ import { marginAtom } from '@/components/features/position-controls/store';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getWalletContext } from '@/lib/wallet-context';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
+import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
+import {
+  bestPairMetricAtom,
+  selectedExchangesAtom,
+  selectedVenuesList,
+} from '@/lib/stores/arbitrage-table-filters.store';
+import { marketFeedDataAtom } from '@/lib/stores/market-feed.store';
+import { getBestPair } from '@/hooks/use-best-pair';
 import { queryKeys } from '@/lib/query-keys';
 // Backpack authenticated balance refresh disabled (display-only demo).
 // import { refreshBackpackMarginBalance } from '@/lib/stores/backpack-margin.store';
@@ -34,10 +42,12 @@ import type {
   HedgeAction,
   HedgeIntentStatus,
   HedgeIntentDetail,
+  Exchange,
   ExchangeName,
+  HedgePair,
   ExecutionPhase,
 } from './types';
-import { ACTIVE_HEDGE_INTENT_KEY } from './types';
+import { ACTIVE_HEDGE_INTENT_KEY, ACTIVE_HEDGE_PAIR_KEY } from './types';
 
 // ─── LocalStorage helpers ────────────────────────────────────────────────────
 
@@ -60,7 +70,39 @@ function loadActiveIntentId(): string | null {
 function clearActiveIntentId(): void {
   try {
     localStorage.removeItem(LS_KEY);
+    localStorage.removeItem(ACTIVE_HEDGE_PAIR_KEY);
   } catch { /* noop */ }
+}
+
+function storeHedgePair(pair: HedgePair): void {
+  try {
+    localStorage.setItem(ACTIVE_HEDGE_PAIR_KEY, JSON.stringify(pair));
+  } catch { /* noop */ }
+}
+
+function loadHedgePair(): HedgePair | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_HEDGE_PAIR_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as HedgePair;
+    if (parsed?.long && parsed?.short) return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function toHedgeExchangeName(exchange: Exchange): ExchangeName {
+  switch (exchange) {
+    case 'hyperliquid':
+      return 'Hyperliquid';
+    case 'pacifica':
+      return 'Pacifica';
+    case 'backpack':
+      return 'Backpack';
+    case 'lighter':
+      return 'Lighter';
+  }
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -73,7 +115,11 @@ export interface OpenHedgeParams {
   marginUsd: number;
   /** Leverage multiplier (≥ 1) */
   leverage: number;
-  /** Exchanges to use (default: ["Hyperliquid", "Pacifica"]) */
+  /** Long venue — must match position panel / asset table best pair */
+  longExchange: Exchange;
+  /** Short venue — must match position panel / asset table best pair */
+  shortExchange: Exchange;
+  /** Exchanges to use (default: derived from long/short) */
   exchanges?: [ExchangeName, ExchangeName];
 }
 
@@ -129,6 +175,10 @@ const IN_PROGRESS_STATUSES: HedgeIntentStatus[] = [
 export function useHedgeIntent(): UseHedgeIntentReturn {
   const { state: turnkeyState } = useTurnkey();
   const spreadAprData = useAtomValue(spreadAprDataAtom);
+  const bestPairOverrides = useAtomValue(bestPairOverrideAtom);
+  const selectedExchangesMap = useAtomValue(selectedExchangesAtom);
+  const bestPairMetric = useAtomValue(bestPairMetricAtom);
+  const marketFeedData = useAtomValue(marketFeedDataAtom);
   const queryClient = useQueryClient();
   const setMargin = useSetAtom(marginAtom);
 
@@ -146,15 +196,39 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
   const engineRef = useRef<HedgeIntentEngine | null>(null);
   const isRunningRef = useRef(false);
   const resumeAttemptedRef = useRef(false);
+  const hedgePairRef = useRef<HedgePair | null>(null);
+
+  const resolveHedgePairForAsset = useCallback(
+    (asset: string, explicit?: HedgePair): HedgePair => {
+      if (explicit) return explicit;
+      const stored = loadHedgePair();
+      if (stored) return stored;
+
+      const assetItem = marketFeedData.find((a) => a.asset === asset) ?? null;
+      const selectedList = selectedVenuesList(selectedExchangesMap);
+      const pair = getBestPair(
+        assetItem,
+        spreadAprData,
+        bestPairOverrides[asset] ?? null,
+        { selectedExchanges: selectedList, metric: bestPairMetric }
+      );
+      return { long: pair.long, short: pair.short };
+    },
+    [marketFeedData, spreadAprData, bestPairOverrides, selectedExchangesMap, bestPairMetric]
+  );
 
   // ── Build executor context from Turnkey state ──────────────
   const buildContext = useCallback((): ExecutorContext => {
     const wallet = getWalletContext(turnkeyState);
+    const hedgePair = hedgePairRef.current;
+    if (!hedgePair) {
+      throw new Error('Hedge pair not set — cannot execute without long/short venues');
+    }
     return {
       ...wallet,
-      spreadAprData,
+      hedgePair,
     };
-  }, [turnkeyState, spreadAprData]);
+  }, [turnkeyState]);
 
   // ── Build engine callbacks ─────────────────────────────────
   const buildCallbacks = useCallback(
@@ -233,6 +307,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         isRunningRef.current = false;
         setCurrentAction(null);
         setCurrentLeg(null);
+        hedgePairRef.current = null;
         clearActiveIntentId();
 
         // Final detail refresh
@@ -246,13 +321,22 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
 
   // ── Run the engine ─────────────────────────────────────────
   const runEngine = useCallback(
-    async (hedgeIntentId: string) => {
+    async (hedgeIntentId: string, explicitPair?: HedgePair) => {
       if (isRunningRef.current) {
         console.warn('[useHedgeIntent] Engine already running');
         return;
       }
 
       try {
+        if (!hedgePairRef.current) {
+          if (explicitPair) {
+            hedgePairRef.current = explicitPair;
+          } else {
+            const detail = await hedgeIntentApi.getDetail(hedgeIntentId);
+            hedgePairRef.current = resolveHedgePairForAsset(detail.intent.asset);
+          }
+        }
+
         const context = buildContext();
 
         setIntentId(hedgeIntentId);
@@ -287,7 +371,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         });
       }
     },
-    [buildContext, buildCallbacks]
+    [buildContext, buildCallbacks, resolveHedgePairForAsset]
   );
 
   // ── Public: Open a new hedge ───────────────────────────────
@@ -298,11 +382,21 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
       setStatusMessage('Creating hedge intent...');
       setIsExecuting(true);
 
-      try {
-        const context = buildContext();
-        const exchanges = params.exchanges || (['Hyperliquid', 'Pacifica'] as [ExchangeName, ExchangeName]);
+      const pair: HedgePair = {
+        long: params.longExchange,
+        short: params.shortExchange,
+      };
+      hedgePairRef.current = pair;
+      storeHedgePair(pair);
 
-        // Create the intent on backend
+      try {
+        const exchanges =
+          params.exchanges ??
+          ([
+            toHedgeExchangeName(params.longExchange),
+            toHedgeExchangeName(params.shortExchange),
+          ] as [ExchangeName, ExchangeName]);
+
         const newIntentId = await hedgeIntentApi.create({
           asset: params.asset,
           exchanges,
@@ -310,12 +404,10 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
           leverage: params.leverage,
         });
 
-        // Store for resumability
         storeActiveIntentId(newIntentId);
-
-        // Start the execution loop
-        await runEngine(newIntentId);
+        await runEngine(newIntentId, pair);
       } catch (err) {
+        hedgePairRef.current = null;
         const errorMessage = err instanceof Error ? err.message : String(err);
         setError(errorMessage);
         setPhase('failed');
@@ -326,7 +418,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         });
       }
     },
-    [buildContext, runEngine]
+    [runEngine]
   );
 
   // ── Public: Resume an existing intent ──────────────────────
