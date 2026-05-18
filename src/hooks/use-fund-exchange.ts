@@ -210,15 +210,20 @@ export function useFundExchange(): UseFundExchangeReturn {
                   keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
                   data: string;
                 }>;
+                sponsoredTransaction?: string;
               }
             | undefined;
 
-          if (!data?.instructions?.length) {
+          if (!data?.sponsoredTransaction && !data?.instructions?.length) {
             throw new Error(`Bridge quote transaction step missing Solana instructions`);
           }
 
           await signAndSubmitRelaySolanaTransaction(
-            { addressLookupTableAddresses: data.addressLookupTableAddresses, instructions: data.instructions },
+            {
+              addressLookupTableAddresses: data.addressLookupTableAddresses,
+              instructions: data.instructions,
+              sponsoredTransaction: data.sponsoredTransaction,
+            },
             wallet.solanaAddress,
             wallet.organizationId
           );

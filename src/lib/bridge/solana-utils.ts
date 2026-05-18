@@ -157,7 +157,13 @@ export interface SolanaRelayInstruction {
 
 export interface SolanaRelayTransactionData {
   addressLookupTableAddresses?: string[];
-  instructions: SolanaRelayInstruction[];
+  instructions?: SolanaRelayInstruction[];
+  /**
+   * Base64-encoded VersionedTransaction already partially signed by the
+   * backend fee-payer. When present, the FE skips compiling instructions and
+   * only adds the user's signature before submitting. BE pays SOL gas.
+   */
+  sponsoredTransaction?: string;
 }
 
 function hexToBytes(hex: string): Uint8Array {
@@ -185,6 +191,42 @@ export async function signAndSubmitRelaySolanaTransaction(
     await import('@solana/web3.js');
 
   const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+
+  if (data.sponsoredTransaction) {
+    const txBytes = Uint8Array.from(atob(data.sponsoredTransaction), (c) => c.charCodeAt(0));
+    const tx = VersionedTransaction.deserialize(txBytes);
+
+    const userIndex = tx.message.staticAccountKeys.findIndex(
+      (k) => k.toBase58() === userWalletAddress
+    );
+    if (userIndex < 0) {
+      throw new Error('User wallet not found in sponsored transaction account keys');
+    }
+
+    const userSignature = await signSolanaMessageWithTurnkey(
+      tx.message.serialize(),
+      userWalletAddress,
+      organizationId
+    );
+    tx.signatures[userIndex] = userSignature;
+
+    const sponsoredBlockhash = await connection.getLatestBlockhash('confirmed');
+
+    const txSig = await connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+    });
+
+    const confirmation = await connection.confirmTransaction(
+      { signature: txSig, ...sponsoredBlockhash },
+      'confirmed'
+    );
+    if (confirmation.value.err) {
+      throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+    }
+
+    return txSig;
+  }
 
   const payer = new PublicKey(userWalletAddress);
 
