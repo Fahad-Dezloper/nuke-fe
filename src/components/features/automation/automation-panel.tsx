@@ -6,13 +6,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtomValue } from 'jotai';
 import { cn } from '@/lib/utils';
 import { useHedgeIntent } from '@/lib/hedge-intent/use-hedge-intent';
+import type { Exchange } from '@/lib/hedge-intent/types';
 import { useClosePosition } from '@/hooks/use-close-position';
 import { usePositions } from '@/hooks/use-positions';
-import type { AssetSpreadApr } from '@/lib/api/services/apr.service';
-import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import {
   AUTOMATION_EXCHANGES,
   type AutomationExchangeId,
@@ -152,19 +151,18 @@ function clearDemoPersisted() {
   }
 }
 
-function spreadAprFromBestPairLegs(asset: string, legs: RustRecommendedLeg[]): AssetSpreadApr {
+function hedgePairFromRecommendedLegs(legs: RustRecommendedLeg[]): {
+  long: Exchange;
+  short: Exchange;
+} {
   const longLeg = legs.find((l) => l.side === 'LONG');
   const shortLeg = legs.find((l) => l.side === 'SHORT');
-  const longPlatform =
-    (longLeg?.exchange.toLowerCase() as AssetSpreadApr['longPlatform']) || 'pacifica';
-  const shortPlatform =
-    (shortLeg?.exchange.toLowerCase() as AssetSpreadApr['shortPlatform']) || 'hyperliquid';
+  if (!longLeg || !shortLeg) {
+    throw new Error('Recommendation must include LONG and SHORT legs');
+  }
   return {
-    longPlatform,
-    shortPlatform,
-    totalSpread: 0,
-    sevenDayApr: 0,
-    sortedSpreadPairs: [],
+    long: longLeg.exchange.toLowerCase() as Exchange,
+    short: shortLeg.exchange.toLowerCase() as Exchange,
   };
 }
 
@@ -343,13 +341,6 @@ export function AutomationPanel() {
     margin: number;
     leverage: number;
   } | null>(null);
-  const spreadAprBackupRef = useRef<{
-    asset: string;
-    previous: AssetSpreadApr | undefined;
-  } | null>(null);
-
-  const spreadAprData = useAtomValue(spreadAprDataAtom);
-  const setSpreadAprData = useSetAtom(spreadAprDataAtom);
   const { openHedge, phase } = useHedgeIntent();
   const { rawPositions, refetch: refetchPositions } = usePositions({
     evmAddress: evm || undefined,
@@ -364,18 +355,6 @@ export function AutomationPanel() {
       void refetchPositions();
     },
   });
-
-  const restoreSpreadAprBackup = useCallback(() => {
-    const b = spreadAprBackupRef.current;
-    if (!b) return;
-    setSpreadAprData((prev) => {
-      const next = { ...prev };
-      if (b.previous === undefined) delete next[b.asset];
-      else next[b.asset] = b.previous;
-      return next;
-    });
-    spreadAprBackupRef.current = null;
-  }, [setSpreadAprData]);
 
   useEffect(() => {
     if (!AUTOMATION_DEMO_HEDGE_ONLY || !pendingDemoHedgeRef.current) return;
@@ -411,13 +390,11 @@ export function AutomationPanel() {
           leverage: leverageNum,
         });
       }
-      restoreSpreadAprBackup();
     } else if (phase === 'failed') {
       pendingDemoHedgeRef.current = false;
       demoOpenContextRef.current = null;
-      restoreSpreadAprBackup();
     }
-  }, [phase, restoreSpreadAprBackup]);
+  }, [phase]);
 
   useEffect(() => {
     if (!AUTOMATION_DEMO_HEDGE_ONLY) return;
@@ -642,16 +619,14 @@ export function AutomationPanel() {
       pendingDemoHedgeRef.current = true;
       demoOpenContextRef.current = { rec, margin: maxSize, leverage: maxLeverage };
       const asset = rec.asset;
-      spreadAprBackupRef.current = { asset, previous: spreadAprData[asset] };
-      setSpreadAprData((prev) => ({
-        ...prev,
-        [asset]: spreadAprFromBestPairLegs(asset, rec.legs),
-      }));
+      const { long: longExchange, short: shortExchange } = hedgePairFromRecommendedLegs(rec.legs);
       try {
         await openHedge({
           asset,
           marginUsd: maxSize,
           leverage: maxLeverage,
+          longExchange,
+          shortExchange,
         });
       } finally {
         setActionLoading(false);

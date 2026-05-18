@@ -47,11 +47,11 @@ import {
   trackBuilderCodeApproved,
 } from '@/lib/analytics';
 import type { QuoteRequest } from '@/lib/bridge/types';
-import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 import type {
   NextActionResponse,
   LegResultEntry,
   Exchange,
+  HedgePair,
   BridgeActionParams,
   DepositActionParams,
   OpenPositionActionParams,
@@ -76,8 +76,8 @@ export interface ExecutorContext {
   solanaAddress: string;
   /** Turnkey organization ID */
   organizationId: string;
-  /** Spread APR data for determining long/short direction */
-  spreadAprData: SpreadAprMap;
+  /** Long/short venues from UI best pair (position panel / table) */
+  hedgePair: HedgePair;
 }
 
 // ─── Result ──────────────────────────────────────────────────────────────────
@@ -738,21 +738,17 @@ export class HedgeActionExecutor {
       exchange: normalizeHedgeExchange(l.exchange),
     }));
 
-    // ── Step 1: Determine long/short direction from spread APR data ──
-    const spreadData = context.spreadAprData[asset];
-    let getDirection: (exchange: Exchange) => 'long' | 'short';
-
-    if (spreadData) {
-      getDirection = (exchange: Exchange) =>
-        normalizeHedgeExchange(exchange) === spreadData.longPlatform ? 'long' : 'short';
-    } else {
-      const primary = legs[0]?.exchange ?? 'hyperliquid';
+    // ── Step 1: Long/short from UI best pair (same as position panel) ──
+    const { long: longExchange, short: shortExchange } = context.hedgePair;
+    const getDirection = (exchange: Exchange): 'long' | 'short' => {
+      const normalized = normalizeHedgeExchange(exchange);
+      if (normalized === longExchange) return 'long';
+      if (normalized === shortExchange) return 'short';
       console.warn(
-        `[HedgeExecutor] No spread APR data for ${asset}, defaulting first leg (${primary})=long`
+        `[HedgeExecutor] Exchange ${exchange} not in hedge pair (${longExchange} long / ${shortExchange} short); defaulting to short`
       );
-      getDirection = (exchange: Exchange) =>
-        normalizeHedgeExchange(exchange) === primary ? 'long' : 'short';
-    }
+      return 'short';
+    };
 
     // ── Step 2: Check current leverage and update only if different ──
     console.log(`[HedgeExecutor] Checking leverage for ${asset} on all legs...`);

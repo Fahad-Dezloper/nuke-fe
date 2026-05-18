@@ -212,3 +212,12 @@ export type ExecutionPhase =
 
 /** LocalStorage key for active hedge intent */
 export const ACTIVE_HEDGE_INTENT_KEY = 'active_hedge_intent_id';
+
+/** LocalStorage key for long/short venues used when opening the active intent */
+export const ACTIVE_HEDGE_PAIR_KEY = 'active_hedge_pair';
+
+/** Long and short venues for a delta-neutral hedge (matches position panel best pair) */
+export interface HedgePair {
+  long: Exchange;
+  short: Exchange;
+}
