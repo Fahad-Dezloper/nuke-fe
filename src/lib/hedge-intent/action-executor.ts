@@ -738,6 +738,13 @@ export class HedgeActionExecutor {
       exchange: normalizeHedgeExchange(l.exchange),
     }));
 
+    // Referral + builder approval (required for builder_code on orders). Deposit path runs
+    // this too, but users with existing Pacifica margin skip deposit and go straight to open.
+    if (legs.some((l) => l.exchange === 'pacifica')) {
+      const accessError = await this.ensurePacificaAccess(context);
+      if (accessError) return accessError;
+    }
+
     // ── Step 1: Long/short from UI best pair (same as position panel) ──
     const { long: longExchange, short: shortExchange } = context.hedgePair;
     const getDirection = (exchange: Exchange): 'long' | 'short' => {
