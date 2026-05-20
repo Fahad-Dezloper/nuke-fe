@@ -38,6 +38,13 @@ const exchangeLogoMap: Record<
     height: 18,
     className: 'rounded-full',
   },
+  Phoenix: {
+    src: '/tokens/phoenix.svg',
+    alt: 'Phoenix logo',
+    width: 18,
+    height: 18,
+    className: 'rounded-full',
+  },
 };
 
 export function ExchangeLogo({ name, mark }: ExchangeLogoProps) {

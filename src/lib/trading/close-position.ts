@@ -8,6 +8,7 @@
 
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
+import { PhoenixService } from '@/lib/services/phoenix/phoenix.service';
 import { BackpackService } from '@/lib/services/backpack/backpack.service';
 import { getSharedLighterAdapter } from '@/lib/services/lighter/lighter-shared-adapter';
 import { HyperLiquidAdapter } from '@/lib/arbitrage/adapters/hyperliquid-adapter';
@@ -16,7 +17,7 @@ import { BUILDER_CODE } from '@/constants';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CloseLegResult {
-  protocol: 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
+  protocol: 'hyperliquid' | 'pacifica' | 'phoenix' | 'backpack' | 'lighter';
   success: boolean;
   error?: string;
 }
@@ -28,6 +29,12 @@ export interface HLPositionData {
 }
 
 export interface PacificaPositionData {
+  symbol: string;
+  size: string;
+  side: 'Long' | 'Short';
+}
+
+export interface PhoenixPositionData {
   symbol: string;
   size: string;
   side: 'Long' | 'Short';
@@ -47,6 +54,7 @@ export type LighterPositionData = HLPositionData;
 const hlService = new HyperLiquidService();
 const hlAdapter = new HyperLiquidAdapter(hlService);
 const pacificaService = new PacificaService();
+const phoenixService = new PhoenixService();
 const backpackService = new BackpackService();
 
 // ─── Close Functions ──────────────────────────────────────────────────────────
@@ -137,6 +145,38 @@ export async function closeLighterPosition(
   } catch (err) {
     return {
       protocol: 'lighter',
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Close a Phoenix leg with a reduce-only market IOC via Rise.
+ */
+export async function closePhoenixPosition(
+  phx: PhoenixPositionData,
+  solanaAddress: string,
+  organizationId: string
+): Promise<CloseLegResult> {
+  try {
+    const closeDirection: 'long' | 'short' = phx.side === 'Long' ? 'short' : 'long';
+    const res = await phoenixService.placeMarketOrder({
+      symbol: phx.symbol.toUpperCase(),
+      direction: closeDirection,
+      baseUnits: phx.size,
+      solanaAuthority: solanaAddress,
+      organizationId,
+      reduceOnly: true,
+    });
+    return {
+      protocol: 'phoenix',
+      success: res.success,
+      error: res.success ? undefined : res.error,
+    };
+  } catch (err) {
+    return {
+      protocol: 'phoenix',
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error',
     };

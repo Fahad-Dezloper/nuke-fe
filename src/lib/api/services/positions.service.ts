@@ -53,6 +53,16 @@ export interface PositionApiResponse {
     leverage: number;
     liquidationPrice: string;
   } | null;
+  phoenix?: {
+    symbol: string;
+    size: string;
+    side: 'Long' | 'Short';
+    pnl: string;
+    funding: string;
+    margin: string;
+    leverage: number;
+    liquidationPrice: string;
+  } | null;
 }
 
 /**
@@ -99,15 +109,17 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
   const { symbol, hyperliquid, pacifica } = apiData;
   const backpack = apiData.backpack ?? null;
   const lighter = apiData.lighter ?? null;
+  const phoenix = apiData.phoenix ?? null;
 
   type Leg = NonNullable<PositionApiResponse['hyperliquid']>;
   const legs: { id: string; data: Leg }[] = [];
   if (hyperliquid) legs.push({ id: 'hyperliquid', data: hyperliquid });
   if (pacifica) legs.push({ id: 'pacifica', data: pacifica });
+  if (phoenix) legs.push({ id: 'phoenix', data: phoenix });
   if (backpack) legs.push({ id: 'backpack', data: backpack });
   if (lighter) legs.push({ id: 'lighter', data: lighter });
 
-  const PROTOCOL_ORDER = ['hyperliquid', 'pacifica', 'backpack', 'lighter'] as const;
+  const PROTOCOL_ORDER = ['hyperliquid', 'pacifica', 'phoenix', 'backpack', 'lighter'] as const;
   const legsByProtocolOrder = [...legs].sort(
     (a, b) => PROTOCOL_ORDER.indexOf(a.id as (typeof PROTOCOL_ORDER)[number]) -
       PROTOCOL_ORDER.indexOf(b.id as (typeof PROTOCOL_ORDER)[number])
@@ -157,14 +169,17 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
   const pacificaPnl = pacifica ? parseFloat(pacifica.pnl) : 0;
   const backpackPnl = backpack ? parseFloat(backpack.pnl) : 0;
   const lighterPnl = lighter ? parseFloat(lighter.pnl) : 0;
+  const phoenixPnl = phoenix ? parseFloat(phoenix.pnl) : 0;
   const hyperliquidFunding = hyperliquid ? parseFloat(hyperliquid.funding) : 0;
   const pacificaFunding = pacifica ? parseFloat(pacifica.funding) : 0;
   const backpackFunding = backpack ? parseFloat(backpack.funding) : 0;
   const lighterFunding = lighter ? parseFloat(lighter.funding) : 0;
+  const phoenixFunding = phoenix ? parseFloat(phoenix.funding) : 0;
   const hyperliquidMargin = hyperliquid ? parseFloat(hyperliquid.margin) : 0;
   const pacificaMargin = pacifica ? parseFloat(pacifica.margin) : 0;
   const backpackMargin = backpack ? parseFloat(backpack.margin) : 0;
   const lighterMargin = lighter ? parseFloat(lighter.margin) : 0;
+  const phoenixMargin = phoenix ? parseFloat(phoenix.margin) : 0;
 
   const toProtocolRow = (
     row: Leg | null,
@@ -203,6 +218,7 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
       pacifica: toProtocolRow(pacifica, pacificaPnl, pacificaFunding, pacificaMargin),
       backpack: toProtocolRow(backpack, backpackPnl, backpackFunding, backpackMargin),
       lighter: toProtocolRow(lighter, lighterPnl, lighterFunding, lighterMargin),
+      phoenix: toProtocolRow(phoenix, phoenixPnl, phoenixFunding, phoenixMargin),
     },
   };
 }

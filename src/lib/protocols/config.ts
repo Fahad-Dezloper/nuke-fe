@@ -44,6 +44,15 @@ export const PROTOCOL_CONFIGS: Record<string, ProtocolConfig> = {
     bgOpacity: 0.1,
     borderOpacity: 0.2,
   },
+  phoenix: {
+    id: 'phoenix',
+    displayName: 'Phoenix',
+    chipLabel: 'Phoenix',
+    logo: '/tokens/phoenix.svg',
+    colorVar: '--chart-phoenix',
+    bgOpacity: 0.1,
+    borderOpacity: 0.2,
+  },
   backpack: {
     id: 'backpack',
     displayName: 'Backpack',

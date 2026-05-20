@@ -280,6 +280,7 @@ export class HedgeIntentEngine {
         return 'bridging';
       case 'DEPOSIT_TO_HYPERLIQUID':
       case 'DEPOSIT_TO_PACIFICA':
+      case 'DEPOSIT_TO_PHOENIX':
       case 'DEPOSIT_TO_BACKPACK':
       case 'DEPOSIT_TO_LIGHTER':
         return 'depositing';
@@ -310,6 +311,8 @@ export class HedgeIntentEngine {
         return 'Depositing USDC into Hyperliquid...';
       case 'DEPOSIT_TO_PACIFICA':
         return 'Depositing USDC into Pacifica...';
+      case 'DEPOSIT_TO_PHOENIX':
+        return 'Depositing USDC into Phoenix...';
       case 'DEPOSIT_TO_BACKPACK':
         return 'Depositing USDC into Backpack...';
       case 'DEPOSIT_TO_LIGHTER':
@@ -341,6 +344,8 @@ export class HedgeIntentEngine {
         return 'Deposit to Hyperliquid';
       case 'DEPOSIT_TO_PACIFICA':
         return 'Deposit to Pacifica';
+      case 'DEPOSIT_TO_PHOENIX':
+        return 'Deposit to Phoenix';
       case 'DEPOSIT_TO_BACKPACK':
         return 'Deposit to Backpack';
       case 'DEPOSIT_TO_LIGHTER':

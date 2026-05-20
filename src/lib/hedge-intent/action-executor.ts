@@ -15,21 +15,24 @@ import { pollBridgeStatus } from '@/lib/bridge/poll-bridge-status';
 import { signAndSubmitRelaySolanaTransaction } from '@/lib/bridge/solana-utils';
 import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperliquid.handler';
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
+import { PhoenixDepositHandler } from '@/lib/bridge/deposit-handlers/phoenix.handler';
 import { LighterDepositHandler } from '@/lib/bridge/deposit-handlers/lighter.handler';
 // Backpack authenticated actions disabled (display-only demo).
 // import { BackpackDepositHandler } from '@/lib/bridge/deposit-handlers/backpack.handler';
 import { HyperLiquidAdapter } from '@/lib/arbitrage/adapters/hyperliquid-adapter';
 import { PacificaAdapter } from '@/lib/arbitrage/adapters/pacifica-adapter';
+import { PhoenixAdapter } from '@/lib/arbitrage/adapters/phoenix-adapter';
 import { BackpackAdapter } from '@/lib/arbitrage/adapters/backpack-adapter';
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
+import { PhoenixService } from '@/lib/services/phoenix/phoenix.service';
 import { BackpackService } from '@/lib/services/backpack/backpack.service';
 import { MarketPriceHelper } from '@/dex/hyperliquid/utils/market-price';
 import { positionsService } from '@/lib/api/services/positions.service';
 import {
   closeHLPosition,
   closePacificaPosition,
-  closeBackpackPosition,
+  closePhoenixPosition,
   closeLighterPosition,
 } from '@/lib/trading/close-position';
 import {
@@ -116,6 +119,8 @@ function hedgeExchangeLabel(exchange: string): string {
       return 'Pacifica';
     case 'lighter':
       return 'Lighter';
+    case 'phoenix':
+      return 'Phoenix';
     case 'backpack':
       return 'Backpack';
     default:
@@ -190,26 +195,32 @@ function clearBridgeRequestId(legId: string): void {
 export class HedgeActionExecutor {
   private hlDepositHandler: HyperliquidDepositHandler;
   private pacificaDepositHandler: PacificaDepositHandler;
+  private phoenixDepositHandler: PhoenixDepositHandler;
   private lighterDepositHandler: LighterDepositHandler;
   // private backpackDepositHandler: BackpackDepositHandler;
   private hlAdapter: HyperLiquidAdapter;
   private pacificaAdapter: PacificaAdapter;
+  private phoenixAdapter: PhoenixAdapter;
   private backpackAdapter: BackpackAdapter;
   private hlService: HyperLiquidService;
   private pacificaService: PacificaService;
+  private phoenixService: PhoenixService;
   private backpackService: BackpackService;
   private priceHelper: MarketPriceHelper;
 
   constructor() {
     this.hlDepositHandler = new HyperliquidDepositHandler();
     this.pacificaDepositHandler = new PacificaDepositHandler();
+    this.phoenixDepositHandler = new PhoenixDepositHandler();
     this.lighterDepositHandler = new LighterDepositHandler();
     // this.backpackDepositHandler = new BackpackDepositHandler();
     this.hlService = new HyperLiquidService();
     this.pacificaService = new PacificaService();
+    this.phoenixService = new PhoenixService();
     this.backpackService = new BackpackService();
     this.hlAdapter = new HyperLiquidAdapter(this.hlService);
     this.pacificaAdapter = new PacificaAdapter(this.pacificaService);
+    this.phoenixAdapter = new PhoenixAdapter();
     this.backpackAdapter = new BackpackAdapter();
     this.priceHelper = new MarketPriceHelper();
   }
@@ -238,6 +249,9 @@ export class HedgeActionExecutor {
 
       case 'DEPOSIT_TO_PACIFICA':
         return this.executeDeposit(context, 'pacifica', action);
+
+      case 'DEPOSIT_TO_PHOENIX':
+        return this.executeDeposit(context, 'phoenix', action);
 
       case 'DEPOSIT_TO_BACKPACK':
         // Backpack display-only: skip authenticated deposit.
@@ -527,17 +541,21 @@ export class HedgeActionExecutor {
         ? this.hlDepositHandler
         : exchange === 'pacifica'
           ? this.pacificaDepositHandler
-          : exchange === 'lighter'
-            ? this.lighterDepositHandler
-            : this.pacificaDepositHandler;
+          : exchange === 'phoenix'
+            ? this.phoenixDepositHandler
+            : exchange === 'lighter'
+              ? this.lighterDepositHandler
+              : this.hlDepositHandler;
     const exchangeLabel =
       exchange === 'hyperliquid'
         ? 'Hyperliquid'
         : exchange === 'pacifica'
           ? 'Pacifica'
-          : exchange === 'lighter'
-            ? 'Lighter'
-            : 'Backpack';
+          : exchange === 'phoenix'
+            ? 'Phoenix'
+            : exchange === 'lighter'
+              ? 'Lighter'
+              : 'Backpack';
 
     const depositParams = action.params as unknown as DepositActionParams;
     const legId = depositParams.leg_id || '';
@@ -545,11 +563,19 @@ export class HedgeActionExecutor {
       typeof depositParams.amount_usd === 'number' && Number.isFinite(depositParams.amount_usd)
         ? depositParams.amount_usd
         : 0;
-    const depositAmountMicros = undefined;
+    const depositAmountMicros =
+      (exchange === 'pacifica' || exchange === 'phoenix') && amountUsd > 0
+        ? BigInt(Math.floor(amountUsd * 1_000_000))
+        : undefined;
 
     // Ensure referral code claimed + builder code approved before depositing to Pacifica
     if (exchange === 'pacifica') {
       const accessError = await this.ensurePacificaAccess(context);
+      if (accessError) return accessError;
+    }
+
+    if (exchange === 'phoenix') {
+      const accessError = await this.ensurePhoenixAccess(context);
       if (accessError) return accessError;
     }
 
@@ -706,6 +732,27 @@ export class HedgeActionExecutor {
     return null; // success — no error
   }
 
+  /**
+   * Ensure Phoenix invite + on-chain trader registration before deposit or trade.
+   */
+  private async ensurePhoenixAccess(context: ExecutorContext): Promise<ActionResult | null> {
+    try {
+      await this.phoenixService.ensureActivatedAndRegistered(
+        context.solanaAddress,
+        context.organizationId
+      );
+      return null;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        txHash: null,
+        error: `Phoenix onboarding failed: ${errMsg}`,
+        legResults: null,
+      };
+    }
+  }
+
   // ─── Open Hedge Position ─────────────────────────────────────────────────
 
   /**
@@ -744,6 +791,13 @@ export class HedgeActionExecutor {
       const accessError = await this.ensurePacificaAccess(context);
       if (accessError) return accessError;
     }
+
+    if (legs.some((l) => l.exchange === 'phoenix')) {
+      const accessError = await this.ensurePhoenixAccess(context);
+      if (accessError) return accessError;
+    }
+
+    this.phoenixAdapter.setEvmAddress(context.evmAddress);
 
     // ── Step 1: Long/short from UI best pair (same as position panel) ──
     const { long: longExchange, short: shortExchange } = context.hedgePair;
@@ -789,6 +843,10 @@ export class HedgeActionExecutor {
               error: res.error,
             };
           }
+          if (ex === 'phoenix') {
+            const target = Math.round(Number(leverage));
+            return { exchange: ex, current: target, success: true, error: undefined };
+          }
           if (ex === 'lighter') {
             const row = await fetchLighterPerpRow(asset.toUpperCase());
             if (!row) {
@@ -823,7 +881,9 @@ export class HedgeActionExecutor {
         currentNum != null && Math.round(currentNum) === targetLev;
 
       // Pacifica leverage is always set again immediately before create_market (Step 5).
-      const needsUpdate = ex === 'pacifica' ? false : currentNum == null || !matchesTarget;
+      // Phoenix FE leverage updates are not wired yet; skip the bulk update step.
+      const needsUpdate =
+        ex === 'pacifica' || ex === 'phoenix' ? false : currentNum == null || !matchesTarget;
 
       if (!needsUpdate) continue;
 
@@ -930,6 +990,24 @@ export class HedgeActionExecutor {
     }
 
     try {
+      const needsPhoenixCap = legs.some((l) => l.exchange === 'phoenix');
+      if (needsPhoenixCap) {
+        const balanceResult = await this.phoenixService.fetchFreeCollateralUsd(context.solanaAddress);
+        if (balanceResult.success && balanceResult.usd > 0) {
+          const available = balanceResult.usd * 0.995;
+          if (available < marginForLegs) {
+            console.log(
+              `[HedgeExecutor] Phoenix available ($${available.toFixed(2)}) < effective_margin ($${marginForLegs.toFixed(2)}) — capping both legs`
+            );
+            marginForLegs = available;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[HedgeExecutor] Could not fetch Phoenix collateral, using effective_margin_usd:', err);
+    }
+
+    try {
       const needsLighterCap = legs.some((l) => l.exchange === 'lighter');
       if (needsLighterCap) {
         const ltAvail = await fetchLighterAvailableUsd(context.evmAddress);
@@ -1006,6 +1084,22 @@ export class HedgeActionExecutor {
               direction,
               margin: marginForLegs.toString(),
               leverage: pacificaLev,
+              walletAddress: context.solanaAddress,
+              organizationId: context.organizationId,
+              isMarket: true,
+              price: marketPrice,
+            });
+            return { exchange: leg.exchange, result };
+          }
+
+          if (leg.exchange === 'phoenix') {
+            const phoenixLev = Math.max(1, Math.round(Number(leverage)));
+            await this.phoenixService.updateLeverage(asset.toUpperCase(), phoenixLev);
+            const result = await this.phoenixAdapter.openPosition({
+              asset,
+              direction,
+              margin: marginForLegs.toString(),
+              leverage: phoenixLev,
               walletAddress: context.solanaAddress,
               organizationId: context.organizationId,
               isMarket: true,
@@ -1125,14 +1219,19 @@ export class HedgeActionExecutor {
       }
 
       // Step 3: Close the specific exchange's leg
+      const ex = normalizeHedgeExchange(exchange);
+      this.phoenixAdapter.setEvmAddress(context.evmAddress);
+
       const closeResult =
-        exchange === 'hyperliquid'
+        ex === 'hyperliquid'
           ? await this.closeHLPositionAction(position.hyperliquid, asset, context)
-          : exchange === 'pacifica'
+          : ex === 'pacifica'
             ? await this.closePacificaPositionAction(position.pacifica, asset, context)
-            : exchange === 'lighter'
-              ? await this.closeLighterPositionAction(position.lighter ?? null, asset, context)
-              : await this.closeBackpackPositionAction(position.backpack ?? null, asset, context);
+            : ex === 'phoenix'
+              ? await this.closePhoenixPositionAction(position.phoenix ?? null, asset, context)
+              : ex === 'lighter'
+                ? await this.closeLighterPositionAction(position.lighter ?? null, asset, context)
+                : await this.closeBackpackPositionAction(position.backpack ?? null, asset);
 
       if (closeResult.success) {
         trackPositionClosed(asset);
@@ -1247,10 +1346,41 @@ export class HedgeActionExecutor {
     };
   }
 
-  private async closeBackpackPositionAction(
-    bpPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
+  private async closePhoenixPositionAction(
+    phxPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
     asset: string,
     context: ExecutorContext
+  ): Promise<ActionResult> {
+    if (!phxPosition) {
+      return {
+        success: false,
+        txHash: null,
+        error: `No Phoenix position found for ${asset}`,
+        legResults: null,
+      };
+    }
+
+    console.log(
+      `[HedgeExecutor] Closing Phoenix position: ${phxPosition.symbol} ${phxPosition.side} size=${phxPosition.size}`
+    );
+
+    const result = await closePhoenixPosition(
+      phxPosition,
+      context.solanaAddress,
+      context.organizationId
+    );
+
+    return {
+      success: result.success,
+      txHash: null,
+      error: result.success ? null : result.error || 'Failed to close Phoenix position',
+      legResults: null,
+    };
+  }
+
+  private async closeBackpackPositionAction(
+    bpPosition: { symbol: string; size: string; side: 'Long' | 'Short' } | null,
+    asset: string
   ): Promise<ActionResult> {
     // backpack (disabled for display-only demo)
     return {

@@ -18,6 +18,7 @@ import {
   leverageAtom,
   hlBalanceAtom,
   pacBalanceAtom,
+  phxBalanceAtom,
   bpBalanceAtom,
   ltBalanceAtom,
   baseBalanceAtom,
@@ -26,6 +27,7 @@ import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { useBestPair, type Protocol } from '@/hooks/use-best-pair';
 import { formatPrice } from '@/lib/utils';
 import type { FundExchange } from '@/hooks/use-fund-exchange';
+import { isPhoenixTradingEnabled } from '@/lib/phoenix/env';
 
 interface PositionDetailsSectionProps {
   className?: string;
@@ -38,6 +40,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
   const isLoggedIn = useAtomValue(isLoggedInAtom);
   const hlBalance = useAtomValue(hlBalanceAtom);
   const pacBalance = useAtomValue(pacBalanceAtom);
+  const phxBalance = useAtomValue(phxBalanceAtom);
   const bpBalance = useAtomValue(bpBalanceAtom);
   const ltBalance = useAtomValue(ltBalanceAtom);
   const baseBalance = useAtomValue(baseBalanceAtom);
@@ -93,6 +96,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
     function getExistingBalance(protocol: Protocol): number {
       if (protocol === 'hyperliquid') return hlBalance;
       if (protocol === 'pacifica') return pacBalance;
+      if (protocol === 'phoenix') return phxBalance;
       if (protocol === 'backpack') return bpBalance;
       if (protocol === 'lighter') return ltBalance;
       return 0;
@@ -100,8 +104,10 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
 
     function fundTarget(protocol: Protocol): FundExchange | null {
       if (protocol === 'backpack') return null;
+      if (protocol === 'phoenix') return isPhoenixTradingEnabled() ? 'phoenix' : null;
       if (protocol === 'lighter') return 'lighter';
-      return protocol;
+      if (protocol === 'hyperliquid' || protocol === 'pacifica') return protocol;
+      return null;
     }
 
     function legCard(
@@ -134,6 +140,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
     getBestPairForAsset,
     hlBalance,
     pacBalance,
+    phxBalance,
     bpBalance,
     ltBalance,
   ]);

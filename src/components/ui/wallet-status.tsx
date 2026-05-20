@@ -43,7 +43,7 @@ export function WalletStatus() {
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { formattedBalance, isLoading: isBalanceLoading } = useUSDCBalanceSolana();
-  const { hlBalance, pacBalance, isLoading: isExchangeLoading } = useExchangeBalances();
+  const { hlBalance, pacBalance, phoenixBalance, isLoading: isExchangeLoading } = useExchangeBalances();
   const [balanceHover, setBalanceHover] = useState(false);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -79,6 +79,7 @@ export function WalletStatus() {
 
   const hlConfig = getProtocolConfig('hyperliquid');
   const pacConfig = getProtocolConfig('pacifica');
+  const phxConfig = getProtocolConfig('phoenix');
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -216,6 +217,35 @@ export function WalletStatus() {
                         ) : (
                           <span className="text-xs font-semibold text-text-primary tabular-nums">
                             ${pacBalance.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Phoenix row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            {phxConfig && (
+                              <Image
+                                src={phxConfig.logo}
+                                alt={phxConfig.displayName}
+                                width={20}
+                                height={20}
+                                className="rounded-full ring-1 ring-white/10"
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-text-primary leading-tight">
+                              {phxConfig?.displayName ?? 'Phoenix'}
+                            </span>
+                          </div>
+                        </div>
+                        {isExchangeLoading ? (
+                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                        ) : (
+                          <span className="text-xs font-semibold text-text-primary tabular-nums">
+                            ${phoenixBalance.toFixed(2)}
                           </span>
                         )}
                       </div>

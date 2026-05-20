@@ -9,6 +9,7 @@ export function defaultExchangeSelection(): Record<HedgeVenueProtocol, boolean> 
   return {
     hyperliquid: true,
     pacifica: true,
+    phoenix: true,
     backpack: false,
     lighter: true,
   };

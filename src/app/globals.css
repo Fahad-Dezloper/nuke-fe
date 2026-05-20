@@ -14,6 +14,7 @@
   --chart-hyperliquid: #3b9797;
   --chart-lighter: #16476a;
   --chart-pink: #fdb5ce;
+  --chart-phoenix: #f97316;
   --chart-dark-blue: #132440;
   --chart-backpack: #fbbf24;
 
@@ -105,6 +106,7 @@
   --color-chart-hyperliquid: var(--chart-hyperliquid);
   --color-chart-lighter: var(--chart-lighter);
   --color-chart-pink: var(--chart-pink);
+  --color-chart-phoenix: var(--chart-phoenix);
   --color-chart-dark-blue: var(--chart-dark-blue);
   --color-chart-backpack: var(--chart-backpack);
 

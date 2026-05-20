@@ -5,6 +5,7 @@
 
 import { apiClient } from '../client';
 import type { AssetDropdownItem } from '@/types/positions';
+import { normalizePhoenixHourlyFunding } from '@/lib/phoenix/funding-normalize';
 
 /**
  * API Response Types
@@ -19,6 +20,12 @@ export interface MarketFeedApiResponse {
   pacifica: {
     mark_px: number;
     funding: number; // Hourly funding rate
+    max_leverage: number;
+  } | null;
+  /** Present when backend includes Phoenix in the feed. */
+  phoenix?: {
+    mark_px: number;
+    funding: number;
     max_leverage: number;
   } | null;
   backpack: {
@@ -82,9 +89,13 @@ function hourlyTo30DayAPR(hourlyRate: number): number {
 function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdownItem[] {
   return apiData
     .filter((item) => {
-      const protocols = [item.hyperliquid, item.pacifica, item.backpack, item.lighter].filter(
-        Boolean
-      );
+      const protocols = [
+        item.hyperliquid,
+        item.pacifica,
+        item.phoenix,
+        item.backpack,
+        item.lighter,
+      ].filter(Boolean);
       return protocols.length >= 2; // Need at least 2 venues to form a hedge
     })
     .map((item) => {
@@ -112,6 +123,19 @@ function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdow
           fundingRateYearly: yearly,
           fundingRate30D: apr30d,
           maxLeverage: item.pacifica.max_leverage,
+        };
+      }
+      if (item.phoenix) {
+        const hourly = normalizePhoenixHourlyFunding(item.phoenix.funding);
+        const yearly = hourlyToYearlyPercentage(hourly);
+        const apr30d = hourlyTo30DayAPR(hourly);
+        protocols.phoenix = {
+          protocol: 'phoenix',
+          markPx: item.phoenix.mark_px,
+          fundingRate: hourly,
+          fundingRateYearly: yearly,
+          fundingRate30D: apr30d,
+          maxLeverage: item.phoenix.max_leverage,
         };
       }
       if (item.backpack) {
@@ -166,14 +190,17 @@ function transformMarketFeedData(apiData: MarketFeedApiResponse[]): AssetDropdow
         markPx:
           protocols.hyperliquid?.markPx ??
           protocols.pacifica?.markPx ??
+          protocols.phoenix?.markPx ??
           protocols.backpack?.markPx ??
           protocols.lighter?.markPx ??
           0,
         hyperliquidMarkPx: protocols.hyperliquid?.markPx,
         pacificaMarkPx: protocols.pacifica?.markPx,
+        phoenixMarkPx: protocols.phoenix?.markPx,
         backpackMarkPx: protocols.backpack?.markPx,
         lighterFundingRate: protocols.lighter?.fundingRateYearly,
         lighterMarkPx: protocols.lighter?.markPx,
+        phoenixFundingRate: protocols.phoenix?.fundingRateYearly,
       };
     });
 }

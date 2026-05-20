@@ -2,7 +2,7 @@
  * useFundExchange — Bridge + deposit (or direct Solana deposit) per exchange
  *
  * - Hyperliquid: Solana USDC → bridge to Arbitrum → HL deposit API
- * - Pacifica: direct Solana USDC → Pacifica deposit tx (no bridge; user already on Solana)
+ * - Phoenix: direct Solana USDC → Phoenix deposit (Rise `buildDepositIxs`, Turnkey-signed)
  * - Lighter: Solana USDC → bridge to **Ethereum mainnet** → `POST /lighter/deposit` (see
  *   LIGHTER_DEPOSIT_FE_INTEGRATION.md) → then poll for L2 account + WASM + L1 `changePubKey` when keys missing.
  * - Backpack: Solana USDC → SPL transfer to Backpack deposit address (no bridge)
@@ -19,6 +19,7 @@ import { bridgeService } from '@/lib/bridge/bridge.service';
 import { pollBridgeStatus } from '@/lib/bridge/poll-bridge-status';
 import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperliquid.handler';
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
+import { PhoenixDepositHandler } from '@/lib/bridge/deposit-handlers/phoenix.handler';
 import { LighterDepositHandler } from '@/lib/bridge/deposit-handlers/lighter.handler';
 import { getLighterL2Credentials } from '@/lib/services/lighter/lighter-credentials';
 import { finalizeLighterL2KeysAfterDeposit } from '@/lib/services/lighter/lighter-onboarding';
@@ -38,7 +39,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type FundExchange = 'hyperliquid' | 'pacifica' | 'lighter';
+export type FundExchange = 'hyperliquid' | 'pacifica' | 'phoenix' | 'lighter';
 
 export type FundStep =
   | 'idle'
@@ -73,17 +74,20 @@ export interface UseFundExchangeReturn extends FundExchangeState {
 
 const hlHandler = new HyperliquidDepositHandler();
 const pacHandler = new PacificaDepositHandler();
+const phxHandler = new PhoenixDepositHandler();
 const ltHandler = new LighterDepositHandler();
 
 function getHandler(exchange: FundExchange) {
   if (exchange === 'hyperliquid') return hlHandler;
   if (exchange === 'lighter') return ltHandler;
+  if (exchange === 'phoenix') return phxHandler;
   return pacHandler;
 }
 
 function getExchangeLabel(exchange: FundExchange): string {
   if (exchange === 'hyperliquid') return 'HyperLiquid';
   if (exchange === 'lighter') return 'Lighter';
+  if (exchange === 'phoenix') return 'Phoenix';
   return 'Pacifica';
 }
 
@@ -94,7 +98,7 @@ function getDestinationChainId(exchange: FundExchange): number {
 }
 
 function getChainLabel(exchange: FundExchange): string {
-  if (exchange === 'pacifica') return 'Solana';
+  if (exchange === 'pacifica' || exchange === 'phoenix') return 'Solana';
   if (exchange === 'lighter') return 'Ethereum';
   return 'Arbitrum';
 }
@@ -134,18 +138,18 @@ export function useFundExchange(): UseFundExchangeReturn {
       try {
         const wallet = getWalletContext(turnkeyState);
 
-        // Pacifica: user already holds USDC on Solana — deposit directly (no relay bridge).
-        if (exchange === 'pacifica') {
+        // Pacifica / Phoenix: user already holds USDC on Solana — deposit directly (no relay bridge).
+        if (exchange === 'pacifica' || exchange === 'phoenix') {
           trackDepositStarted(exchange);
           setStep('depositing');
           setStatusMessage(`Depositing USDC into ${label}...`);
 
           const depositAmountMicros = BigInt(Math.floor(amountUsd * 1_000_000));
 
-          await pacHandler.executeDeposit({
+          await handler.executeDeposit({
             walletAddress: wallet.evmAddress,
             organizationId: wallet.organizationId,
-            bridgeRequestId: `direct-solana-${Date.now()}`,
+            bridgeRequestId: `direct-solana-${exchange}-${Date.now()}`,
             solanaRecipientAddress: wallet.solanaAddress,
             depositAmountMicros,
           });

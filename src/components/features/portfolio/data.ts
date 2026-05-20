@@ -16,8 +16,15 @@ export const venueMarks: Record<VenueKey, string> = {
   hyperliquid: 'HL',
   backpack: 'BP',
   pacifica: 'Pa',
+  phoenix: 'Phx',
   lighter: 'Lt',
 };
 
 /** Order to render exchange cards in, regardless of API order. */
-export const venueDisplayOrder: VenueKey[] = ['hyperliquid', 'backpack', 'pacifica', 'lighter'];
+export const venueDisplayOrder: VenueKey[] = [
+  'hyperliquid',
+  'backpack',
+  'pacifica',
+  'phoenix',
+  'lighter',
+];

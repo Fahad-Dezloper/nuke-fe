@@ -64,9 +64,11 @@ function getProgressSteps(exchange: FundExchange): ProgressStep[] {
       ? 'HyperLiquid'
       : exchange === 'lighter'
         ? 'Lighter'
-        : 'Pacifica';
+        : exchange === 'phoenix'
+          ? 'Phoenix'
+          : 'Pacifica';
 
-  if (exchange === 'pacifica') {
+  if (exchange === 'pacifica' || exchange === 'phoenix') {
     return [{ label: `Depositing to ${label}`, fundSteps: ['depositing'] }];
   }
 
@@ -277,7 +279,7 @@ export function AddMarginModal({
           <h2 className="text-lg font-semibold text-text-primary tracking-tight">ADD MARGIN</h2>
         </div>
         <p className="text-xs text-text-muted-60">
-          {exchange === 'pacifica'
+          {exchange === 'pacifica' || exchange === 'phoenix'
             ? `Deposit USDC from your Solana wallet to ${exchangeLabel}`
             : `Bridge and deposit USDC from Solana to ${exchangeLabel}`}
         </p>
@@ -392,7 +394,7 @@ export function AddMarginModal({
           >
             <div className="p-2.5 rounded-lg bg-yellow-700/10 border border-accent/20">
               <p className="text-[10px] text-text-muted-60 leading-relaxed">
-                {exchange === 'pacifica'
+                {exchange === 'pacifica' || exchange === 'phoenix'
                   ? `This will deposit USDC from your Solana wallet into your ${exchangeLabel} margin account. You may need to approve the transaction in your wallet.`
                   : `This will bridge USDC from Solana and deposit it into your ${exchangeLabel} margin account. The process usually takes 1–3 minutes.`}
               </p>

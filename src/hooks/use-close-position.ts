@@ -17,6 +17,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   closeHLPosition,
   closePacificaPosition,
+  closePhoenixPosition,
   closeBackpackPosition,
   closeLighterPosition,
 } from '@/lib/trading/close-position';
@@ -35,7 +36,7 @@ const RETRY_DELAY_MS = 1500;
 export type CloseStatus = 'idle' | 'closing' | 'success' | 'partial' | 'error';
 
 export interface CloseLegResult {
-  protocol: 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
+  protocol: 'hyperliquid' | 'pacifica' | 'phoenix' | 'backpack' | 'lighter';
   success: boolean;
   error?: string;
 }
@@ -123,6 +124,11 @@ export function useClosePosition(options: UseClosePositionOptions) {
         if (rawPosition.pacifica) {
           const pac = rawPosition.pacifica;
           tasks.push(() => closePacificaPosition(pac, solanaAddress, organizationId));
+        }
+
+        if (rawPosition.phoenix) {
+          const phx = rawPosition.phoenix;
+          tasks.push(() => closePhoenixPosition(phx, solanaAddress, organizationId));
         }
 
         if (rawPosition.backpack) {

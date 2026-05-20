@@ -20,6 +20,7 @@ const SERIES_KEYS: Record<
 > = {
   hyperliquid: { actual: 'hyperliquid', projected: 'projectedHyperliquid' },
   pacifica: { actual: 'pacifica', projected: 'projectedPacifica' },
+  phoenix: { actual: 'phoenix', projected: 'projectedPhoenix' },
   backpack: { actual: 'backpack', projected: 'projectedBackpack' },
   lighter: { actual: 'lighter', projected: 'projectedLighter' },
 };
@@ -47,7 +48,7 @@ function buildChartConfig(): ChartConfig {
     },
   };
 
-  (['hyperliquid', 'pacifica', 'backpack', 'lighter'] as const).forEach((protocolId) => {
+  (['hyperliquid', 'pacifica', 'phoenix', 'backpack', 'lighter'] as const).forEach((protocolId) => {
     const protocolConfig = getProtocolConfig(protocolId);
     if (protocolConfig) {
       config[protocolId] = {

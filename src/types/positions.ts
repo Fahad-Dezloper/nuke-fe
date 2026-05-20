@@ -144,6 +144,8 @@ export interface AssetDropdownItem {
   backpackFundingRate?: number;
   /** Yearly funding % when Lighter data exists for this symbol */
   lighterFundingRate?: number;
+  /** Yearly funding % when Phoenix data exists for this symbol */
+  phoenixFundingRate?: number;
   netAPR: number;
   apr30D: number;
   markPx?: number; // Primary mark price (from first protocol)
@@ -151,4 +153,5 @@ export interface AssetDropdownItem {
   pacificaMarkPx?: number;
   backpackMarkPx?: number;
   lighterMarkPx?: number;
+  phoenixMarkPx?: number;
 }
