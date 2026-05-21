@@ -2,7 +2,7 @@
 
 This document explains how Pacifica is integrated in this repo from start to finish:
 
-- access setup (referral + builder approval)
+- access setup (referral via Nuke BE + Pacifica claim; builder via Pacifica approvals API)
 - signing format and signature generation
 - leverage updates
 - opening/closing positions
@@ -92,37 +92,23 @@ This flattening is done throughout `PacificaService` before calling `submitToPac
 
 ## 4) Access bootstrap before Pacifica trading
 
-The hedging executor ensures Pacifica prerequisites before deposits/opening positions:
+The hedging executor ensures referral + builder prerequisites before deposits/opening positions:
 
 - File: `src/lib/hedge-intent/action-executor.ts`
 - Method: `ensurePacificaAccess(...)`
 
 Sequence:
 
-1. Check referral-claim cache in local storage.
-2. If not cached, call `pacificaService.checkReferralCodeClaimed(context.userId)` (Nuke user UUID from JWT, not Turnkey org id).
-3. If not claimed, call `pacificaService.claimReferralCode(...)`.
-4. Cache referral success.
-5. Check builder-approval cache.
-6. If not cached, call `pacificaService.checkBuilderCodeApproval(account)`.
-7. If not approved, call `pacificaService.approveBuilderCode(...)`.
-8. Cache builder success.
+1. **Referral (points, best-effort):** `GET /user/claim-status/pacifica/{userId}`. If that request **errors**, skip Pacifica claim entirely. If `is_claimed` is false, try `POST /referral/user/code/claim` + Nuke record — **any failure is non-fatal** (console only; deposit/open continues).
+2. **Builder (orders, required):** If cache miss, `GET /account/builder_codes/approvals?account=<solanaAddress>`. If `NUKETRADE` is already in the list, cache and **do not** call approve. If missing, `POST /account/builder_codes/approve` (failure blocks trading).
 
-### 4.1 Referral code claim flow
+### 4.1 Referral claim flow
 
 In `PacificaService.claimReferralCode(...)`:
 
-- Builds a signed message with:
-  - `type: "claim_referral_code"`
-  - `timestamp`
-  - `expiry_window: 5000`
-  - `data: { code: BUILDER_CODE }`
-- Signs via Turnkey.
-- Sends POST to `/referral/user/code/claim` with:
-  - `account`, `signature`, `timestamp`, `expiry_window`
-  - `code`, `agent_wallet: null`
-- On success, it also notifies the app backend via:
-  - `POST /user/claim/pacifica` (`API_ENDPOINTS.pacificaClaim.claim`)
+- Check: `checkReferralClaimedOnBackend(userId)` → Nuke claim-status only.
+- Claim: signed `claim_referral_code` → `POST /referral/user/code/claim` with `code: REFERRAL_CODE` (`NUKETRADE`).
+- Record: `POST /user/claim/pacifica` on success or Pacifica “already claimed” (DB constraint).
 
 ### 4.2 Builder code approval flow
 

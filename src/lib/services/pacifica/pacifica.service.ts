@@ -14,11 +14,11 @@ import { prepareSigningData, messageToBytes } from './utils/signing';
 import { signPacificaMessageWithTurnkey } from './utils/turnkey-signing';
 import { roundAmount, roundPrice } from '@/dex/pacifica/utils/rounding';
 import axios from 'axios';
-import { BUILDER_CODE, BUILDER_MAX_FEE_RATE, EXPIRY_WINDOW } from '@/constants';
+import { BUILDER_CODE, BUILDER_MAX_FEE_RATE, EXPIRY_WINDOW, REFERRAL_CODE } from '@/constants';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 
-/** Pacifica returns 400 + DB constraint when the wallet already claimed a referral code. */
+/** Pacifica returns 400 when the wallet already has a referral code on file. */
 function pacificaReferralAlreadyClaimed(body: unknown): boolean {
   if (!body || typeof body !== 'object') return false;
   const rec = body as Record<string, unknown>;
@@ -98,19 +98,22 @@ export class PacificaService {
     }
   }
 
+  // ─── Referral code (points) — check via Nuke BE, claim on Pacifica ─────
+
   /**
-   * Check if our backend recorded a successful Pacifica referral claim for this user.
-   * `userId` must be the Nuke backend user UUID (JWT), not Turnkey `organizationId`.
+   * Nuke claim-status for referral points. On HTTP/error, `ok` is false — do not attempt Pacifica claim.
    */
-  async checkReferralCodeClaimed(userId: string): Promise<boolean> {
+  async checkReferralClaimedOnBackend(
+    userId: string
+  ): Promise<{ ok: true; claimed: boolean } | { ok: false }> {
     try {
       const data = await apiClient.get<{ is_claimed: boolean }>(
         API_ENDPOINTS.pacificaClaim.status(userId)
       );
-      return data.is_claimed === true;
+      return { ok: true, claimed: data.is_claimed === true };
     } catch (err) {
-      console.warn('[Pacifica] Error checking claim status:', err);
-      return false;
+      console.warn('[Pacifica] Nuke referral claim-status check failed:', err);
+      return { ok: false };
     }
   }
 
@@ -118,20 +121,13 @@ export class PacificaService {
     try {
       await apiClient.post(API_ENDPOINTS.pacificaClaim.claim);
     } catch (err) {
-      console.warn('[Pacifica] Backend claim-status sync failed (non-fatal):', err);
+      console.warn('[Pacifica] Nuke referral claim record failed (non-fatal):', err);
     }
   }
 
   /**
-   * Claim the NUKETRADE referral code for the user.
-   *
-   * Signs a `claim_referral_code` payload and POSTs to
-   * /referral/user/code/claim
-   *
-   * This grants beta/whitelist access + referral tracking in one step.
-   *
-   * @param account - Solana wallet address
-   * @param organizationId - Turnkey organization ID
+   * Claim REFERRAL_CODE on Pacifica for points. Signs POST /referral/user/code/claim.
+   * On success (or wallet already has a referral on Pacifica), syncs Nuke BE via POST /user/claim/pacifica.
    */
   async claimReferralCode(
     account: string,
@@ -142,7 +138,7 @@ export class PacificaService {
 
       const message = new TextEncoder().encode(
         JSON.stringify({
-          data: { code: BUILDER_CODE },
+          data: { code: REFERRAL_CODE },
           expiry_window: 5000,
           timestamp,
           type: 'claim_referral_code',
@@ -156,7 +152,7 @@ export class PacificaService {
         signature,
         timestamp,
         expiry_window: 5000,
-        code: BUILDER_CODE,
+        code: REFERRAL_CODE,
       };
 
       const response = await fetch(`${this.baseUrl}/referral/user/code/claim`, {
@@ -176,7 +172,7 @@ export class PacificaService {
 
       if (pacificaReferralAlreadyClaimed(apiResponse)) {
         console.log(
-          '[Pacifica] Referral code already claimed for this wallet on Pacifica — treating as success'
+          '[Pacifica] Referral already set on Pacifica for this wallet — syncing Nuke claim record'
         );
         await this.recordReferralClaimOnBackend();
         return { success: true };
@@ -188,12 +184,12 @@ export class PacificaService {
       return { success: false, error: `Referral code claim failed: ${errDetail}` };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      console.error('[Pacifica] Referral code claim failed:', err);
+      console.warn('[Pacifica] Referral code claim failed (non-fatal):', errMsg);
       return { success: false, error: `Referral code claim failed: ${errMsg}` };
     }
   }
 
-  // ─── Builder Code Approval ─────────────────────────────────────────────
+  // ─── Builder Code Approval (check on Pacifica) ─────────────────────────
 
   /**
    * Checks whether the user has already approved the NUKETRADE builder code.
