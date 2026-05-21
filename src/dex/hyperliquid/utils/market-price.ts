@@ -240,6 +240,35 @@ export class MarketPriceHelper {
     return { price };
   }
 
+  /** Mid of best bid/ask — shared reference for mirrored cross-venue TP/SL bands. */
+  async getMidPriceForTrading(assetTicker: string, market: 'spot' | 'perps' = 'perps'): Promise<{ price: number }> {
+    if (market !== 'perps') {
+      return this.getMarketPriceForTrading(assetTicker, market, 'buy');
+    }
+
+    let bookData: L2BookResponse;
+    try {
+      const response = await axios.post(`${this.baseUrl}/info`, {
+        type: 'l2Book',
+        coin: assetTicker.toUpperCase(),
+      });
+      bookData = response.data as L2BookResponse;
+    } catch (error) {
+      console.error(`Failed to fetch L2 book for ${assetTicker} (mid):`, error);
+      throw new Error(`Could not fetch L2 book for ${assetTicker} mid price.`);
+    }
+
+    const bestBid = bookData.levels?.[0]?.[0]?.px ? parseFloat(bookData.levels[0][0].px) : NaN;
+    const bestAsk = bookData.levels?.[1]?.[0]?.px ? parseFloat(bookData.levels[1][0].px) : NaN;
+
+    if (Number.isFinite(bestBid) && Number.isFinite(bestAsk) && bestBid > 0 && bestAsk > 0) {
+      return { price: (bestBid + bestAsk) / 2 };
+    }
+    if (Number.isFinite(bestBid) && bestBid > 0) return { price: bestBid };
+    if (Number.isFinite(bestAsk) && bestAsk > 0) return { price: bestAsk };
+    throw new Error(`No L2 bid/ask for ${assetTicker} mid price`);
+  }
+
   async getAggressiveIOCPriceString(
     side: 'buy' | 'sell',
     assetTicker: string,

@@ -20,6 +20,8 @@ export interface CreateMarketOrderRequest {
   agent_wallet?: string;
   expiry_window?: number;
   builder_code?: string;
+  /** Hedge plan prices already snapped to Pacifica tick — do not re-floor upper band. */
+  tpsl_prices_pre_quantized?: boolean;
 }
 
 export interface CreateLimitOrderRequest {
@@ -34,6 +36,16 @@ export interface CreateLimitOrderRequest {
   agent_wallet?: string;
   expiry_window?: number;
   builder_code?: string;
+}
+
+export interface SetPositionTpSlRequest {
+  symbol: string;
+  /** Position side: bid = long, ask = short */
+  side: 'bid' | 'ask';
+  takeProfitPrice?: string;
+  takeProfitLimitPrice?: string;
+  stopLossPrice?: string;
+  stopLossLimitPrice?: string;
 }
 
 export interface CancelOrderRequest {
