@@ -6,7 +6,10 @@ import type {
   CancelOrderRequest,
   CreateOrderResponse,
   PacificaApiResponse,
+  SetPositionTpSlRequest,
 } from './types';
+import { TpSlManager } from '@/dex/pacifica/tpsl-manager';
+import { Side } from '@/dex/pacifica/types';
 import { prepareSigningData, messageToBytes } from './utils/signing';
 import { signPacificaMessageWithTurnkey } from './utils/turnkey-signing';
 import { roundAmount, roundPrice } from '@/dex/pacifica/utils/rounding';
@@ -14,6 +17,20 @@ import axios from 'axios';
 import { BUILDER_CODE, BUILDER_MAX_FEE_RATE, EXPIRY_WINDOW } from '@/constants';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
+
+/** Pacifica returns 400 + DB constraint when the wallet already claimed a referral code. */
+function pacificaReferralAlreadyClaimed(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  const rec = body as Record<string, unknown>;
+  const err = String(rec.error ?? '').toLowerCase();
+  return (
+    err.includes('check violation') ||
+    err.includes('already claimed') ||
+    err.includes('already exists') ||
+    err.includes('duplicate')
+  );
+}
+
 export class PacificaService {
   private baseUrl: string;
   private timeout: number;
@@ -82,7 +99,8 @@ export class PacificaService {
   }
 
   /**
-   * Check if the user has already claimed Pacifica access via our backend.
+   * Check if our backend recorded a successful Pacifica referral claim for this user.
+   * `userId` must be the Nuke backend user UUID (JWT), not Turnkey `organizationId`.
    */
   async checkReferralCodeClaimed(userId: string): Promise<boolean> {
     try {
@@ -93,6 +111,14 @@ export class PacificaService {
     } catch (err) {
       console.warn('[Pacifica] Error checking claim status:', err);
       return false;
+    }
+  }
+
+  private async recordReferralClaimOnBackend(): Promise<void> {
+    try {
+      await apiClient.post(API_ENDPOINTS.pacificaClaim.claim);
+    } catch (err) {
+      console.warn('[Pacifica] Backend claim-status sync failed (non-fatal):', err);
     }
   }
 
@@ -112,7 +138,6 @@ export class PacificaService {
     organizationId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      
       const timestamp = Date.now();
 
       const message = new TextEncoder().encode(
@@ -134,15 +159,33 @@ export class PacificaService {
         code: BUILDER_CODE,
       };
 
-      const apiResponse = await this.submitToPacifica('/referral/user/code/claim', finalRequest);
+      const response = await fetch(`${this.baseUrl}/referral/user/code/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalRequest),
+      });
 
-      if (apiResponse.error) {
-        return { success: false, error: `Referral code claim failed: ${apiResponse.error}` };
+      const apiResponse = (await response.json().catch(() => ({}))) as PacificaApiResponse & {
+        code?: number;
+      };
+
+      if (response.ok && !apiResponse.error) {
+        await this.recordReferralClaimOnBackend();
+        return { success: true };
       }
 
-      await apiClient.post(API_ENDPOINTS.pacificaClaim.claim);
+      if (pacificaReferralAlreadyClaimed(apiResponse)) {
+        console.log(
+          '[Pacifica] Referral code already claimed for this wallet on Pacifica — treating as success'
+        );
+        await this.recordReferralClaimOnBackend();
+        return { success: true };
+      }
 
-      return { success: true };
+      const errDetail =
+        apiResponse.error ||
+        (response.ok ? 'Unknown Pacifica referral error' : `HTTP ${response.status}`);
+      return { success: false, error: `Referral code claim failed: ${errDetail}` };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error('[Pacifica] Referral code claim failed:', err);
@@ -425,27 +468,47 @@ export class PacificaService {
       }
 
       if (request.take_profit) {
-        operationData.take_profit = {
-          stop_price: await roundPrice(request.take_profit.stop_price, symbol),
-          ...(request.take_profit.limit_price && {
-            limit_price: await roundPrice(request.take_profit.limit_price, symbol),
-          }),
-          ...(request.take_profit.client_order_id && {
-            client_order_id: request.take_profit.client_order_id,
-          }),
-        };
+        if (request.tpsl_prices_pre_quantized) {
+          operationData.take_profit = {
+            stop_price: request.take_profit.stop_price,
+            limit_price: request.take_profit.limit_price ?? request.take_profit.stop_price,
+            ...(request.take_profit.client_order_id && {
+              client_order_id: request.take_profit.client_order_id,
+            }),
+          };
+        } else {
+          operationData.take_profit = {
+            stop_price: await roundPrice(request.take_profit.stop_price, symbol),
+            ...(request.take_profit.limit_price && {
+              limit_price: await roundPrice(request.take_profit.limit_price, symbol),
+            }),
+            ...(request.take_profit.client_order_id && {
+              client_order_id: request.take_profit.client_order_id,
+            }),
+          };
+        }
       }
 
       if (request.stop_loss) {
-        operationData.stop_loss = {
-          stop_price: await roundPrice(request.stop_loss.stop_price, symbol),
-          ...(request.stop_loss.limit_price && {
-            limit_price: await roundPrice(request.stop_loss.limit_price, symbol),
-          }),
-          ...(request.stop_loss.client_order_id && {
-            client_order_id: request.stop_loss.client_order_id,
-          }),
-        };
+        if (request.tpsl_prices_pre_quantized) {
+          operationData.stop_loss = {
+            stop_price: request.stop_loss.stop_price,
+            limit_price: request.stop_loss.limit_price ?? request.stop_loss.stop_price,
+            ...(request.stop_loss.client_order_id && {
+              client_order_id: request.stop_loss.client_order_id,
+            }),
+          };
+        } else {
+          operationData.stop_loss = {
+            stop_price: await roundPrice(request.stop_loss.stop_price, symbol),
+            ...(request.stop_loss.limit_price && {
+              limit_price: await roundPrice(request.stop_loss.limit_price, symbol),
+            }),
+            ...(request.stop_loss.client_order_id && {
+              client_order_id: request.stop_loss.client_order_id,
+            }),
+          };
+        }
       }
       // Sign the order request
       const { timestamp, signature } = await this.signOrderRequest(
@@ -771,6 +834,99 @@ export class PacificaService {
         success: false,
         availableToSpend: 0,
         error: getUserMessage(appError),
+      };
+    }
+  }
+
+  /**
+   * Attach mirrored TP/SL to an existing Pacifica position (`POST /positions/tpsl`).
+   */
+  async setPositionTpSl(
+    request: SetPositionTpSlRequest,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
+      if (!request.takeProfitPrice && !request.stopLossPrice) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['takeProfitPrice or stopLossPrice'],
+        });
+      }
+
+      const symbol = request.symbol.toUpperCase();
+      const pacificaSide = request.side === 'bid' ? Side.Bid : Side.Ask;
+
+      const tpSlManager = new TpSlManager();
+      const { request: unsigned } = tpSlManager.prepareSetPositionTpSl({
+        account: walletAddress,
+        symbol,
+        side: pacificaSide,
+        takeProfitPrice: request.takeProfitPrice
+          ? await roundPrice(request.takeProfitPrice, symbol)
+          : undefined,
+        takeProfitLimitPrice: request.takeProfitLimitPrice
+          ? await roundPrice(request.takeProfitLimitPrice, symbol)
+          : undefined,
+        stopLossPrice: request.stopLossPrice
+          ? await roundPrice(request.stopLossPrice, symbol)
+          : undefined,
+        stopLossLimitPrice: request.stopLossLimitPrice
+          ? await roundPrice(request.stopLossLimitPrice, symbol)
+          : undefined,
+        expiryWindow: this.expiryWindow,
+      });
+
+      const operationData: Record<string, unknown> = {
+        symbol: unsigned.symbol,
+        side: request.side,
+      };
+      if (unsigned.take_profit) operationData.take_profit = unsigned.take_profit;
+      if (unsigned.stop_loss) operationData.stop_loss = unsigned.stop_loss;
+
+      const { timestamp, signature } = await this.signOrderRequest(
+        'set_position_tpsl',
+        operationData,
+        walletAddress,
+        organizationId,
+        this.expiryWindow
+      );
+
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        expiry_window: this.expiryWindow,
+        ...operationData,
+      };
+
+      const apiResponse = await this.submitToPacifica('/positions/tpsl', finalRequest);
+
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_POSITION_CREATE_FAILED, {
+          error: apiResponse.error,
+          code: apiResponse.code,
+          symbol,
+        });
+      }
+
+      return {
+        success: true,
+        data: apiResponse,
+        message: 'Position TP/SL set successfully',
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
+      console.error('Error setting Pacifica TP/SL:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to set position TP/SL',
       };
     }
   }

@@ -100,7 +100,7 @@ The hedging executor ensures Pacifica prerequisites before deposits/opening posi
 Sequence:
 
 1. Check referral-claim cache in local storage.
-2. If not cached, call `pacificaService.checkReferralCodeClaimed(...)`.
+2. If not cached, call `pacificaService.checkReferralCodeClaimed(context.userId)` (Nuke user UUID from JWT, not Turnkey org id).
 3. If not claimed, call `pacificaService.claimReferralCode(...)`.
 4. Cache referral success.
 5. Check builder-approval cache.

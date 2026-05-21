@@ -62,6 +62,7 @@ import { getLighterL2Credentials } from '@/lib/services/lighter/lighter-credenti
 import { finalizeLighterL2KeysAfterDeposit } from '@/lib/services/lighter/lighter-onboarding';
 import { getSharedLighterAdapter, getSharedLighterService } from '@/lib/services/lighter/lighter-shared-adapter';
 import { LighterMarginMode } from '@/lib/services/lighter/utils/tx-constants';
+import { buildMirroredTpSlPlan } from './hedge-tpsl';
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -74,8 +75,10 @@ export interface ExecutorContext {
   evmAddress: string;
   /** User's Solana wallet address (base58) */
   solanaAddress: string;
-  /** Turnkey organization ID */
+  /** Turnkey organization ID (signing) */
   organizationId: string;
+  /** Nuke backend user UUID for `/user/*` routes */
+  userId: string;
   /** Long/short venues from UI best pair (position panel / table) */
   hedgePair: HedgePair;
 }
@@ -625,7 +628,7 @@ export class HedgeActionExecutor {
     } else {
       try {
         console.log('[HedgeExecutor] Checking Pacifica beta access (referral code)...');
-        const hasBetaAccess = await this.pacificaService.checkReferralCodeClaimed(context.organizationId);
+        const hasBetaAccess = await this.pacificaService.checkReferralCodeClaimed(context.userId);
 
         if (!hasBetaAccess) {
           console.log('[HedgeExecutor] No beta access — claiming referral code NUKETRADE...');
@@ -954,7 +957,29 @@ export class HedgeActionExecutor {
       marginForLegs = bufferedMarginForLegs;
     }
 
-    // ── Step 5: Open both legs in parallel ──
+    const tpSlPlan = await buildMirroredTpSlPlan(asset, leverage);
+    if (!tpSlPlan) {
+      return {
+        success: false,
+        txHash: null,
+        error: 'Cannot open hedge: failed to build mirrored TP/SL plan (Pacifica mark/tick)',
+        legResults: null,
+      };
+    }
+
+    if (!marketPrice || parseFloat(marketPrice) <= 0) {
+      marketPrice = String(tpSlPlan.markPrice);
+    }
+
+    console.log(
+      `[HedgeExecutor] Mirrored TP/SL plan ${asset}: mark=${tpSlPlan.markPrice} ` +
+        `threshold=${tpSlPlan.thresholdPercent}% upper=${tpSlPlan.upperStop} lower=${tpSlPlan.lowerStop}`
+    );
+
+    const hedgeTpslForDirection = (dir: 'long' | 'short') =>
+      dir === 'long' ? tpSlPlan.long : tpSlPlan.short;
+
+    // ── Step 5: Open both legs in parallel (TP/SL on create where supported) ──
     const results = await Promise.allSettled(
       legs.map(async (leg) => {
         const direction = getDirection(leg.exchange);
@@ -969,6 +994,7 @@ export class HedgeActionExecutor {
             organizationId: context.organizationId,
             isMarket: true,
             price: marketPrice,
+            hedgeTpsl: hedgeTpslForDirection(direction),
           });
           return { exchange: leg.exchange, result };
         } else {
@@ -1010,6 +1036,7 @@ export class HedgeActionExecutor {
               organizationId: context.organizationId,
               isMarket: true,
               price: marketPrice,
+              hedgeTpsl: hedgeTpslForDirection(direction),
             });
             return { exchange: leg.exchange, result };
           }
@@ -1025,6 +1052,7 @@ export class HedgeActionExecutor {
               isMarket: true,
               price: marketPrice,
               slippagePercent: '0.5',
+              hedgeTpsl: hedgeTpslForDirection(direction),
             });
             return { exchange: leg.exchange, result };
           }
