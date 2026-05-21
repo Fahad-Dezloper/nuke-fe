@@ -31,20 +31,37 @@ function normalizeExpiry(value: unknown): number | null {
   return raw > 1_000_000_000_000 ? Math.floor(raw / 1000) : Math.floor(raw);
 }
 
-function getJwtExpiryUnix(token: string): number | null {
+function parseJwtPayload(token: string): Record<string, unknown> | null {
   const parts = token.split('.');
-  if (parts.length < 2) {
-    return null;
-  }
-
+  if (parts.length < 2) return null;
   try {
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const payload = JSON.parse(atob(padded)) as { exp?: unknown };
-    return normalizeExpiry(payload.exp);
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+function getJwtExpiryUnix(token: string): number | null {
+  const payload = parseJwtPayload(token);
+  return payload ? normalizeExpiry(payload.exp) : null;
+}
+
+/** Nuke backend user UUID from JWT (`sub`, `user_id`, or `userId`). */
+export function getAuthUserId(): string | null {
+  const jwt = getJWT();
+  if (!jwt) return null;
+  const payload = parseJwtPayload(jwt);
+  if (!payload) return null;
+
+  for (const key of ['sub', 'user_id', 'userId', 'id'] as const) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
 }
 
 // ─── In-flight login deduplication ─────────────────────────────────────────────
@@ -226,6 +243,17 @@ export function getToken(): AuthToken | null {
  */
 export function getJWT(): string | null {
   return getToken()?.jwt ?? null;
+}
+
+/**
+ * Requires a valid JWT with a resolvable Nuke user id (not Turnkey org id).
+ */
+export function requireAuthUserId(): string {
+  const userId = getAuthUserId();
+  if (!userId) {
+    throw new Error('Authenticated user id not found in session token');
+  }
+  return userId;
 }
 
 /**

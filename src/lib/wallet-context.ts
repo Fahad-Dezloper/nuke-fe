@@ -6,12 +6,16 @@
  */
 
 import type { TurnkeyState } from '@/lib/turnkey/types';
+import { requireAuthUserId } from '@/lib/auth/auth.service';
 import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 
 export interface WalletContext {
   evmAddress: string;
   solanaAddress: string;
+  /** Turnkey sub-organization id (wallet signing only). */
   organizationId: string;
+  /** Nuke backend user UUID (JWT `sub` / `user_id`) — for `/user/*` APIs. */
+  userId: string;
 }
 
 /**
@@ -46,6 +50,7 @@ export function getWalletContext(state: TurnkeyState): WalletContext {
     evmAddress,
     solanaAddress,
     organizationId: state.turnkeySubOrgId,
+    userId: requireAuthUserId(),
   };
 }
 

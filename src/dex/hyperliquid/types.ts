@@ -41,6 +41,11 @@ export interface PerpOrderRequest {
   isMarket?: boolean;
   vaultAddress?: string;
   isLong?: boolean;
+  /** Optional: attach TP/SL triggers in the same `order` action (`grouping: normalTpsl`). */
+  takeProfitPrice?: string;
+  stopLossPrice?: string;
+  /** Use Pacifica-snapped prices as-is (trigger = limit, no HL slippage skew). */
+  canonicalTpSlPrices?: boolean;
 }
 
 export interface PerpOrderTypedDataReturn {

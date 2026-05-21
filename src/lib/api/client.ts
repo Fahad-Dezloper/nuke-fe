@@ -74,10 +74,14 @@ class ApiClient {
     const isProtectedWithdrawGet = method === 'GET' && endpoint.startsWith('/withdraw-intents');
     const isProtectedPortfolioGet =
       method === 'GET' && endpoint.startsWith('/aggregated/portfolio');
+    const isProtectedUserGet = method === 'GET' && endpoint.startsWith('/user/');
     if (
       !skipAuth &&
       !isAuthEndpoint &&
-      (method !== 'GET' || isProtectedWithdrawGet || isProtectedPortfolioGet)
+      (method !== 'GET' ||
+        isProtectedWithdrawGet ||
+        isProtectedPortfolioGet ||
+        isProtectedUserGet)
     ) {
       const jwt = getJWT();
       if (jwt) {

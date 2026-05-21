@@ -7,6 +7,9 @@ export interface CreatePositionRequest {
   vaultAddress?: string;
   isLong?: boolean;
   isMarket?: boolean;
+  takeProfitPrice?: string;
+  stopLossPrice?: string;
+  canonicalTpSlPrices?: boolean;
 }
 
 export interface ClosePositionRequest {

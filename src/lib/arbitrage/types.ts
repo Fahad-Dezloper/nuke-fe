@@ -44,6 +44,19 @@ export interface UnifiedPositionParams {
 
   /** Optional: Slippage tolerance as percentage string (e.g., "0.5" for 0.5%) */
   slippagePercent?: string;
+
+  /**
+   * Mirrored hedge TP/SL — attached on open where the venue supports it
+   * (Hyperliquid `normalTpsl` batch, Pacifica `create_market_order` fields).
+   */
+  hedgeTpsl?: {
+    takeProfitPrice: string;
+    stopLossPrice: string;
+    takeProfitLimitPrice?: string;
+    stopLossLimitPrice?: string;
+    upperStop: string;
+    lowerStop: string;
+  };
 }
 
 /**

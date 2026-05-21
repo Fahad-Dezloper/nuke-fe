@@ -6,6 +6,7 @@ import { Hex, PerpOrderRequest, PerpOrderTypedDataReturn, ValueMap } from './typ
 import { perpTickerToIndex } from './utils/asset-index-converter';
 import { MarketPriceHelper } from './utils/market-price';
 import { createMainnetExchangeTypedData } from './utils/signing';
+import { buildTpSlOrderLegs } from './tpsl-manager';
 
 export class PerpOrders {
   protected baseUrl = HYPERLIQUID_API;
@@ -27,6 +28,9 @@ export class PerpOrders {
         vaultAddress,
         isLong = true,
         isMarket = false,
+        takeProfitPrice,
+        stopLossPrice,
+        canonicalTpSlPrices,
       } = orderRequest;
 
       if (!isMarket && !price) throw new Error('Order is limit order, but no limit price received');
@@ -69,19 +73,31 @@ export class PerpOrders {
         }
       }
 
+      const entryOrder = {
+        a: assetIndex,
+        b: isLong,
+        p: tickInfo.roundPrice(buyingPrice),
+        s: buyingAmount,
+        r: false,
+        t: { limit: { tif: isMarket ? 'Ioc' : 'Gtc' } },
+      };
+
+      const tpslLegs =
+        takeProfitPrice || stopLossPrice
+          ? buildTpSlOrderLegs(tickInfo, {
+              assetId: assetIndex,
+              isLong,
+              positionSize: buyingAmount,
+              finalTakeProfitPrice: takeProfitPrice,
+              finalStopLossPrice: stopLossPrice,
+              canonicalPrices: canonicalTpSlPrices,
+            })
+          : [];
+
       const action: ValueMap = {
         type: 'order',
-        orders: [
-          {
-            a: assetIndex,
-            b: isLong,
-            p: tickInfo.roundPrice(buyingPrice),
-            s: buyingAmount,
-            r: false,
-            t: { limit: { tif: isMarket ? 'Ioc' : 'Gtc' } },
-          },
-        ],
-        grouping: 'na',
+        orders: [entryOrder, ...tpslLegs],
+        grouping: tpslLegs.length > 0 ? 'normalTpsl' : 'na',
         //TODO: add builder address
         // builder: {
         //   b: HYPERLIQUID_BUILDER_ADDRESS,

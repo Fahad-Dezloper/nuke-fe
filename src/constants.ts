@@ -19,4 +19,6 @@ export const MIN_FUND_AMOUNT = 12;
 // pacifica service
 export const EXPIRY_WINDOW = 300000;
 export const BUILDER_CODE = 'NUKETRADE';
+/** Pacifica referral code for points / referee attribution (same string as builder code). */
+export const REFERRAL_CODE = 'NUKETRADE';
 export const BUILDER_MAX_FEE_RATE = '0.1';

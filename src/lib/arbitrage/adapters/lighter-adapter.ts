@@ -93,6 +93,12 @@ export class LighterAdapter implements ProtocolAdapter {
         sizeDecimals: row.size_decimals,
       });
 
+      if (params.hedgeTpsl) {
+        console.warn(
+          '[LighterAdapter] hedgeTpsl is not attached on open yet (no grouped create API); leg opens without TP/SL'
+        );
+      }
+
       const clientOrderIndex = Math.floor(Date.now() % 1_000_000_000);
       const orderExpiry = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 28;
 
