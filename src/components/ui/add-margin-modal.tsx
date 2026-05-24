@@ -68,8 +68,18 @@ function getProgressSteps(exchange: FundExchange): ProgressStep[] {
           ? 'Phoenix'
           : 'Pacifica';
 
-  if (exchange === 'pacifica' || exchange === 'phoenix') {
-    return [{ label: `Depositing to ${label}`, fundSteps: ['depositing'] }];
+  if (exchange === 'phoenix') {
+    return [
+      { label: 'Activating Phoenix account', fundSteps: ['phoenix-onboarding'] },
+      { label: `Depositing to ${label}`, fundSteps: ['depositing'] },
+    ];
+  }
+
+  if (exchange === 'pacifica') {
+    return [
+      { label: 'Pacifica builder access', fundSteps: ['pacifica-access'] },
+      { label: `Depositing to ${label}`, fundSteps: ['depositing'] },
+    ];
   }
 
   const suffix: ProgressStep[] =
@@ -108,6 +118,8 @@ function getStepState(
     'signing',
     'bridging',
     'waiting-bridge',
+    'phoenix-onboarding',
+    'pacifica-access',
     'depositing',
     'lighter-api-keys',
     'success',

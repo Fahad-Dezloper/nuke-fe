@@ -398,9 +398,8 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
           (params.longExchange === 'phoenix' || params.shortExchange === 'phoenix')
         ) {
           toast.error('Phoenix trading is disabled', {
-            description:
-              'Enable NEXT_PUBLIC_PHOENIX_TRADING_ENABLED after configuring invite codes and Flight builder env vars. See docs/phoenix-trading.md.',
-            duration: 8000,
+            description: 'Set NEXT_PUBLIC_PHOENIX_TRADING_ENABLED=true in .env and restart the dev server.',
+            duration: 6000,
           });
           throw new Error('Phoenix trading is disabled');
         }

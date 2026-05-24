@@ -16,6 +16,9 @@ export const LIGHTER_ETH_DEPOSIT_CONTRACT =
   '0x3B4D794a66304F130a4Db8F2551B0070dfCf5ca7';
 export const MIN_FUND_AMOUNT = 12;
 
+/** Minimum USDC for direct Solana → Pacifica/Phoenix add-margin deposits (6 decimals). */
+export const SOLANA_DIRECT_MIN_DEPOSIT_MICROS = 1_000_000; // $1 — allows small adds e.g. $5
+
 // pacifica service
 export const EXPIRY_WINDOW = 300000;
 export const BUILDER_CODE = 'NUKETRADE';

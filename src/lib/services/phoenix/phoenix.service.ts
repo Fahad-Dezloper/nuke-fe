@@ -10,7 +10,14 @@ import {
   type ImmediateOrCancelOrderPacket,
   symbol as riseMarketSymbol,
 } from '@ellipsis-labs/rise';
-import { isPhoenixTradingEnabled, getPhoenixInviteCode, getPhoenixReferralCode } from '@/lib/phoenix/env';
+import {
+  isPhoenixTradingEnabled,
+  isPhoenixInviteOnboardingEnabled,
+  getPhoenixInviteCode,
+  getPhoenixReferralCode,
+} from '@/lib/phoenix/env';
+import type { PositionApiResponse } from '@/lib/api/services/positions.service';
+import { phoenixCollateralToUsd } from '@/lib/phoenix/units';
 import { ensurePhoenixExchangeReady, getPhoenixRiseClient, toPhoenixSymbol } from './phoenix-client';
 import { PhoenixSubmitError, normalizeRiseInstruction, submitRiseInstructions } from './phoenix-submit';
 
@@ -33,7 +40,7 @@ export class PhoenixService {
   }
 
   /**
-   * HTTP invite + on-chain register trader if snapshot is missing.
+   * On-chain register trader if missing. HTTP invite/referral is optional (see env flags).
    */
   async ensureActivatedAndRegistered(
     solanaAuthority: string,
@@ -46,31 +53,38 @@ export class PhoenixService {
     const client = getPhoenixRiseClient();
     await ensurePhoenixExchangeReady();
 
-    const registered = await this.isTraderRegistered(solanaAuthority);
-    if (registered) return;
+    if (await this.isTraderRegistered(solanaAuthority)) {
+      return;
+    }
 
-    const invite = getPhoenixInviteCode();
-    const referral = getPhoenixReferralCode();
-
-    try {
-      if (referral) {
-        await client.api.invite().activateInviteWithReferral({
-          authority: solanaAuthority,
-          referral_code: referral,
-        });
-      } else if (invite) {
-        await client.api.invite().activateInvite({
-          authority: solanaAuthority,
-          code: invite,
-        });
-      } else {
-        throw new PhoenixServiceError(
-          'Phoenix account is not registered. Set NEXT_PUBLIC_PHOENIX_INVITE_CODE (or NEXT_PUBLIC_PHOENIX_REFERRAL_CODE) for invite activation.'
-        );
+    // Invite / referral HTTP activation — disabled until NEXT_PUBLIC_PHOENIX_REQUIRE_INVITE=true
+    if (isPhoenixInviteOnboardingEnabled()) {
+      const invite = getPhoenixInviteCode();
+      const referral = getPhoenixReferralCode();
+      try {
+        if (referral) {
+          await client.api.invite().activateInviteWithReferral({
+            authority: solanaAuthority,
+            referral_code: referral,
+          });
+        } else if (invite) {
+          await client.api.invite().activateInvite({
+            authority: solanaAuthority,
+            code: invite,
+          });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new PhoenixServiceError(`Phoenix invite activation failed: ${msg}`, 'INVITE');
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      throw new PhoenixServiceError(`Phoenix invite activation failed: ${msg}`, 'INVITE');
+    } else {
+      console.warn(
+        '[Phoenix] Skipping HTTP invite/referral activation (enable NEXT_PUBLIC_PHOENIX_REQUIRE_INVITE when ready)'
+      );
+    }
+
+    if (await this.isTraderRegistered(solanaAuthority)) {
+      return;
     }
 
     const regIx = await client.ixs.buildRegisterTrader({
@@ -84,7 +98,7 @@ export class PhoenixService {
       await submitRiseInstructions([normalizeRiseInstruction(regIx)], solanaAuthority, organizationId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      throw new PhoenixServiceError(`Phoenix registerTrader failed: ${msg}`, 'REGISTER');
+      console.warn('[Phoenix] registerTrader failed (continuing — deposit may still work):', msg);
     }
   }
 
@@ -116,7 +130,7 @@ export class PhoenixService {
         (s) => s.subaccountIndex === DEFAULT_TRADER_SUBACCOUNT_INDEX
       );
       const raw = sub?.collateral ?? '0';
-      const usd = Number.parseFloat(raw);
+      const usd = phoenixCollateralToUsd(raw);
       if (!Number.isFinite(usd)) {
         return { success: false, error: 'Invalid collateral in Phoenix snapshot' };
       }
@@ -124,6 +138,79 @@ export class PhoenixService {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { success: false, error: msg };
+    }
+  }
+
+  /**
+   * Open perp leg from Rise trader snapshot when Nuke aggregated positions omit `phoenix`.
+   */
+  async fetchOpenPositionLeg(
+    solanaAuthority: string,
+    assetSymbol: string
+  ): Promise<NonNullable<PositionApiResponse['phoenix']> | null> {
+    try {
+      const client = getPhoenixRiseClient();
+      await ensurePhoenixExchangeReady();
+      const snap = await client.api.traders().getTraderStateSnapshot(solanaAuthority, {
+        traderPdaIndex: DEFAULT_TRADER_PDA_INDEX,
+      });
+      const sub = snap.snapshot.subaccounts.find(
+        (s) => s.subaccountIndex === DEFAULT_TRADER_SUBACCOUNT_INDEX
+      );
+      if (!sub?.positions?.length) {
+        return null;
+      }
+
+      const want = toPhoenixSymbol(assetSymbol);
+      for (const pos of sub.positions) {
+        if (toPhoenixSymbol(pos.symbol) !== want) {
+          continue;
+        }
+
+        const lots = BigInt(pos.basePositionLots);
+        const zero = BigInt(0);
+        if (lots === zero) {
+          return null;
+        }
+
+        const isLong = lots > zero;
+        let size: string;
+        const unitsRaw = pos.basePositionUnits?.trim();
+        if (unitsRaw) {
+          const n = Math.abs(Number.parseFloat(unitsRaw));
+          if (!Number.isFinite(n) || n === 0) {
+            return null;
+          }
+          size = n.toString();
+        } else {
+          size = (lots < zero ? -lots : lots).toString();
+        }
+
+        const collateralUsd = phoenixCollateralToUsd(sub.collateral ?? '0');
+        const entryUsd = pos.entryPriceUsd ? Number.parseFloat(pos.entryPriceUsd) : 0;
+        const notional =
+          Number.isFinite(entryUsd) && entryUsd > 0 ? Math.abs(Number.parseFloat(size)) * entryUsd : 0;
+        const leverage =
+          collateralUsd > 0 && notional > 0
+            ? Math.max(1, Math.round(notional / collateralUsd))
+            : 1;
+
+        return {
+          symbol: assetSymbol.toUpperCase(),
+          size,
+          side: isLong ? 'Long' : 'Short',
+          pnl: '0',
+          funding: '0',
+          margin: collateralUsd.toFixed(2),
+          leverage,
+          liquidationPrice: '0',
+        };
+      }
+
+      return null;
+    } catch (err) {
+      console.warn('[Phoenix] fetchOpenPositionLeg failed:', err);
+      return null;
     }
   }
 

@@ -13,6 +13,7 @@
 import { bridgeService } from '@/lib/bridge/bridge.service';
 import { pollBridgeStatus } from '@/lib/bridge/poll-bridge-status';
 import { signAndSubmitRelaySolanaTransaction } from '@/lib/bridge/solana-utils';
+import { phoenixCollateralCoversDeposit } from '@/lib/bridge/solana-direct-deposit';
 import { HyperliquidDepositHandler } from '@/lib/bridge/deposit-handlers/hyperliquid.handler';
 import { PacificaDepositHandler } from '@/lib/bridge/deposit-handlers/pacifica.handler';
 import { PhoenixDepositHandler } from '@/lib/bridge/deposit-handlers/phoenix.handler';
@@ -575,6 +576,30 @@ export class HedgeActionExecutor {
     }
 
     if (exchange === 'phoenix') {
+      const existingMarginUsd =
+        typeof depositParams.existing_margin_usd === 'number' &&
+        Number.isFinite(depositParams.existing_margin_usd)
+          ? depositParams.existing_margin_usd
+          : 0;
+
+      const alreadyFunded = await phoenixCollateralCoversDeposit(
+        context.solanaAddress,
+        existingMarginUsd,
+        amountUsd
+      );
+
+      if (alreadyFunded) {
+        console.log(
+          `[HedgeExecutor] Phoenix collateral already covers deposit (live ≥ $${(existingMarginUsd + amountUsd).toFixed(2)}) — skipping DEPOSIT_TO_PHOENIX`
+        );
+        return {
+          success: true,
+          txHash: null,
+          error: null,
+          legResults: null,
+        };
+      }
+
       const accessError = await this.ensurePhoenixAccess(context);
       if (accessError) return accessError;
     }
@@ -1032,6 +1057,17 @@ export class HedgeActionExecutor {
       marginForLegs = bufferedMarginForLegs;
     }
 
+    // Shared base size so HL (USD) and Phoenix (BTC lots) match for delta-neutral hedges.
+    let hedgeBaseSize: string | undefined;
+    if (marketPrice) {
+      const px = Number.parseFloat(marketPrice);
+      if (Number.isFinite(px) && px > 0) {
+        const notionalUsd = marginForLegs * Number(leverage);
+        const rawBase = notionalUsd / px;
+        hedgeBaseSize = rawBase.toFixed(6).replace(/\.?0+$/, '') || undefined;
+      }
+    }
+
     // ── Step 5: Open both legs in parallel ──
     const results = await Promise.allSettled(
       legs.map(async (leg) => {
@@ -1047,6 +1083,7 @@ export class HedgeActionExecutor {
             organizationId: context.organizationId,
             isMarket: true,
             price: marketPrice,
+            baseSize: hedgeBaseSize,
           });
           return { exchange: leg.exchange, result };
         } else {
@@ -1104,6 +1141,7 @@ export class HedgeActionExecutor {
               organizationId: context.organizationId,
               isMarket: true,
               price: marketPrice,
+              baseSize: hedgeBaseSize,
             });
             return { exchange: leg.exchange, result };
           }

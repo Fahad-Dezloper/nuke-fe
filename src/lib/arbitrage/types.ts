@@ -44,6 +44,12 @@ export interface UnifiedPositionParams {
 
   /** Optional: Slippage tolerance as percentage string (e.g., "0.5" for 0.5%) */
   slippagePercent?: string;
+
+  /**
+   * Optional: Pre-computed position size in base asset units (e.g. BTC).
+   * Used by hedge open so HL (USD) and Phoenix (base lots) stay the same size.
+   */
+  baseSize?: string;
 }
 
 /**

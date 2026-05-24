@@ -7,6 +7,22 @@ export function isPhoenixTradingEnabled(): boolean {
   return process.env.NEXT_PUBLIC_PHOENIX_TRADING_ENABLED === 'true';
 }
 
+/** UI + deposit gate: only the master switch for now (invite/builder wired later). */
+export function isPhoenixTradingConfigured(): boolean {
+  return isPhoenixTradingEnabled();
+}
+
+/**
+ * HTTP invite/referral activation before registerTrader.
+ * Off by default — set NEXT_PUBLIC_PHOENIX_REQUIRE_INVITE=true plus invite/referral env when ready.
+ */
+export function isPhoenixInviteOnboardingEnabled(): boolean {
+  if (process.env.NEXT_PUBLIC_PHOENIX_REQUIRE_INVITE !== 'true') {
+    return false;
+  }
+  return !!(getPhoenixInviteCode() || getPhoenixReferralCode());
+}
+
 /** Flight wraps certain Phoenix instructions behind the Flight program (beta). */
 export function isPhoenixFlightEnabled(): boolean {
   return process.env.NEXT_PUBLIC_PHOENIX_FLIGHT_ENABLED === 'true';

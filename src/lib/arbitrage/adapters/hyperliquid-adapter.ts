@@ -104,13 +104,17 @@ export class HyperLiquidAdapter implements ProtocolAdapter {
         // Entry price will be set after order execution
       }
 
-      // Calculate position size
-      const usdSize = parseFloat(params.margin) * params.leverage;
+      // Calculate position size (USD for HL API; optional shared baseSize from hedge open)
+      const priceNum = entryPrice && parseFloat(entryPrice) > 0 ? parseFloat(entryPrice) : 0;
+      const usdSize =
+        params.baseSize && priceNum > 0
+          ? parseFloat(params.baseSize) * priceNum
+          : parseFloat(params.margin) * params.leverage;
       const positionSizeUSD = usdSize.toString();
 
       // If we have a valid price, calculate asset amount for tracking
-      if (entryPrice && parseFloat(entryPrice) > 0) {
-        sizeInAsset = usdSize / parseFloat(entryPrice);
+      if (priceNum > 0) {
+        sizeInAsset = params.baseSize ? parseFloat(params.baseSize) : usdSize / priceNum;
       } else {
         // Without price, we can't calculate exact asset amount
         // HyperLiquid will determine the actual amount when executing

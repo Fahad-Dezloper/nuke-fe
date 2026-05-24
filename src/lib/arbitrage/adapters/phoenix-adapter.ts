@@ -59,7 +59,26 @@ export class PhoenixAdapter implements ProtocolAdapter {
     }
 
     try {
-      const size = this.calculatePositionSize(params.margin, params.leverage, entryPrice);
+      let marginUsd = Number.parseFloat(params.margin);
+      if (!Number.isFinite(marginUsd) || marginUsd <= 0) {
+        throw new Error('Invalid margin for Phoenix open');
+      }
+
+      const collateral = await phoenixService.fetchFreeCollateralUsd(params.walletAddress);
+      if (collateral.success && collateral.usd > 0) {
+        const maxMargin = collateral.usd * 0.995;
+        if (marginUsd > maxMargin) {
+          console.warn(
+            `[PhoenixAdapter] Capping margin $${marginUsd.toFixed(2)} → $${maxMargin.toFixed(2)} (cross collateral)`
+          );
+          marginUsd = maxMargin;
+        }
+      }
+
+      const size =
+        params.baseSize ??
+        this.calculatePositionSize(marginUsd.toString(), params.leverage, entryPrice);
+
       const res = await phoenixService.placeMarketOrder({
         symbol: this.normalizeAssetName(params.asset),
         direction: params.direction,
@@ -251,6 +270,7 @@ export class PhoenixAdapter implements ProtocolAdapter {
     const marginNum = Number.parseFloat(margin);
     const usdSize = marginNum * leverage;
     const amountInAsset = usdSize / Number.parseFloat(price);
-    return amountInAsset.toString();
+    // Rise BTC lots align to ~6 decimal places (see buildMarketOrderPacket numBaseLots).
+    return amountInAsset.toFixed(6).replace(/\.?0+$/, '') || '0';
   }
 }

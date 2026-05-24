@@ -43,7 +43,12 @@ export function WalletStatus() {
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { formattedBalance, isLoading: isBalanceLoading } = useUSDCBalanceSolana();
-  const { hlBalance, pacBalance, phoenixBalance, isLoading: isExchangeLoading } = useExchangeBalances();
+  const {
+    hlBalance,
+    pacBalance,
+    phoenixBalance,
+    isLoading: isExchangeLoading,
+  } = useExchangeBalances();
   const [balanceHover, setBalanceHover] = useState(false);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -63,15 +68,15 @@ export function WalletStatus() {
   }, []);
 
   // Get wallet addresses
-  const walletAddress = getEVMAddress(state.userWallets) || 'Connected';
+  const evmAddress = getEVMAddress(state.userWallets) || 'Connected';
   const solanaAddress = getSolanaAddress(state.userWallets) || '';
 
   const handleCopyAddress = useCallback(() => {
-    navigator.clipboard.writeText(walletAddress).then(() => {
+    navigator.clipboard.writeText(solanaAddress).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
-  }, [walletAddress]);
+  }, [solanaAddress]);
 
   if (!state.isLoggedIn) {
     return null;
@@ -93,9 +98,9 @@ export function WalletStatus() {
 
   // Truncate address for display
   const displayAddress =
-    walletAddress.length > 20
-      ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-      : walletAddress;
+    solanaAddress.length > 20
+      ? `${solanaAddress.slice(0, 6)}...${solanaAddress.slice(-4)}`
+      : solanaAddress;
 
   // Balance has never been fetched yet (null initial state)
   const hasLoaded =
@@ -386,13 +391,13 @@ export function WalletStatus() {
       <DepositModal
         isOpen={isDepositModalOpen}
         onClose={() => setIsDepositModalOpen(false)}
-        walletAddress={walletAddress}
+        walletAddress={solanaAddress}
       />
 
       <ExportWalletModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        evmAddress={walletAddress}
+        evmAddress={evmAddress}
         solanaAddress={solanaAddress}
       />
 

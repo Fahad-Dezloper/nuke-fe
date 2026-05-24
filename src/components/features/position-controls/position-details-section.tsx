@@ -27,6 +27,7 @@ import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { useBestPair, type Protocol } from '@/hooks/use-best-pair';
 import { formatPrice } from '@/lib/utils';
 import type { FundExchange } from '@/hooks/use-fund-exchange';
+import { toast } from 'sonner';
 import { isPhoenixTradingEnabled } from '@/lib/phoenix/env';
 
 interface PositionDetailsSectionProps {
@@ -53,6 +54,13 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
   const { fund, reset, step, isExecuting, statusMessage, error } = useFundExchange();
 
   const handleOpenAddMargin = useCallback((exchange: FundExchange) => {
+    if (exchange === 'phoenix' && !isPhoenixTradingEnabled()) {
+      toast.error('Phoenix trading is disabled', {
+        description: 'Set NEXT_PUBLIC_PHOENIX_TRADING_ENABLED=true in .env and restart the dev server.',
+        duration: 6000,
+      });
+      return;
+    }
     setAddMarginExchange(exchange);
     setAddMarginOpen(true);
   }, []);
@@ -104,9 +112,14 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
 
     function fundTarget(protocol: Protocol): FundExchange | null {
       if (protocol === 'backpack') return null;
-      if (protocol === 'phoenix') return isPhoenixTradingEnabled() ? 'phoenix' : null;
-      if (protocol === 'lighter') return 'lighter';
-      if (protocol === 'hyperliquid' || protocol === 'pacifica') return protocol;
+      if (
+        protocol === 'hyperliquid' ||
+        protocol === 'pacifica' ||
+        protocol === 'phoenix' ||
+        protocol === 'lighter'
+      ) {
+        return protocol;
+      }
       return null;
     }
 

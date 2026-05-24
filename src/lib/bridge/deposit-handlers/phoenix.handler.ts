@@ -2,6 +2,7 @@
  * Phoenix deposit handler — direct Solana USDC → Phoenix (no relay bridge), Turnkey-signed Rise ixs.
  */
 
+import { SOLANA_DIRECT_MIN_DEPOSIT_MICROS } from '@/constants';
 import { CHAIN_IDS, MIN_DEPOSIT_AMOUNT, PACIFICA_GAS_REIMBURSEMENT } from '../types';
 import { getUSDCBalanceOnSolana } from '../balance-api';
 import { formatUSDCBalanceSolana } from '../solana-utils';
@@ -49,12 +50,17 @@ export class PhoenixDepositHandler implements DepositHandler {
     const solanaBalance = await getUSDCBalanceOnSolana(solanaRecipientAddress);
     const gasBuffer = BigInt(PACIFICA_GAS_REIMBURSEMENT);
 
+    const minMicros =
+      depositAmountMicros !== undefined && depositAmountMicros > BigInt(0)
+        ? BigInt(SOLANA_DIRECT_MIN_DEPOSIT_MICROS)
+        : BigInt(MIN_DEPOSIT_AMOUNT);
+
     let amountToDeposit: bigint;
 
     if (depositAmountMicros !== undefined && depositAmountMicros > BigInt(0)) {
-      if (depositAmountMicros < BigInt(MIN_DEPOSIT_AMOUNT)) {
+      if (depositAmountMicros < minMicros) {
         throw new Error(
-          `Minimum Phoenix deposit is ${formatUSDCBalanceSolana(BigInt(MIN_DEPOSIT_AMOUNT))} USDC`
+          `Minimum Phoenix deposit is ${formatUSDCBalanceSolana(minMicros)} USDC`
         );
       }
       const requiredBalance = depositAmountMicros + gasBuffer;
@@ -65,7 +71,7 @@ export class PhoenixDepositHandler implements DepositHandler {
       }
       amountToDeposit = depositAmountMicros;
     } else {
-      const minRequired = BigInt(MIN_DEPOSIT_AMOUNT) + gasBuffer;
+      const minRequired = minMicros + gasBuffer;
       if (solanaBalance < minRequired) {
         throw new Error(
           `Insufficient balance for Phoenix deposit. Need at least ${formatUSDCBalanceSolana(minRequired)} USDC on Solana.`
