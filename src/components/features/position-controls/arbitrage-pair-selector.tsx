@@ -1,8 +1,3 @@
-/**
- * Arbitrage Pair Selector Component
- * Allows users to select an arbitrage pair for execution
- */
-
 'use client';
 
 import { useAtom, useAtomValue } from 'jotai';
@@ -23,47 +18,30 @@ export function ArbitragePairSelector({ className }: ArbitragePairSelectorProps)
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Get available pairs for the selected asset
   const availablePairs = useMemo(() => {
-    const pairs = arbitrageService.getPairsForAsset(selectedAsset);
-    return pairs.filter((pair) => pair.isActive);
+    return arbitrageService.getPairsForAsset(selectedAsset).filter((p) => p.isActive);
   }, [selectedAsset]);
 
-  // Auto-select first pair if none selected
   useEffect(() => {
-    if (!selectedPair && availablePairs.length > 0) {
-      setSelectedPair(availablePairs[0]);
-    }
+    if (!selectedPair && availablePairs.length > 0) setSelectedPair(availablePairs[0]);
   }, [selectedPair, availablePairs, setSelectedPair]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
-
-  const handleSelect = (pair: ArbitragePair) => {
-    setSelectedPair(pair);
-    setIsOpen(false);
-  };
 
   if (availablePairs.length === 0) {
     return (
       <div className={cn('flex flex-col gap-2', className)}>
-        <label className="text-xs text-text-muted-60 uppercase tracking-wide">ARBITRAGE PAIR</label>
-        <div className="text-sm text-text-muted-60 p-3 rounded-xl bg-card/40 border border-border-white-10/50">
-          No arbitrage pairs available for {selectedAsset}
+        <label className="text-[10px] text-text-muted-40 uppercase tracking-wider">Arbitrage Pair</label>
+        <div className="text-xs text-text-muted-60 p-3 rounded-sm bg-card border border-border-white-10">
+          No pairs available for {selectedAsset}
         </div>
       </div>
     );
@@ -71,60 +49,47 @@ export function ArbitragePairSelector({ className }: ArbitragePairSelectorProps)
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <label className="text-xs text-text-muted-60 uppercase tracking-wide">ARBITRAGE PAIR</label>
+      <label className="text-[10px] text-text-muted-40 uppercase tracking-wider">Arbitrage Pair</label>
       <div ref={dropdownRef} className="relative">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={cn(
-            'w-full flex items-center justify-between px-4 py-3',
-            'bg-card/40 backdrop-blur-sm border border-border-white-10/50',
-            'rounded-xl text-text-primary text-sm',
-            'hover:bg-card/60 focus:outline-none focus:ring-2 focus:ring-accent/50',
-            'transition-colors shadow-md shadow-black/10'
-          )}
+          className="w-full flex items-center justify-between px-3 h-10 bg-background border border-border-white-10 rounded-sm text-sm text-text-primary hover:border-border-white-20 focus:outline-none transition-colors"
         >
           <span className="text-left">
             {selectedPair ? (
               <div className="flex flex-col">
-                <span className="font-medium">{selectedPair.name}</span>
+                <span className="font-medium text-xs">{selectedPair.name}</span>
                 {selectedPair.description && (
-                  <span className="text-xs text-text-muted-60">{selectedPair.description}</span>
+                  <span className="text-[10px] text-text-muted-40">{selectedPair.description}</span>
                 )}
               </div>
             ) : (
-              <span className="text-text-muted-60">Select pair</span>
+              <span className="text-text-muted-40 text-xs">Select pair</span>
             )}
           </span>
           <ChevronDown
-            className={cn(
-              'h-4 w-4 text-text-muted-60 transition-transform',
-              isOpen && 'transform rotate-180'
-            )}
+            className={cn('h-3.5 w-3.5 text-text-muted-40 transition-transform shrink-0', isOpen && 'rotate-180')}
           />
         </button>
 
         {isOpen && (
-          <div className="absolute z-50 w-full mt-2 bg-card/95 backdrop-blur-md border border-border-white-10/50 rounded-xl shadow-lg shadow-black/20 overflow-hidden">
-            <div className="max-h-60 overflow-y-auto">
+          <div className="absolute z-50 w-full mt-1 bg-popover border border-border-white-10 rounded-sm shadow-xl overflow-hidden">
+            <div className="max-h-48 overflow-y-auto">
               {availablePairs.map((pair) => (
                 <button
                   key={pair.id}
                   type="button"
-                  onClick={() => handleSelect(pair)}
+                  onClick={() => { setSelectedPair(pair); setIsOpen(false); }}
                   className={cn(
-                    'w-full text-left px-4 py-3',
-                    'hover:bg-card/80 transition-colors',
-                    'border-b border-border-white-10/30 last:border-b-0',
-                    selectedPair?.id === pair.id && 'bg-accent/10'
+                    'w-full text-left px-3 py-2.5 text-xs hover:bg-card transition-colors border-b border-border-white-10 last:border-b-0',
+                    selectedPair?.id === pair.id && 'bg-green/5 text-green'
                   )}
                 >
-                  <div className="flex flex-col">
-                    <span className="font-medium text-text-primary">{pair.name}</span>
-                    {pair.description && (
-                      <span className="text-xs text-text-muted-60 mt-0.5">{pair.description}</span>
-                    )}
-                  </div>
+                  <span className="font-medium text-text-primary">{pair.name}</span>
+                  {pair.description && (
+                    <div className="text-[10px] text-text-muted-40 mt-0.5">{pair.description}</div>
+                  )}
                 </button>
               ))}
             </div>

@@ -42,7 +42,7 @@ export function NavbarActions({
         <motion.button
           whileHover={{ scale: 1.1, rotate: iconType === 'send' ? 15 : 0 }}
           whileTap={{ scale: 0.9 }}
-          className="p-2 rounded-md text-text-muted-60 hover:text-text-primary hover:bg-card transition-colors"
+          className="p-2 rounded-sm text-text-muted-60 hover:text-text-primary hover:bg-card transition-colors"
           aria-label={iconType}
         >
           <Icon className="h-4 w-4" />
@@ -54,7 +54,7 @@ export function NavbarActions({
         onClick={onConnectWallet}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="px-3.5 py-1.5 rounded-md bg-white text-background hover:bg-white/90 font-medium text-sm transition-colors shadow-sm"
+        className="px-3.5 py-1.5 rounded-sm bg-white text-background hover:bg-white/90 font-medium text-sm transition-colors shadow-sm"
       >
         {connectWalletText}
       </motion.button>

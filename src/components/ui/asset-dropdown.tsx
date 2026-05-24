@@ -228,6 +228,8 @@ export interface AssetDropdownProps {
   onSelect?: (asset: AssetDropdownItem) => void;
   className?: string;
   placeholder?: string;
+  /** Compact trigger for the asset header strip */
+  variant?: 'default' | 'header';
 }
 
 export function AssetDropdown({
@@ -235,6 +237,7 @@ export function AssetDropdown({
   onSelect,
   className,
   placeholder = 'Select asset',
+  variant = 'default',
 }: AssetDropdownProps) {
   // Get assets from global store
   const assets = useAtomValue(marketFeedDataAtom);
@@ -400,30 +403,43 @@ export function AssetDropdown({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex items-center gap-2 px-3 py-1.5 rounded-xl',
-          'bg-card/40 backdrop-blur-sm border border-border-white-10/50',
-          'shadow-md shadow-black/10 transition-all',
-          'cursor-pointer group hover:bg-card/60 hover:border-border-white-20',
-          'min-w-[140px] relative z-10001'
+          'flex items-center gap-1.5 cursor-pointer group transition-colors relative z-10001',
+          variant === 'default' && [
+            'px-3 py-1.5 min-w-[140px] rounded-sm',
+            'bg-secondary border border-border-white-10',
+            'hover:border-border-white-20',
+          ],
+          variant === 'header' && 'px-0 py-0 hover:opacity-90'
         )}
       >
         {selectedAsset ? (
           <>
-            <Image
-              src={hyperliquidCoinIconUrl(selectedAsset.asset)}
-              alt={selectedAsset.asset}
-              width={20}
-              height={20}
-              className="shrink-0 rounded-full"
-            />
-            <span className="font-semibold text-text-primary text-sm">{selectedAsset.asset}</span>
+            {variant === 'default' && (
+              <Image
+                src={hyperliquidCoinIconUrl(selectedAsset.asset)}
+                alt={selectedAsset.asset}
+                width={20}
+                height={20}
+                className="shrink-0 rounded-full"
+              />
+            )}
+            <span
+              className={cn(
+                'font-semibold text-text-primary',
+                variant === 'header' ? 'text-base' : 'text-sm'
+              )}
+            >
+              {selectedAsset.asset}
+            </span>
+            <span className="text-[10px] text-text-muted-40 uppercase tracking-wide">Perp</span>
           </>
         ) : (
           <span className="text-text-muted-60 text-sm">{placeholder}</span>
         )}
         <ChevronDown
           className={cn(
-            'h-3.5 w-3.5 text-text-muted-60 group-hover:text-text-primary transition-all ml-auto shrink-0',
+            'h-3.5 w-3.5 text-text-muted-60 group-hover:text-text-primary transition-all shrink-0',
+            variant === 'default' && 'ml-auto',
             isOpen && 'rotate-180'
           )}
         />
@@ -435,14 +451,14 @@ export function AssetDropdown({
           className={cn(
             'absolute top-full left-0 mt-2 z-10002',
             'w-auto min-w-[1280px] max-w-[1580px] min-h-[500px] max-h-[600px] overflow-hidden',
-            'bg-background/95 backdrop-blur-xl border border-border-white-20/50',
-            'rounded-2xl shadow-2xl shadow-black/60',
+            'bg-background border border-border-white-20',
+            'rounded-sm shadow-2xl shadow-black/60',
             'ring-1 ring-white/10',
             'flex flex-col'
           )}
         >
           {/* Header with Legend */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-white-10/50 bg-linear-to-r from-card/70 via-card/60 to-card/70 backdrop-blur-md">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-white-10/50 bg-card">
             <div className="flex items-center gap-2.5">
               <div className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
               <span className="text-xs font-semibold text-text-primary uppercase tracking-wider">
@@ -478,8 +494,8 @@ export function AssetDropdown({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search asset..."
                 className={cn(
-                  'w-full pl-10 pr-4 py-2.5 rounded-xl',
-                  'bg-card/50 backdrop-blur-sm border border-border-white-10/50',
+                  'w-full pl-10 pr-4 py-2.5 rounded-sm',
+                  'bg-card border border-border-white-10',
                   'text-sm text-text-primary placeholder:text-text-muted-40',
                   'shadow-sm shadow-black/10',
                   'focus:outline-none focus:bg-card/70 focus:border-border-white-30 focus:ring-2 focus:ring-accent/20',
@@ -517,7 +533,7 @@ export function AssetDropdown({
                           setToggleExchange(id);
                         }}
                         className={cn(
-                          'group inline-flex items-center gap-2 rounded-lg border py-2 px-4 text-xs text-left transition-all duration-200 cursor-pointer',
+                          'group inline-flex items-center gap-2 rounded-sm border py-2 px-4 text-xs text-left transition-all duration-200 cursor-pointer',
                           on
                             ? ' bg-white/[0.07] text-text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]'
                             : 'border-white/[0.07] bg-transparent text-text-muted-60 hover:border-white/12 hover:bg-white/[0.03] hover:text-text-primary',
@@ -526,7 +542,7 @@ export function AssetDropdown({
                       >
                         <span
                           className={cn(
-                            'flex  shrink-0 items-center justify-center rounded-lg border transition-colors',
+                            'flex  shrink-0 items-center justify-center rounded-sm border transition-colors',
                             on
                               ? ' bg-black/40'
                               : 'border-white/[0.06] bg-black/25 group-hover:border-white/10'
@@ -553,7 +569,7 @@ export function AssetDropdown({
                   Best pair by
                 </span>
                 <div
-                  className="inline-flex h-10 shrink-0 items-stretch rounded-lg border border-white/[0.1] bg-black/35 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]"
+                  className="inline-flex h-10 shrink-0 items-stretch rounded-sm border border-white/[0.1] bg-black/35 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]"
                   role="group"
                   aria-label="Best pair metric"
                 >
@@ -564,7 +580,7 @@ export function AssetDropdown({
                       setPairMetric('seven_day_apr');
                     }}
                     className={cn(
-                      'min-w-[5.75rem] rounded-lg px-3 cursor-pointer text-xs font-semibold tracking-tight transition-all duration-200 cursor-pointer',
+                      'min-w-[5.75rem] rounded-sm px-3 cursor-pointer text-xs font-semibold tracking-tight transition-all duration-200 cursor-pointer',
                       metric === 'seven_day_apr'
                         ? 'bg-white/[0.12] text-white shadow-sm ring-1 ring-inset ring-white/[0.08]'
                         : 'text-text-muted-60 hover:text-text-primary'
@@ -579,7 +595,7 @@ export function AssetDropdown({
                       setPairMetric('net_apr');
                     }}
                     className={cn(
-                      'min-w-[5.75rem] rounded-lg px-3 cursor-pointer text-xs font-semibold tracking-tight transition-all duration-200',
+                      'min-w-[5.75rem] rounded-sm px-3 cursor-pointer text-xs font-semibold tracking-tight transition-all duration-200',
                       metric === 'net_apr'
                         ? 'bg-white/[0.12] text-white shadow-sm ring-1 ring-inset ring-white/[0.08]'
                         : 'text-text-muted-60 hover:text-text-primary'
@@ -593,7 +609,7 @@ export function AssetDropdown({
           </div>
 
           {/* Table Header */}
-          <div className="sticky top-0 z-10001 px-5 py-3 border-b border-border-white-10/50 bg-linear-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md shadow-lg shadow-black/20 shrink-0">
+          <div className="sticky top-0 z-10001 px-5 py-3 border-b border-border-white-10/50 bg-card shrink-0">
             <div className="grid gap-4" style={tableGrid}>
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
                 ASSET
@@ -661,7 +677,7 @@ export function AssetDropdown({
                           'w-full grid items-center gap-4 px-5 py-3.5',
                           'text-left transition-all duration-200',
                           'border-l-[3px] border-l-transparent',
-                          'hover:border-l-accent/60 hover:bg-gray-500/10 hover:backdrop-blur-sm cursor-pointer',
+                          'hover:border-l-accent/60 hover:bg-card cursor-pointer',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
                           isSelected && 'bg-card/20 border-l-accent/40',
                           'group'
@@ -689,7 +705,7 @@ export function AssetDropdown({
                                   toggleExpanded(asset.asset);
                                 }}
                                 className={cn(
-                                  'inline-flex items-center justify-center rounded-md',
+                                  'inline-flex items-center justify-center rounded-sm',
                                   'h-5 w-5 border border-border-white-10/40 bg-white/5',
                                   'hover:bg-white/10 hover:border-border-white-20/60 transition-colors',
                                   'text-text-muted-60 hover:text-text-primary'
@@ -772,9 +788,9 @@ export function AssetDropdown({
                                 className={cn(
                                   'grid items-center gap-4',
                                   'w-full text-left transition-all duration-200',
-                                  'px-5 py-3.5 rounded-lg',
+                                  'px-5 py-3.5 rounded-sm',
                                   'bg-white/5 border border-border-white-10/30',
-                                  'hover:bg-gray-500/10 hover:backdrop-blur-sm cursor-pointer'
+                                  'hover:bg-card cursor-pointer'
                                 )}
                                 onClick={() =>
                                   handleSelect(asset, { long: pair.long, short: pair.short })

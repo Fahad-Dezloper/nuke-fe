@@ -105,16 +105,12 @@ export function WalletStatus() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <motion.button
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+          <button
             className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-lg',
-              'bg-card/50 border border-border-white-10/50',
-              'hover:border-border-white-20 hover:bg-card/70',
-              'transition-colors duration-200 cursor-pointer',
+              'flex items-center gap-2 h-8 px-3 rounded-sm',
+              'bg-secondary border border-border-white-10',
+              'hover:border-border-white-20',
+              'transition-colors duration-150 cursor-pointer',
               'outline-none focus:outline-none'
             )}
           >
@@ -134,7 +130,7 @@ export function WalletStatus() {
               {showSkeleton ? (
                 <div className="w-12 h-3.5 rounded bg-white/10 animate-pulse" />
               ) : (
-                <span className="text-xs font-semibold text-white tabular-nums">
+                <span className="text-xs font-semibold text-text-primary font-tabular">
                   ${formattedBalance}
                 </span>
               )}
@@ -152,9 +148,9 @@ export function WalletStatus() {
                     onClick={(e) => e.stopPropagation()}
                     className={cn(
                       'absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50',
-                      'w-56 rounded-xl',
-                      'bg-card border border-border-white-10/50 backdrop-blur-xl',
-                      'shadow-xl shadow-black/60',
+                      'w-56 rounded-sm',
+                      'bg-card border border-border-white-10',
+                      'shadow-xl',
                       'pointer-events-auto'
                     )}
                   >
@@ -271,12 +267,12 @@ export function WalletStatus() {
 
             {/* Chevron */}
             <ChevronDown className="w-3 h-3 text-text-muted-40" />
-          </motion.button>
+          </button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent
           align="end"
-          className="w-48 bg-card border border-border-white-10/50 backdrop-blur-xl"
+          className="w-48 bg-card border border-border-white-10 rounded-sm"
         >
           {/* Wallet Address */}
           <DropdownMenuItem

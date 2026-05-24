@@ -150,9 +150,9 @@ export function ExportWalletModal({
             disabled={exportState === 'exporting'}
             className={cn(
               'w-full flex items-center justify-between cursor-pointer',
-              'rounded-xl px-3.5 py-2.5',
-              'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-              'backdrop-blur-lg border border-border-white-15/60',
+              'rounded-sm px-3.5 py-2.5',
+              'bg-card',
+              'border border-border-white-10',
               'text-xs font-medium text-text-primary',
               'hover:border-border-white-30 transition-all duration-200',
               'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -169,9 +169,8 @@ export function ExportWalletModal({
           {dropdownOpen && (
             <div
               className={cn(
-                'absolute z-20 mt-1 w-full rounded-xl overflow-hidden',
-                'bg-card/95 backdrop-blur-lg border border-border-white-15/60',
-                'shadow-xl shadow-black/40'
+                'absolute z-20 mt-1 w-full rounded-sm overflow-hidden',
+                'bg-card border border-border-white-10'
               )}
             >
               <button
@@ -222,13 +221,12 @@ export function ExportWalletModal({
         </div>
         <div
           className={cn(
-            'relative overflow-hidden rounded-xl',
-            'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-            'backdrop-blur-lg border border-border-white-15/60',
+            'relative overflow-hidden rounded-sm',
+            'bg-card',
+            'border border-border-white-10',
             'p-3.5 pr-11'
           )}
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
           <div className="relative z-10">
             <p className="text-xs font-mono text-text-primary break-all leading-relaxed">
               {activeAddress}
@@ -241,10 +239,10 @@ export function ExportWalletModal({
             className={cn(
               'absolute top-1/2 right-2.5 -translate-y-1/2',
               'w-7 h-7 flex items-center justify-center',
-              'rounded-lg bg-card/50 border border-border-white-10/50',
+              'rounded-sm bg-card border border-border-white-10',
               'text-text-muted-60 hover:text-text-primary',
-              'backdrop-blur-sm transition-colors duration-200',
-              'hover:border-border-white-20 hover:bg-card/70'
+              'transition-colors duration-200',
+              'hover:border-border-white-20'
             )}
             title={copied ? 'Copied!' : 'Copy address'}
           >
@@ -266,17 +264,14 @@ export function ExportWalletModal({
           className={cn(
             isSuccess
               ? [
-                  'relative overflow-hidden rounded-xl',
-                  'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-                  'backdrop-blur-lg border border-border-white-15/60',
+                  'relative overflow-hidden rounded-sm',
+                  'bg-card',
+                  'border border-border-white-10',
                   'p-3.5',
                 ]
               : 'w-0 h-0 overflow-hidden absolute pointer-events-none'
           )}
         >
-          {isSuccess && (
-            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
-          )}
           <div
             ref={iframeContainerRef}
             id="turnkey-export-iframe-container-id"
@@ -302,7 +297,7 @@ export function ExportWalletModal({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mb-5 p-3 rounded-lg bg-red-500/10 border border-red-500/20"
+          className="mb-5 p-3 rounded-sm bg-red-500/10 border border-red-500/20"
         >
           <p className="text-xs text-red-400 leading-relaxed">{errorMessage}</p>
         </motion.div>
@@ -322,17 +317,16 @@ export function ExportWalletModal({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className={cn(
-              'w-full relative overflow-hidden rounded-xl',
-              'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-              'backdrop-blur-lg border border-border-white-15/60',
+              'w-full relative overflow-hidden rounded-sm',
+              'bg-card',
+              'border border-border-white-10',
               'p-3.5',
               'text-text-primary hover:border-border-white-30',
-              'hover:from-card/90 hover:via-card/80 hover:to-card/75',
+              '',
               'transition-all duration-300 cursor-pointer',
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
             <div className="relative z-10 flex items-center justify-center gap-2">
               {exportState === 'exporting' ? (
                 <>
@@ -352,7 +346,7 @@ export function ExportWalletModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.25 }}
-        className="p-3 rounded-lg bg-yellow-700/10 border border-accent/20"
+        className="p-3 rounded-sm bg-yellow-700/10 border border-accent/20"
       >
         <p className="text-xs text-text-muted-60 leading-relaxed">
           {isSuccess

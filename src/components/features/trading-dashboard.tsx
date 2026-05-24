@@ -1,10 +1,5 @@
 'use client';
 
-/**
- * Trading Dashboard Layout
- * Main layout component that arranges chart, positions table, and position controls
- */
-
 import { cn } from '@/lib/utils';
 
 interface TradingDashboardProps {
@@ -14,39 +9,9 @@ interface TradingDashboardProps {
 
 export function TradingDashboard({ className, children }: TradingDashboardProps) {
   return (
-    <div className={cn('flex flex-col lg:flex-row gap-0 h-full overflow-hidden', className)}>
-      {children}
-    </div>
-  );
-}
-
-/**
- * Chart Section Component
- * Left side - contains the chart area
- */
-interface ChartSectionProps {
-  className?: string;
-  children?: React.ReactNode;
-}
-
-export function ChartSection({ className, children }: ChartSectionProps) {
-  return <div className={cn('flex-1 flex flex-col bg-background', className)}>{children}</div>;
-}
-
-/**
- * Positions Table Section Component
- * Below the chart - shows positions/closed tabs
- */
-interface PositionsTableSectionProps {
-  className?: string;
-  children?: React.ReactNode;
-}
-
-export function PositionsTableSection({ className, children }: PositionsTableSectionProps) {
-  return (
     <div
       className={cn(
-        'border rounded-xl border-border-white-5 bg-background h-full flex flex-col overflow-hidden',
+        'flex flex-col lg:flex-row h-full min-h-0 overflow-hidden gap-3',
         className
       )}
     >
@@ -55,10 +20,32 @@ export function PositionsTableSection({ className, children }: PositionsTableSec
   );
 }
 
-/**
- * Position Controls Section Component
- * Right side - contains position controls panel
- */
+interface ChartSectionProps {
+  className?: string;
+  children?: React.ReactNode;
+}
+
+export function ChartSection({ className, children }: ChartSectionProps) {
+  return (
+    <div className={cn('flex flex-col shrink-0 lg:shrink min-h-[280px] lg:min-h-0', className)}>
+      {children}
+    </div>
+  );
+}
+
+interface PositionsTableSectionProps {
+  className?: string;
+  children?: React.ReactNode;
+}
+
+export function PositionsTableSection({ className, children }: PositionsTableSectionProps) {
+  return (
+    <div className={cn('panel flex flex-col overflow-hidden min-h-0', className)}>
+      {children}
+    </div>
+  );
+}
+
 interface PositionControlsSectionProps {
   className?: string;
   children?: React.ReactNode;
@@ -68,7 +55,7 @@ export function PositionControlsSection({ className, children }: PositionControl
   return (
     <div
       className={cn(
-        'w-full lg:w-[400px] xl:w-[450px] flex flex-col border border-border-white-10/50 bg-background/80 backdrop-blur-md rounded-2xl shadow-2xl shadow-black/40',
+        'w-full lg:w-[min(100%,380px)] xl:w-[400px] flex flex-col panel overflow-hidden lg:shrink-0 h-full min-h-0',
         className
       )}
     >

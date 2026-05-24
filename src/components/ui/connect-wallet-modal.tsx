@@ -24,13 +24,13 @@ import {
 } from '@/lib/wallet-discovery/solana-injected';
 
 const WALLET_GRID_BTN = cn(
-  'flex min-h-[3.25rem] w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
-  'border-border-white-15/60 bg-card/50 hover:bg-card/70',
+  'flex min-h-[3.25rem] w-full items-center gap-3 rounded-sm border px-3 py-2.5 text-left transition-colors',
+  'border-border-white-10 bg-card',
   'text-xs font-medium text-text-primary cursor-pointer'
 );
 
 const WALLET_GRID_ICON_WRAP = cn(
-  'flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/5'
+  'flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-white/5'
 );
 
 const SOLANA_BRAND_ICON: Record<SolanaWalletKind, string> = {
@@ -194,7 +194,7 @@ export function ConnectWalletModal({
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-300 text-sm"
+          className="mb-4 p-3 rounded-sm bg-red-500/10 border border-red-500/50 text-red-300 text-sm"
         >
           {error}
         </motion.div>
@@ -209,13 +209,12 @@ export function ConnectWalletModal({
         >
           <div
             className={cn(
-              'relative overflow-hidden rounded-xl',
-              'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-              'backdrop-blur-lg border border-border-white-15/60',
+              'relative overflow-hidden rounded-sm',
+              'bg-card',
+              'border border-border-white-10',
               'p-3.5 flex items-center gap-3'
             )}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
             <ShieldCheck className="relative z-10 w-4 h-4 text-text-muted-60 shrink-0" />
             <input
               type="text"
@@ -241,11 +240,11 @@ export function ConnectWalletModal({
             onClick={handleValidateCode}
             disabled={!accessCode.trim() || loading !== null}
             className={cn(
-              'w-full py-3 rounded-xl text-sm font-semibold tracking-wide cursor-pointer',
+              'w-full py-3 rounded-sm text-sm font-semibold tracking-wide cursor-pointer',
               'transition-all duration-200',
               !accessCode.trim() || loading !== null
                 ? 'bg-white/5 text-text-muted-60/40 cursor-not-allowed border border-border-white-10/30'
-                : 'bg-gradient-to-r from-accent/80 to-accent/60 text-white hover:from-accent hover:to-accent/80 border border-accent/30 shadow-lg shadow-accent/10'
+                : 'bg-green text-black hover:bg-green/90'
             )}
           >
             {loading === 'validating' ? (
@@ -271,20 +270,18 @@ export function ConnectWalletModal({
             animate={{ opacity: 1, x: 0 }}
             className={cn(
               'w-full relative overflow-hidden cursor-pointer',
-              'px-5 py-4 rounded-xl',
-              'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-              'backdrop-blur-lg border border-border-white-15/60',
+              'px-5 py-4 rounded-sm',
+              'bg-card',
+              'border border-border-white-10',
               'hover:border-border-white-25',
-              'hover:from-card/85 hover:via-card/75 hover:to-card/70',
+              
               'transition-all duration-300',
-              'shadow-md shadow-black/30 hover:shadow-lg hover:shadow-black/40',
+              
               'group',
               optionsDisabled && 'opacity-50 cursor-not-allowed'
             )}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
             <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
               initial={false}
             />
             <div className="relative z-10 flex items-center justify-center">

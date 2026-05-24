@@ -130,14 +130,13 @@ export function DepositModal({
       >
         <div
           className={cn(
-            'relative overflow-hidden rounded-xl',
-            'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-            'backdrop-blur-lg border border-border-white-15/60',
+            'relative overflow-hidden rounded-sm',
+            'bg-card',
+            'border border-border-white-10',
             'p-4'
           )}
         >
           {/* Glassmorphism overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
 
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -169,7 +168,7 @@ export function DepositModal({
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-card/50 border border-border-white-10/50">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-sm bg-card border border-border-white-10">
                 <div className="relative w-3.5 h-3.5 flex items-center justify-center">
                   {!baseImageError ? (
                     <Image
@@ -194,9 +193,9 @@ export function DepositModal({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className={cn(
-                  'w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer',
+                  'w-7 h-7 flex items-center justify-center rounded-sm cursor-pointer',
                   'text-text-muted-60 hover:text-text-primary',
-                  'hover:bg-card/50 transition-colors duration-200',
+                  'hover:bg-card/10 transition-colors duration-200',
                   isRefreshing && 'opacity-50 cursor-not-allowed'
                 )}
                 title="Refresh balance"
@@ -229,14 +228,13 @@ export function DepositModal({
         </div>
         <div
           className={cn(
-            'relative overflow-hidden rounded-xl',
-            'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-            'backdrop-blur-lg border border-border-white-15/60',
+            'relative overflow-hidden rounded-sm',
+            'bg-card',
+            'border border-border-white-10',
             'p-3.5 pr-11'
           )}
         >
           {/* Glassmorphism overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
 
           <div className="relative z-10">
             <p className="text-xs font-mono text-text-primary break-all leading-relaxed">
@@ -252,10 +250,10 @@ export function DepositModal({
             className={cn(
               'absolute top-1/2 right-2.5 -translate-y-1/2',
               'w-7 h-7 flex items-center justify-center cursor-pointer',
-              'rounded-lg bg-card/50 border border-border-white-10/50',
+              'rounded-sm bg-card border border-border-white-10',
               'text-text-muted-60 hover:text-text-primary',
-              'backdrop-blur-sm transition-colors duration-200',
-              'hover:border-border-white-20 hover:bg-card/70'
+              'transition-colors duration-200',
+              'hover:border-border-white-20'
             )}
             title={copied ? 'Copied!' : 'Copy address'}
           >
@@ -273,7 +271,7 @@ export function DepositModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.25 }}
-        className="p-3 rounded-lg text-yellow-600 bg-yellow-700/10 border border-accent/20"
+        className="p-3 rounded-sm text-yellow-600 bg-yellow-700/10 border border-accent/20"
       >
         <p className="text-xs text-text-muted-60 leading-relaxed">
           Deposit at least <span className="text-text-primary font-medium">25 USDC</span> on Solana

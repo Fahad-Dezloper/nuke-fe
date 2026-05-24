@@ -205,7 +205,7 @@ function PnLTooltip({ active, payload }: { active?: boolean; payload?: Array<{ p
   const isProjected = data.projected !== null;
 
   return (
-    <div className="rounded-lg border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md">
+    <div className="rounded-sm border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md">
       <div className="mb-1 text-text-muted-60">
         {isProjected ? 'Projected' : data.fullTimestamp || data.time}
       </div>

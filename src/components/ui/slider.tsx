@@ -48,7 +48,7 @@ export function Slider({
         onChange={handleChange}
         className="w-full h-1 bg-card border border-border-white-10 rounded-full appearance-none cursor-pointer"
         style={{
-          background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%, rgba(255, 255, 255, 0.1) 100%)`,
+          background: `linear-gradient(to right, var(--green) 0%, var(--green) ${percentage}%, rgba(255, 255, 255, 0.08) ${percentage}%, rgba(255, 255, 255, 0.08) 100%)`,
         }}
         {...props}
       />

@@ -1,10 +1,5 @@
 'use client';
 
-/**
- * Positions Table Section Component
- * Shows positions and closed tabs
- */
-
 import { PositionsTableSection } from './trading-dashboard';
 import { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
@@ -24,24 +19,20 @@ interface PositionsTableSectionContentProps {
 export function PositionsTableSectionContent({ className }: PositionsTableSectionContentProps) {
   const [activeTab, setActiveTab] = useState<'positions' | 'closed'>('positions');
 
-  // Close modal state
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [selectedRawPosition, setSelectedRawPosition] = useState<PositionApiResponse | null>(null);
 
-  // Get wallet addresses from Turnkey
   const { state } = useTurnkey();
   const evmAddress = getEVMAddress(state.userWallets) || '';
   const solanaAddress = getSolanaAddress(state.userWallets) || '';
   const organizationId = state.turnkeySubOrgId || '';
 
-  // Fetch positions
   const { positions, rawPositions, loading, error, refetch } = usePositions({
     evmAddress: evmAddress || undefined,
     solanaAddress: solanaAddress || undefined,
     enabled: state.isLoggedIn && !!evmAddress && !!solanaAddress,
   });
 
-  // Close position hook
   const { closePosition } = useClosePosition({
     evmAddress,
     solanaAddress,
@@ -51,7 +42,6 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
     },
   });
 
-  // Open the close-position modal
   const handleClosePosition = useCallback(
     (asset: string) => {
       const assetSymbol = asset.split('-')[0];
@@ -66,7 +56,6 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
     [rawPositions]
   );
 
-  // Execute the close from the modal's confirm
   const handleConfirmClose = useCallback(
     async (position: PositionApiResponse): Promise<ClosePositionResult> => {
       return closePosition(position);
@@ -87,48 +76,40 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
   return (
     <>
       <PositionsTableSection className={className}>
-        <div className="flex flex-col h-full overflow-hidden py-4">
-          {/* Tabs and Actions */}
-          <div className="flex items-center justify-between border-b border-border-white-10 px-3 md:px-4 lg:px-5 shrink-0">
-            <div className="flex items-center gap-6">
-              <button
-                onClick={() => setActiveTab('positions')}
-                className={cn(
-                  'pb-3 text-sm font-medium transition-colors relative cursor-pointer',
-                  activeTab === 'positions'
-                    ? 'text-text-primary'
-                    : 'text-text-muted-60 hover:text-text-primary'
-                )}
-              >
-                POSITIONS ({positions.length})
-                {activeTab === 'positions' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-accent to-transparent" />
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('closed')}
-                className={cn(
-                  'pb-3 text-sm font-medium transition-colors relative cursor-pointer',
-                  activeTab === 'closed'
-                    ? 'text-text-primary'
-                    : 'text-text-muted-60 hover:text-text-primary'
-                )}
-              >
-                CLOSED
-                {activeTab === 'closed' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-accent to-transparent" />
-                )}
-              </button>
-            </div>
+        <div className="flex flex-col h-full overflow-hidden">
+          <div className="flex items-center gap-1 panel-header shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveTab('positions')}
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer',
+                activeTab === 'positions'
+                  ? 'bg-secondary text-text-primary'
+                  : 'text-text-muted-60 hover:text-text-primary'
+              )}
+            >
+              Positions ({positions.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('closed')}
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer',
+                activeTab === 'closed'
+                  ? 'bg-secondary text-text-primary'
+                  : 'text-text-muted-60 hover:text-text-primary'
+              )}
+            >
+              Closed
+            </button>
           </div>
 
-          {/* Content */}
           <div className="flex-1 min-h-0 overflow-hidden">
             {activeTab === 'positions' ? (
               <>
                 {error && (
                   <div className="flex items-center justify-center py-12">
-                    <p className="text-red-400 text-sm">Error loading positions: {error.message}</p>
+                    <p className="text-red text-sm">Error loading positions: {error.message}</p>
                   </div>
                 )}
                 {!error && (
@@ -144,7 +125,6 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
         </div>
       </PositionsTableSection>
 
-      {/* Close Position Modal */}
       <ClosePositionModal
         isOpen={isCloseModalOpen}
         onClose={handleCloseModal}

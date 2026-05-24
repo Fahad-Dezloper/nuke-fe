@@ -850,7 +850,7 @@ export function AutomationPanel() {
             </p>
           </header>
 
-          {/* <div className="mb-6 rounded-md border border-border-white-10 bg-card/30 px-3 py-2 text-[11px] text-text-muted-60 leading-relaxed">
+          {/* <div className="mb-6 rounded-sm border border-border-white-10 bg-card/30 px-3 py-2 text-[11px] text-text-muted-60 leading-relaxed">
             <div>
               Rust service:{' '}
               <span className="text-text-primary">{_rustBase}</span>{' '}
@@ -870,7 +870,7 @@ export function AutomationPanel() {
           </div> */}
 
           {!isWalletReady && (
-            <div className="mb-6 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200/90">
+            <div className="mb-6 rounded-sm border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200/90">
               Connect Turnkey with EVM and Solana wallets.
               {AUTOMATION_DEMO_HEDGE_ONLY
                 ? ' Start automation uses the same hedge-intent signing flow as Funding Arbitrage.'
@@ -882,7 +882,7 @@ export function AutomationPanel() {
             fullyConfigured &&
             !automationAuthReady &&
             !automationAuthDisabled() && (
-              <div className="mb-6 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs text-orange-200/90 leading-relaxed">
+              <div className="mb-6 rounded-sm border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs text-orange-200/90 leading-relaxed">
                 Automation auth missing. If executor uses{' '}
                 <code className="text-orange-100/90">AUTH_MODE=jwt</code>, set{' '}
                 <code className="text-orange-100/90">NEXT_PUBLIC_AUTOMATION_ACCESS_TOKEN</code> (or
@@ -918,7 +918,7 @@ export function AutomationPanel() {
                         }
                         onClick={() => toggleExchange(ex.id)}
                         className={cn(
-                          'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs transition-colors',
+                          'inline-flex items-center gap-2 rounded-sm border px-3 py-2 text-xs transition-colors',
                           on
                             ? 'border-accent/50 bg-accent/10 text-text-primary'
                             : 'border-border-white-10 bg-card/40 text-text-muted-60 hover:border-border-white-20',
@@ -993,7 +993,7 @@ export function AutomationPanel() {
                     </div>
                   </div>
                   {rulesError && <p className="text-xs text-red-400">{rulesError}</p>}
-                  <div className="flex items-center justify-between rounded-md border border-border-white-10 bg-card/30 px-3 py-2">
+                  <div className="flex items-center justify-between rounded-sm border border-border-white-10 bg-card/30 px-3 py-2">
                     <span className="text-xs text-text-muted-60 flex items-center gap-1">
                       Rebalance to better pair
                       <RuleTooltip text="If a better APR pair is found, automation will close the current position and reopen on the better pair.">
@@ -1088,7 +1088,7 @@ export function AutomationPanel() {
                 </div>
               </section>
 
-              <details className="group rounded-md border border-border-white-10 bg-card/20 open:bg-card/30">
+              <details className="group rounded-sm border border-border-white-10 bg-card/20 open:bg-card/30">
                 <summary className="cursor-pointer list-none flex items-center justify-between px-3 py-2 text-xs text-text-muted-60 hover:text-text-primary">
                   <span className="tracking-widest text-[11px]">EXCLUDE ASSETS (optional)</span>
                   <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
@@ -1204,7 +1204,7 @@ export function AutomationPanel() {
             {/* RIGHT — Status */}
             <div className="space-y-8">
               {showTopOpportunity && rustRecommendation?.asset ? (
-                <section className="rounded-md border border-border-white-10 bg-card/25 p-4">
+                <section className="rounded-sm border border-border-white-10 bg-card/25 p-4">
                   <h2 className="text-[11px] font-medium tracking-widest text-text-muted-40 mb-1">
                     TOP OPPORTUNITY
                   </h2>
@@ -1255,7 +1255,7 @@ export function AutomationPanel() {
                 rustRecommendation &&
                 !rustRecommendation.asset &&
                 rustRecommendation.recommendedAction === 'NOOP_BELOW_MIN' ? (
-                <section className="rounded-md border border-border-white-10 bg-card/25 p-4">
+                <section className="rounded-sm border border-border-white-10 bg-card/25 p-4">
                   <h2 className="text-[11px] font-medium tracking-widest text-text-muted-40 mb-1">
                     TOP OPPORTUNITY
                   </h2>
@@ -1266,7 +1266,7 @@ export function AutomationPanel() {
                 </section>
               ) : null}
 
-              <section className="rounded-md border border-border-white-10 bg-card/25 p-4 min-h-[200px]">
+              <section className="rounded-sm border border-border-white-10 bg-card/25 p-4 min-h-[200px]">
                 <h2 className="text-[11px] font-medium tracking-widest text-text-muted-40 mb-4">
                   CURRENTLY FARMING
                 </h2>
@@ -1329,7 +1329,7 @@ export function AutomationPanel() {
                 )}
               </section>
 
-              <section className="rounded-md border border-border-white-10 bg-card/25 p-4">
+              <section className="rounded-sm border border-border-white-10 bg-card/25 p-4">
                 <div className="flex flex-wrap items-center gap-3 mb-2">
                   <span
                     className={cn(
@@ -1372,7 +1372,7 @@ export function AutomationPanel() {
                     <h2 className="text-[11px] font-medium tracking-widest text-text-muted-40 mb-3">
                       RUN ACTIONS (Rust)
                     </h2>
-                    <div className="max-h-[240px] overflow-y-auto rounded-md border border-border-white-10 bg-background/40 divide-y divide-border-white-10">
+                    <div className="max-h-[240px] overflow-y-auto rounded-sm border border-border-white-10 bg-background/40 divide-y divide-border-white-10">
                       {runActions.length === 0 ? (
                         <div className="p-4 text-xs text-text-muted-60">
                           {activeRunId ? 'No run actions yet.' : 'No automation run yet.'}
@@ -1423,7 +1423,7 @@ export function AutomationPanel() {
                     <h2 className="text-[11px] font-medium tracking-widest text-text-muted-40 mb-3">
                       EXECUTOR ACTIONS (Node)
                     </h2>
-                    <div className="max-h-[240px] overflow-y-auto rounded-md border border-border-white-10 bg-background/40 divide-y divide-border-white-10">
+                    <div className="max-h-[240px] overflow-y-auto rounded-sm border border-border-white-10 bg-background/40 divide-y divide-border-white-10">
                       {apiActions.length === 0 ? (
                         <div className="p-4 text-xs text-text-muted-60">
                           No executor actions yet.

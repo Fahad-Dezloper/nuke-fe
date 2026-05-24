@@ -14,10 +14,6 @@ import { selectedAssetAtom as positionSelectedAssetAtom } from '@/components/fea
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import type { AssetDropdownItem } from '@/types/positions';
 
-/**
- * Normalize asset name (e.g., "BTC-PERP" -> "BTC").
- * Defined outside the component to avoid recreating on every render.
- */
 function normalizeAssetName(asset: string): string {
   return asset.replace(/-PERP$/, '').toUpperCase();
 }
@@ -26,8 +22,6 @@ export default function Home() {
   const setPositionSelectedAsset = useSetAtom(positionSelectedAssetAtom);
   const globalSelectedAsset = useAtomValue(selectedAssetAtom);
 
-  // Sync symbol only when the *ticker* changes — not when the same row gets a
-  // new object reference from market-feed polling.
   const globalAssetSymbol = globalSelectedAsset?.asset;
   useEffect(() => {
     if (globalAssetSymbol) {
@@ -44,28 +38,21 @@ export default function Home() {
   );
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="shrink-0">
-        <SectionErrorBoundary name="Market Overview">
-          <MarketOverview onAssetChange={handleAssetChange} />
-        </SectionErrorBoundary>
-      </div>
+    <div className="flex flex-col h-full gap-3 overflow-hidden">
+      <SectionErrorBoundary name="Market Overview">
+        <MarketOverview onAssetChange={handleAssetChange} />
+      </SectionErrorBoundary>
+
       <TradingDashboard className="flex-1 min-h-0">
-        {/* Left Side - Chart Section */}
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="mb-4 shrink-0">
-            <SectionErrorBoundary name="Chart">
-              <ChartSectionContent />
-            </SectionErrorBoundary>
-          </div>
-          <div className="flex-1 min-h-0">
-            <SectionErrorBoundary name="Positions">
-              <PositionsTableSectionContent />
-            </SectionErrorBoundary>
-          </div>
+        <div className="flex-1 flex flex-col gap-3 overflow-hidden min-w-0">
+          <SectionErrorBoundary name="Chart">
+            <ChartSectionContent />
+          </SectionErrorBoundary>
+          <SectionErrorBoundary name="Positions">
+            <PositionsTableSectionContent className="flex-1 min-h-0" />
+          </SectionErrorBoundary>
         </div>
 
-        {/* Right Side - Position Controls */}
         <SectionErrorBoundary name="Position Controls">
           <PositionControlsSectionContent />
         </SectionErrorBoundary>

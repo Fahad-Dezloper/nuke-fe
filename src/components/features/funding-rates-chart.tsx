@@ -1,10 +1,5 @@
 'use client';
 
-/**
- * Funding Rates Chart Component
- * Main chart container with tabs and controls
- */
-
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
@@ -20,15 +15,15 @@ import type { ChartTimeframe } from '@/lib/api/services/chart.service';
 import { ChevronDown } from 'lucide-react';
 
 const TIMEFRAME_OPTIONS: { value: ChartTimeframe; label: string }[] = [
-  { value: '30m', label: '30 Min' },
-  { value: '1h', label: '1 Hour' },
-  { value: '24h', label: '1 Day' },
+  { value: '30m', label: '30m' },
+  { value: '1h', label: '1h' },
+  { value: '24h', label: '24h' },
 ];
 
 const PNL_DURATION_OPTIONS: { value: PnLDuration; label: string }[] = [
-  { value: '1D', label: '1 Day' },
-  { value: '1W', label: '1 Week' },
-  { value: '1M', label: '1 Month' },
+  { value: '1D', label: '1D' },
+  { value: '1W', label: '1W' },
+  { value: '1M', label: '1M' },
 ];
 
 interface FundingRatesChartProps {
@@ -40,18 +35,15 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
   const [timeframe, setTimeframe] = useState<ChartTimeframe>('30m');
   const [pnlDuration, setPnlDuration] = useState<PnLDuration>('1D');
 
-  // Funding rate chart data (uses user-selected timeframe)
   const {
     data: fundingData,
     loading: fundingLoading,
     error: fundingError,
   } = useFundingRateChart({ timeframe });
 
-  // PnL chart data — always uses 1h timeframe for hourly candles
-  const {
-    data: pnlFundingData,
-    loading: pnlLoading,
-  } = useFundingRateChart({ timeframe: '1h' });
+  const { data: pnlFundingData, loading: pnlLoading } = useFundingRateChart({
+    timeframe: '1h',
+  });
 
   const isInitialLoad = fundingLoading && (!fundingData || fundingData.length === 0);
   if (isInitialLoad) {
@@ -59,35 +51,22 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
   }
 
   return (
-    <div
-      className={cn(
-        'flex flex-col h-full bg-gradient-to-br from-background/80 via-card/40 to-background/80',
-        'border border-border-white-10/50 rounded-2xl py-4 mt-4',
-        'backdrop-blur-md shadow-xl shadow-black/30',
-        className
-      )}
-    >
-      {/* Tabs + Controls */}
-      <div className="flex items-center justify-between border-b border-border-white-10 px-3 md:px-4 lg:px-5">
-        <ChartTabs activeTab={activeTab} onTabChange={setActiveTab} className="border-b-0" />
-
-        {/* Timeframe Dropdown — for funding tab */}
+    <div className={cn('panel flex flex-col h-full min-h-[280px] overflow-hidden', className)}>
+      <div className="flex items-center justify-between panel-header shrink-0">
+        <ChartTabs activeTab={activeTab} onTabChange={setActiveTab} className="border-b-0 px-0" />
         {activeTab === 'funding' && (
           <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
         )}
-
-        {/* PnL Duration Dropdown — for PnL tab */}
         {activeTab === 'pnl' && (
           <DurationDropdown value={pnlDuration} onChange={setPnlDuration} />
         )}
       </div>
 
-      {/* Chart Content */}
-      <div className="px-3 md:px-4 lg:px-5 pb-4">
+      <div className="flex-1 px-4 pb-4 pt-2 md:px-5 min-h-0">
         {activeTab === 'pnl' && (
           <>
             {pnlLoading && (!pnlFundingData || pnlFundingData.length === 0) ? (
-              <div className="h-[260px] flex items-center justify-center text-text-muted-60 text-xs">
+              <div className="h-[240px] flex items-center justify-center text-text-muted-60 text-xs">
                 Loading PnL data...
               </div>
             ) : (
@@ -98,16 +77,16 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
         {activeTab === 'funding' && (
           <>
             {fundingLoading && (
-              <div className="h-[260px] flex items-center justify-center text-text-muted-60">
+              <div className="h-[240px] flex items-center justify-center text-text-muted-60 text-xs">
                 Loading chart data...
               </div>
             )}
             {fundingError && (
-              <div className="h-[260px] flex items-center justify-center text-red-400">
-                Error loading chart data: {fundingError.message}
+              <div className="h-[240px] flex items-center justify-center text-red text-xs">
+                Failed to load chart
               </div>
             )}
-            {!fundingLoading && !fundingError && (
+            {!fundingLoading && !fundingError && fundingData && (
               <FundingRateChart data={fundingData} timeframe={timeframe} />
             )}
           </>
@@ -117,30 +96,50 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
   );
 }
 
-// --- Dropdown Components ---
-
 function TimeframeDropdown({
   value,
   onChange,
 }: {
   value: ChartTimeframe;
-  onChange: (tf: ChartTimeframe) => void;
+  onChange: (v: ChartTimeframe) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const selectedLabel = TIMEFRAME_OPTIONS.find((o) => o.value === value)?.label ?? value;
+  const label = TIMEFRAME_OPTIONS.find((o) => o.value === value)?.label ?? value;
 
   return (
-    <GenericDropdown
-      open={open}
-      onOpenChange={setOpen}
-      label={selectedLabel}
-      options={TIMEFRAME_OPTIONS}
-      value={value}
-      onChange={(v) => {
-        onChange(v as ChartTimeframe);
-        setOpen(false);
-      }}
-    />
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 h-8 px-3 rounded-sm border border-border-white-10 bg-secondary text-xs font-medium text-text-primary hover:border-border-white-20 cursor-pointer"
+      >
+        {label}
+        <ChevronDown className={cn('h-3.5 w-3.5 text-text-muted-60', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-50 min-w-[88px] rounded-sm border border-border-white-10 bg-card py-1 shadow-xl">
+            {TIMEFRAME_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  'w-full px-3 py-1.5 text-left text-xs hover:bg-secondary cursor-pointer',
+                  value === opt.value ? 'text-green' : 'text-text-primary'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -149,83 +148,39 @@ function DurationDropdown({
   onChange,
 }: {
   value: PnLDuration;
-  onChange: (d: PnLDuration) => void;
+  onChange: (v: PnLDuration) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const selectedLabel = PNL_DURATION_OPTIONS.find((o) => o.value === value)?.label ?? value;
+  const label = PNL_DURATION_OPTIONS.find((o) => o.value === value)?.label ?? value;
 
-  return (
-    <GenericDropdown
-      open={open}
-      onOpenChange={setOpen}
-      label={selectedLabel}
-      options={PNL_DURATION_OPTIONS}
-      value={value}
-      onChange={(v) => {
-        onChange(v as PnLDuration);
-        setOpen(false);
-      }}
-    />
-  );
-}
-
-function GenericDropdown<T extends string>({
-  open,
-  onOpenChange,
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  label: string;
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
   return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => onOpenChange(!open)}
-        className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
-          'bg-card/40 border border-border-white-10/50',
-          'text-text-muted-60 hover:text-text-primary hover:border-border-white-20',
-          'transition-all duration-200 select-none'
-        )}
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 h-8 px-3 rounded-sm border border-border-white-10 bg-secondary text-xs font-medium text-text-primary hover:border-border-white-20 cursor-pointer"
       >
         {label}
-        <ChevronDown
-          className={cn('h-3 w-3 transition-transform duration-200', open && 'rotate-180')}
-        />
+        <ChevronDown className={cn('h-3.5 w-3.5 text-text-muted-60', open && 'rotate-180')} />
       </button>
-
       {open && (
         <>
-          <div className="fixed inset-0 z-[100]" onClick={() => onOpenChange(false)} />
-          <div
-            className={cn(
-              'absolute right-0 top-full mt-1 z-[101]',
-              'min-w-[100px] py-1 rounded-lg',
-              'bg-background/95 backdrop-blur-xl border border-border-white-20/50',
-              'shadow-xl shadow-black/40'
-            )}
-          >
-            {options.map((option) => (
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-50 min-w-[88px] rounded-sm border border-border-white-10 bg-card py-1 shadow-xl">
+            {PNL_DURATION_OPTIONS.map((opt) => (
               <button
-                key={option.value}
+                key={opt.value}
                 type="button"
-                onClick={() => onChange(option.value)}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
                 className={cn(
-                  'w-full text-left px-3 py-1.5 text-xs font-medium transition-colors',
-                  option.value === value
-                    ? 'text-accent bg-accent/10'
-                    : 'text-text-muted-60 hover:text-text-primary hover:bg-card/30'
+                  'w-full px-3 py-1.5 text-left text-xs hover:bg-secondary cursor-pointer',
+                  value === opt.value ? 'text-green' : 'text-text-primary'
                 )}
               >
-                {option.label}
+                {opt.label}
               </button>
             ))}
           </div>

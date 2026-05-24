@@ -61,14 +61,14 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
  */
 function DefaultErrorFallback({ error, reset }: { error: Error; reset: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center p-6 rounded-lg border border-red-500/20 bg-red-500/5 m-4">
+    <div className="flex flex-col items-center justify-center p-6 rounded-sm border border-red-500/20 bg-red-500/5 m-4">
       <h3 className="text-red-400 font-semibold text-sm mb-2">Something went wrong</h3>
       <p className="text-muted-foreground text-xs text-center mb-4 max-w-md">
         {error.message || 'An unexpected error occurred.'}
       </p>
       <button
         onClick={reset}
-        className="px-4 py-2 text-xs font-medium rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+        className="px-4 py-2 text-xs font-medium rounded-sm bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
       >
         Try again
       </button>

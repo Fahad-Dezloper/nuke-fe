@@ -106,7 +106,7 @@ export function BridgeModal({ isOpen, onClose, protocol, defaultAmount = 0 }: Br
     >
       <div className="p-8 md:p-10 pt-6 space-y-6">
         {/* Balance Display */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-card/50 border border-border-white-10/50">
+        <div className="flex items-center justify-between p-3 rounded-sm bg-card/50 border border-border-white-10/50">
           <span className="text-xs text-text-muted-60">Available on Solana</span>
           {isCheckingBalance ? (
             <Loader2 className="w-4 h-4 animate-spin text-text-muted-60" />
@@ -148,7 +148,7 @@ export function BridgeModal({ isOpen, onClose, protocol, defaultAmount = 0 }: Br
 
         {/* Error Display */}
         {error && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-900/20 border border-red-500/30">
+          <div className="flex items-start gap-2 p-3 rounded-sm bg-red-900/20 border border-red-500/30">
             <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
             <div className="flex-1">
               <p className="text-xs font-medium text-red-400">{error.message}</p>
@@ -161,7 +161,7 @@ export function BridgeModal({ isOpen, onClose, protocol, defaultAmount = 0 }: Br
 
         {/* Status Display */}
         {status !== 'idle' && status !== 'error' && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-card/50 border border-border-white-10/50">
+          <div className="flex items-center gap-2 p-3 rounded-sm bg-card/50 border border-border-white-10/50">
             <Loader2 className="w-4 h-4 animate-spin text-accent" />
             <span className="text-xs text-text-primary">
               {status === 'checking-balance' && 'Checking balance...'}

@@ -127,14 +127,13 @@ export function BridgeStatusModal({
       >
         <div
           className={cn(
-            'relative overflow-hidden rounded-xl',
-            'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-            'backdrop-blur-lg border border-border-white-15/60',
+            'relative overflow-hidden rounded-sm',
+            'bg-card',
+            'border border-border-white-10',
             'p-6'
           )}
         >
           {/* Glassmorphism overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
 
           <div className="relative z-10">
             {/* Steps */}
@@ -206,7 +205,7 @@ export function BridgeStatusModal({
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-3 rounded-lg bg-red-900/20 border border-red-500/30"
+          className="p-3 rounded-sm bg-red-900/20 border border-red-500/30"
         >
           <p className="text-xs font-medium text-red-400">{error}</p>
         </motion.div>
@@ -217,7 +216,7 @@ export function BridgeStatusModal({
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-3 rounded-lg bg-green-900/20 border border-green-500/30"
+          className="p-3 rounded-sm bg-green-900/20 border border-green-500/30"
         >
           <p className="text-xs font-medium text-green-400">
             Successfully bridged and deposited to {protocolName}

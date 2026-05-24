@@ -1,15 +1,11 @@
 'use client';
 
-/**
- * Asset Price Header Component
- * Displays asset name, logo, and real-time price in a compact card style
- */
-
 import { useAtomValue } from 'jotai';
 import { cn } from '@/lib/utils';
 import { AnimatedNumber } from '@/components/ui/animated-number';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
+import { useBestPair } from '@/hooks/use-best-pair';
 import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
 import Image from 'next/image';
 
@@ -18,60 +14,54 @@ interface AssetPriceHeaderProps {
 }
 
 export function AssetPriceHeader({ className }: AssetPriceHeaderProps) {
-  // Get selected asset from global store
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const { getBestPairForAsset } = useBestPair();
 
-  const asset = selectedAsset?.asset || 'N/A';
-  const assetLogo = selectedAsset?.asset
-    ? hyperliquidCoinIconUrl(selectedAsset.asset)
-    : '';
+  const asset = selectedAsset?.asset || '—';
+  const assetLogo = selectedAsset?.asset ? hyperliquidCoinIconUrl(selectedAsset.asset) : '';
   const currentPrice = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
+  const netAPR = selectedAsset?.netAPR || 0;
+  const bestPair = getBestPairForAsset(selectedAsset);
 
-  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
-
-  // const isPositive = priceChange >= 0;
+  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 2, 4);
 
   return (
-    <div
-      className={cn(
-        'mx-4 mt-3 mb-4 px-4 py-3.5 relative',
-        'bg-gradient-to-br from-card/60 via-card/40 to-card/30',
-        'backdrop-blur-xl border border-border-white-10/50',
-        'rounded-xl shadow-2xl shadow-black/40',
-        'hover:border-border-white-30 hover:shadow-black/50',
-        'hover:backdrop-blur-2xl hover:from-card/70 hover:via-card/50 hover:to-card/40',
-        'transition-all duration-300',
-        'overflow-hidden',
-        className
-      )}
-    >
-      {/* Glassmorphism overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
-
-      {/* Content */}
-      <div className="relative z-10 flex items-center justify-between">
-        {/* Asset Info */}
-        <div className="flex items-center gap-3">
-          <Image src={assetLogo} alt={asset} width={20} height={20} />
-          <div className="flex flex-col gap-0.5">
-            <span className="text-base font-bold text-text-primary leading-tight">{asset}</span>
-            {/* <span className='text-xs text-text-muted-60 uppercase tracking-wide'>
-              {asset}USD
-            </span> */}
-          </div>
+    <div className={cn('panel-header flex items-center justify-between gap-3', className)}>
+      <div className="flex items-center gap-3 min-w-0">
+        {assetLogo ? (
+          <Image
+            src={assetLogo}
+            alt={asset}
+            width={28}
+            height={28}
+            className="rounded-full ring-1 ring-border-white-10 shrink-0"
+          />
+        ) : null}
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-text-primary truncate">{asset} Perp</p>
+          <p className="text-[11px] text-text-muted-40 truncate">
+            {bestPair.long} / {bestPair.short}
+          </p>
         </div>
+      </div>
 
-        {/* Price and Change */}
-        <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
-            <AnimatedNumber
-              value={currentPrice}
-              formatter={priceFormatter}
-              duration={300}
-              className="text-base font-bold"
-            />
-          </div>
-        </div>
+      <div className="text-right shrink-0">
+        <AnimatedNumber
+          value={currentPrice}
+          formatter={priceFormatter}
+          duration={300}
+          className="text-base font-semibold font-tabular text-text-primary block"
+        />
+        {netAPR !== 0 && (
+          <span
+            className={cn(
+              'text-xs font-semibold font-tabular',
+              netAPR >= 0 ? 'text-green' : 'text-red'
+            )}
+          >
+            {formatPercentWithSign(netAPR)} APR
+          </span>
+        )}
       </div>
     </div>
   );

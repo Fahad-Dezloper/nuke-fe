@@ -75,10 +75,10 @@ function ProtocolTooltip({
     <div
       className={cn(
         'absolute z-50 pointer-events-none',
-        'bg-card/95 backdrop-blur-md border border-border-white-20/50',
-        'rounded-lg shadow-2xl shadow-black/50',
+        'bg-popover border border-border-white-10',
+        'rounded-sm shadow-xl',
         'px-3 py-2 min-w-[180px]',
-        'animate-in fade-in-0 zoom-in-95 duration-200'
+        'animate-in fade-in-0 zoom-in-95 duration-150'
       )}
       style={{
         left: `${tooltipPosition?.x ?? 0}px`,
@@ -119,7 +119,7 @@ function ProtocolBadge({
   if (!config) {
     // Fallback if protocol not found
     return (
-      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-500/10 border border-gray-500/20 w-fit">
+      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-gray-500/10 border border-gray-500/20 w-fit">
         <span className="text-[10px] font-medium text-text-primary whitespace-nowrap">{label}</span>
       </div>
     );
@@ -163,7 +163,7 @@ function ProtocolBadge({
   return (
     <div
       className={cn(
-        'flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-all duration-200 w-fit',
+        'flex items-center gap-1.5 px-2 py-0.5 rounded-sm transition-all duration-200 w-fit',
         styleClasses.bg,
         styleClasses.border,
         styleClasses.hoverBg,
@@ -229,9 +229,9 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
   return (
     <div
       ref={rowRef}
-      className="relative border-b border-border-white-10/30 last:border-0 border-l-2 border-l-transparent hover:border-l-accent/50 hover:bg-card/20 hover:backdrop-blur-sm transition-all duration-200 group"
+      className="relative border-l-2 border-l-transparent hover:border-l-green/50 hover:bg-card transition-colors duration-100 group"
     >
-      <div className="px-4 md:px-6 py-2.5">
+      <div className="px-4 md:px-5 py-2">
         <div className="grid grid-cols-[minmax(80px,0.8fr)_minmax(140px,1.2fr)_minmax(65px,0.7fr)_minmax(80px,0.8fr)_minmax(80px,0.9fr)_minmax(90px,1fr)_minmax(80px,0.8fr)_minmax(140px,1.4fr)_36px] gap-2 lg:gap-3 items-center max-w-full">
           {/* ASSET */}
           <div className="flex items-center gap-2">
@@ -384,7 +384,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           <div className="flex items-center justify-end">
             <button
               onClick={() => onClose?.(`${position.asset}-${position.leverage}`)}
-              className="p-1 rounded-md cursor-pointer text-text-muted-60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200"
+              className="p-1 rounded-sm cursor-pointer text-text-muted-60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200"
             >
               <X className="h-3.5 w-3.5" />
             </button>

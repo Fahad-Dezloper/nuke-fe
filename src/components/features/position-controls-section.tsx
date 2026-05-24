@@ -1,15 +1,5 @@
 'use client';
 
-/**
- * Position Controls Section Component
- * Right side panel with position controls.
- *
- * Now wired to the Hedge Intent system:
- * - "OPEN HEDGED POSITION" creates a backend-orchestrated intent
- * - Progress stepper shows bridge → deposit → open flow
- * - Auto-resumes on page reload
- */
-
 import { useAtomValue, useAtom } from 'jotai';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -22,9 +12,7 @@ import { PositionDetailsSection } from './position-controls/position-details-sec
 import { TradeDetailsSection } from './position-controls/trade-details-section';
 import { AssetPriceHeader } from './position-controls/asset-price-header';
 import { HedgeExecutionProgress } from './position-controls/hedge-execution-progress';
-import {
-  isLoggedInAtom,
-} from '@/lib/turnkey/store';
+import { isLoggedInAtom } from '@/lib/turnkey/store';
 import {
   marginAtom,
   leverageAtom,
@@ -55,10 +43,8 @@ export function PositionControlsSectionContent({
   const [selectedAsset] = useAtom(selectedAssetAtom);
   const marginValidation = useAtomValue(marginValidationAtom);
 
-  // ── Exchange Balances (syncs to atoms for child components) ──
   useExchangeBalances();
 
-  // ── Hedge Intent Hook ──────────────────────────────────────
   const {
     openHedge,
     isExecuting,
@@ -69,14 +55,12 @@ export function PositionControlsSectionContent({
   } = useHedgeIntent();
   const { getBestPairForAsset } = useBestPair();
 
-  // ── Handlers ───────────────────────────────────────────────
   const handleOpenPosition = async () => {
     if (onOpenPosition) {
       onOpenPosition();
       return;
     }
 
-    // Validate inputs
     if (!selectedAsset) {
       toast.error('Please select an asset');
       return;
@@ -103,7 +87,6 @@ export function PositionControlsSectionContent({
     });
   };
 
-  // ── Derived state ──────────────────────────────────────────
   const canExecute =
     isLoggedIn &&
     selectedAsset &&
@@ -115,15 +98,12 @@ export function PositionControlsSectionContent({
   const isComplete = phase === 'complete';
   const isFailed = phase === 'failed';
 
-  // Auto-dismiss the floating progress 2s after terminal states
   const [progressDismissed, setProgressDismissed] = useState(false);
 
-  // Reset on new execution
   if (isExecuting && progressDismissed) {
     setProgressDismissed(false);
   }
 
-  // Dismiss after terminal state
   useEffect(() => {
     if (!isComplete && !isFailed) return;
     const timer = setTimeout(() => setProgressDismissed(true), 2000);
@@ -132,26 +112,24 @@ export function PositionControlsSectionContent({
 
   const showProgress = (isExecuting || isComplete || isFailed) && !progressDismissed;
 
-  // Button text based on phase
   const getButtonText = (): string => {
     if (!isExecuting) {
-      if (isComplete) return 'HEDGE LIVE ✓';
-      if (isFailed) return 'OPEN HEDGED POSITION';
-      return 'OPEN HEDGED POSITION';
+      if (isComplete) return 'Position open';
+      return 'Open hedged position';
     }
     switch (phase) {
       case 'creating':
-        return 'CREATING INTENT...';
+        return 'Creating intent...';
       case 'bridging':
-        return 'BRIDGING FUNDS...';
+        return 'Bridging funds...';
       case 'depositing':
-        return 'DEPOSITING...';
+        return 'Depositing...';
       case 'opening':
-        return 'OPENING POSITIONS...';
+        return 'Opening positions...';
       case 'closing':
-        return 'SAFETY MODE...';
+        return 'Safety mode...';
       default:
-        return 'EXECUTING...';
+        return 'Executing...';
     }
   };
 
@@ -160,37 +138,17 @@ export function PositionControlsSectionContent({
   }
 
   return (
-    <PositionControlsSection
-      className={cn(
-        'ml-4 lg:w-[400px] xl:w-[450px] lg:shrink-0 h-full overflow-hidden mt-4',
-        className
-      )}
-    >
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md rounded-t-xl shadow-lg shadow-black/20">
-          <h2 className="text-sm font-medium text-text-primary">POSITION PANEL</h2>
-        </div>
-
-        {/* Asset Price Header */}
+    <PositionControlsSection className={cn('h-full min-h-0', className)}>
+      <div className="flex flex-col h-full min-h-0">
         <AssetPriceHeader />
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6">
-          {/* Position Size Section */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 md:px-5 space-y-5">
           <PositionSizeSection />
-
-          {/* Leverage Section */}
           <LeverageSection />
-
-          {/* Position Details Section */}
           <PositionDetailsSection />
-
-          {/* Trade Details Section */}
           <TradeDetailsSection />
         </div>
 
-        {/* Floating progress indicator (renders via portal to top-right) */}
         {showProgress && (
           <HedgeExecutionProgress
             detail={detail}
@@ -200,22 +158,30 @@ export function PositionControlsSectionContent({
           />
         )}
 
-        {/* Footer - Wallet Connection / Open Position */}
-        <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-xl">
+        <div className="shrink-0 px-4 pb-4 pt-3 md:px-5 border-t border-border-white-10 bg-card/50">
           {isLoggedIn ? (
-            <>
-              <ConnectWalletButton
-                onClick={handleOpenPosition}
-                size="md"
-                fullWidth
-                text={getButtonText()}
-                disabled={!canExecute || isExecuting}
-              />
-            </>
+            <button
+              type="button"
+              onClick={handleOpenPosition}
+              disabled={!canExecute || isExecuting}
+              className={cn(
+                'w-full h-11 rounded-sm text-sm font-semibold transition-all duration-150 cursor-pointer',
+                canExecute && !isExecuting
+                  ? 'bg-green text-black hover:bg-green/90 active:scale-[0.99]'
+                  : isComplete
+                    ? 'bg-green-dim text-green border border-green/30'
+                    : 'bg-secondary border border-border-white-10 text-text-muted-60 cursor-not-allowed'
+              )}
+            >
+              {getButtonText()}
+            </button>
           ) : (
-            <>
-              <ConnectWalletButton onClick={onConnectWallet} size="md" fullWidth />
-            </>
+            <ConnectWalletButton
+              onClick={onConnectWallet}
+              size="md"
+              fullWidth
+              variant="primary"
+            />
           )}
         </div>
       </div>

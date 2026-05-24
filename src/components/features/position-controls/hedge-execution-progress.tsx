@@ -182,9 +182,9 @@ export function HedgeExecutionProgress({
           transition={{ type: 'spring', damping: 24, stiffness: 260 }}
           className={cn(
             'fixed top-16 right-4 z-[60] w-72',
-            'rounded-xl border',
+            'rounded-sm border',
             'shadow-2xl shadow-black/40',
-            'backdrop-blur-xl',
+            
             isComplete
               ? 'bg-green-950/80 border-green-500/20'
               : isFailed
@@ -194,7 +194,7 @@ export function HedgeExecutionProgress({
         >
           {/* Progress bar — thin line at the very top */}
           {isRunning && (
-            <div className="h-[2px] w-full rounded-t-xl overflow-hidden bg-white/[0.04]">
+            <div className="h-[2px] w-full rounded-t-sm overflow-hidden bg-white/[0.04]">
               <motion.div
                 className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
                 initial={{ width: 0 }}

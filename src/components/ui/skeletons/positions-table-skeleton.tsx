@@ -30,8 +30,8 @@ function PositionRowSkeleton() {
         </div>
         {/* Long / Short badges */}
         <div className="flex flex-col gap-2">
-          <Skeleton className="h-5 w-24 rounded-md bg-border-white-5" />
-          <Skeleton className="h-5 w-24 rounded-md bg-border-white-5" />
+          <Skeleton className="h-5 w-24 rounded-sm bg-border-white-5" />
+          <Skeleton className="h-5 w-24 rounded-sm bg-border-white-5" />
         </div>
         {/* Size */}
         <Skeleton className="h-3 w-12 bg-border-white-5" />
@@ -47,7 +47,7 @@ function PositionRowSkeleton() {
         {/* Total PnL */}
         <Skeleton className="h-3 w-14 bg-border-white-5" />
         {/* Close button */}
-        <Skeleton className="h-5 w-5 rounded-md bg-border-white-5 ml-auto" />
+        <Skeleton className="h-5 w-5 rounded-sm bg-border-white-5 ml-auto" />
       </div>
     </div>
   );
@@ -57,7 +57,7 @@ export function PositionsTableSkeleton({ className, rows = 3 }: PositionsTableSk
   return (
     <div
       className={cn(
-        'border rounded-xl border-border-white-5 bg-background h-full flex flex-col overflow-hidden',
+        'border rounded-sm border-border-white-5 bg-background h-full flex flex-col overflow-hidden',
         className
       )}
     >
@@ -71,7 +71,7 @@ export function PositionsTableSkeleton({ className, rows = 3 }: PositionsTableSk
         </div>
 
         {/* Table header skeleton */}
-        <div className="sticky top-0 z-[1] px-4 md:px-6 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/50 via-card/40 to-card/50 backdrop-blur-md shrink-0">
+        <div className="sticky top-0 z-[1] px-4 md:px-6 py-3 border-b border-border-white-10/50 bg-card shrink-0">
           <div className="grid grid-cols-[minmax(100px,1fr)_minmax(180px,1.5fr)_minmax(70px,0.8fr)_minmax(70px,0.8fr)_minmax(90px,1fr)_minmax(110px,1.2fr)_minmax(90px,1fr)_40px] gap-3 lg:gap-4 max-w-full">
             {['w-12', 'w-20', 'w-8', 'w-8', 'w-16', 'w-20', 'w-16', 'w-0'].map((w, i) => (
               <Skeleton key={i} className={cn('h-3 bg-border-white-5', w)} />

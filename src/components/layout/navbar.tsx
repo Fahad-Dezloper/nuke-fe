@@ -1,11 +1,5 @@
 'use client';
 
-/**
- * Navbar Component
- * Main navigation bar with logo, tabs, and user actions
- */
-
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -30,10 +24,10 @@ interface NavbarProps {
 }
 
 const defaultNavItems: NavItem[] = [
-  { label: 'FUNDING ARBITRAGE', href: '/' },
-  { label: 'AUTOMATION', href: '/automation' },
-  { label: 'TRADE', href: '/trade', soon: true },
-  { label: 'PORTFOLIO', href: '/portfolio' },
+  { label: 'Funding Arb', href: '/' },
+  { label: 'Automation', href: '/automation' },
+  { label: 'Trade', href: '/trade', soon: true },
+  { label: 'Portfolio', href: '/portfolio' },
 ];
 
 export function Navbar({
@@ -46,48 +40,26 @@ export function Navbar({
   const pathname = usePathname();
 
   return (
-    <motion.header
-      initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
+    <header
       className={cn(
-        'sticky top-0 z-50 w-full border-b border-border-white-10',
-        'bg-linear-to-r from-background via-background to-background/95',
-        'backdrop-blur-md supports-backdrop-filter:bg-background/80',
+        'sticky top-0 z-50 w-full shrink-0 border-b border-border-white-10 bg-navbar',
         className
       )}
     >
-      <div className=" mx-auto flex py-2 items-center justify-between px-3 md:px-4 lg:px-5">
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="flex items-center"
-        >
+      <div className="mx-auto flex h-12 items-center justify-between gap-6 px-4 md:px-5">
+        <div className="flex items-center gap-8 min-w-0">
           {logo || (
-            <Link href="/" className="flex items-center gap-2 group">
-              <motion.span
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="font-bold text-primary tracking-tight flex items-center gap-1"
-              >
-                <Image src="/logo.png" alt="logo" width={40} height={40} />
-                Nuke
-              </motion.span>
+            <Link href="/" className="flex items-center gap-2 shrink-0">
+              <Image src="/logo.png" alt="Nuke" width={26} height={26} className="rounded-sm" />
+              <span className="text-sm font-bold text-text-primary tracking-tight hidden sm:inline">
+                NUKE
+              </span>
             </Link>
           )}
-        </motion.div>
+          <NavbarTabs items={navItems} className="hidden md:flex" />
+        </div>
 
-        <NavbarTabs items={navItems} />
-
-        {/* User Actions */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="flex items-center gap-2.5"
-        >
+        <div className="flex items-center gap-2 shrink-0">
           {state.isLoggedIn ? (
             <>
               <DepositButton size="sm" walletAddress={getEVMAddress(state.userWallets)} />
@@ -96,28 +68,29 @@ export function Navbar({
           ) : (
             <ConnectWalletButton onClick={onConnectWallet} size="sm" />
           )}
-        </motion.div>
+        </div>
       </div>
-      <div className="md:hidden border-t border-border-white-10 bg-background/95 px-2 py-1.5 overflow-x-auto">
-        <div className="flex gap-1 min-w-max justify-center">
+
+      <div className="md:hidden border-t border-border-white-10 px-3 py-2 overflow-x-auto custom-scrollbar">
+        <div className="flex gap-1 min-w-max">
           {navItems.map((item) =>
             item.soon ? (
               <span
                 key={item.href}
-                className="px-3 py-1.5 text-[11px] font-medium text-text-muted-40 whitespace-nowrap"
+                className="px-3 py-1.5 text-xs font-medium text-text-muted-40 whitespace-nowrap"
               >
                 {item.label}
-                <span className="ml-1 text-[10px]">SOON</span>
+                <span className="ml-1 text-[10px] opacity-70">Soon</span>
               </span>
             ) : (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'px-3 py-1.5 text-[11px] font-medium rounded-md whitespace-nowrap transition-colors',
+                  'px-3 py-1.5 text-xs font-medium whitespace-nowrap rounded-sm transition-colors',
                   pathname === item.href
-                    ? 'text-text-primary bg-card/60 border border-border-white-10'
-                    : 'text-text-muted-60 hover:text-text-primary hover:bg-card/50'
+                    ? 'text-text-primary bg-secondary'
+                    : 'text-text-muted-60 hover:text-text-primary'
                 )}
               >
                 {item.label}
@@ -126,6 +99,6 @@ export function Navbar({
           )}
         </div>
       </div>
-    </motion.header>
+    </header>
   );
 }

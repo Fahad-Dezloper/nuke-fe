@@ -109,34 +109,28 @@ export function Modal({
             onClick={(e) => e.stopPropagation()}
             className={cn(
               'relative w-full z-10',
-              'bg-gradient-to-br from-card/90 via-card/85 to-card/80',
-              'backdrop-blur-xl border border-border-white-20/60',
-              'rounded-2xl shadow-2xl shadow-black/60',
+              'bg-card border border-border-white-10',
+              'rounded-sm shadow-2xl shadow-black/60',
               'overflow-hidden',
               maxWidthClasses[maxWidth],
               className
             )}
           >
-            {/* Glassmorphism overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
-
             {/* Close button */}
             {showCloseButton && (
-              <motion.button
+              <button
                 onClick={onClose}
-                whileHover={{ scale: 1.1, rotate: 90 }}
-                whileTap={{ scale: 0.9 }}
                 className={cn(
                   'absolute top-4 right-4 z-20',
-                  'w-8 h-8 flex items-center justify-center cursor-pointer',
-                  'rounded-lg bg-card/50 border border-border-white-10/50',
+                  'w-7 h-7 flex items-center justify-center cursor-pointer',
+                  'rounded-sm bg-background border border-border-white-10',
                   'text-text-muted-60 hover:text-text-primary',
-                  'backdrop-blur-sm transition-colors duration-200',
-                  'hover:border-border-white-20 hover:bg-card/70'
+                  'transition-colors duration-150',
+                  'hover:border-border-white-20'
                 )}
               >
-                <X className="w-4 h-4" />
-              </motion.button>
+                <X className="w-3.5 h-3.5" />
+              </button>
             )}
 
             {/* Content */}
@@ -145,7 +139,7 @@ export function Modal({
               {(title || description) && (
                 <div className="p-8 md:p-10 pb-6">
                   {title && (
-                    <h2 className="text-xl font-semibold text-text-primary mb-2 tracking-tight">
+                    <h2 className="text-sm font-bold text-text-primary mb-1.5 tracking-tight uppercase">
                       {title}
                     </h2>
                   )}

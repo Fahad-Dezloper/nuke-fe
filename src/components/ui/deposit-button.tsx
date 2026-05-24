@@ -1,12 +1,5 @@
 'use client';
 
-/**
- * Deposit Button Component
- * Button to open deposit modal
- */
-
-import { motion } from 'framer-motion';
-import { Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { DepositModal } from './deposit-modal';
@@ -21,9 +14,9 @@ interface DepositButtonProps {
 }
 
 const sizeClasses = {
-  sm: 'px-3.5 py-1.5 text-sm',
-  md: 'px-4 py-2 text-sm',
-  lg: 'px-5 py-2.5 text-base',
+  sm: 'h-8 px-4 text-xs',
+  md: 'h-9 px-4 text-sm',
+  lg: 'h-10 px-5 text-sm',
 };
 
 export function DepositButton({
@@ -46,33 +39,17 @@ export function DepositButton({
 
   return (
     <>
-      <motion.button
+      <button
         onClick={handleClick}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
         className={cn(
-          'relative overflow-hidden rounded-xl',
-          'bg-gradient-to-br from-card/60 via-card/50 to-card/40',
-          'backdrop-blur-xl border border-border-white-10/50',
-          'text-text-primary',
-          'hover:border-border-white-20 hover:bg-card/70',
-          'transition-colors duration-200 cursor-pointer',
-          'outline-none focus:outline-none',
-          'font-medium transition-all duration-300',
-          'shadow-lg shadow-black/30 hover:shadow-black/40 cursor-pointer',
-          'flex items-center gap-2',
+          'btn-primary font-semibold tracking-tight',
           sizeClasses[size],
           fullWidth && 'w-full',
           className
         )}
       >
-        {/* Glassmorphism overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
-
-        {/* Button content */}
-        <Wallet className="w-4 h-4" />
-        <span className="relative z-10 text-xs">DEPOSIT</span>
-      </motion.button>
+        Deposit
+      </button>
 
       <DepositModal
         isOpen={isModalOpen}

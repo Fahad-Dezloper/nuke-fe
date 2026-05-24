@@ -1,26 +1,43 @@
 'use client';
 
-/**
- * Market Overview Component
- * Displays asset name, current price, funding rates, and estimated APR
- */
-
-import { motion } from 'framer-motion';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAtomValue } from 'jotai';
+import Image from 'next/image';
 import { AnimatedNumber } from '@/components/ui/animated-number';
-import { MetricItem } from '@/components/ui/metric-item';
 import { AssetDropdown } from '@/components/ui/asset-dropdown';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 import { selectedAssetAtom, marketFeedDataAtom } from '@/lib/stores/market-feed.store';
 import { useBestPair } from '@/hooks/use-best-pair';
 import { MarketOverviewSkeleton } from '@/components/ui/skeletons';
+import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
 import type { AssetDropdownItem } from '@/types/positions';
 
 interface MarketOverviewProps {
   className?: string;
   onAssetChange?: (asset: AssetDropdownItem) => void;
+}
+
+function StatCell({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-col justify-center gap-0.5 px-4 py-3 border-r border-border-white-10 min-w-[100px]',
+        className
+      )}
+    >
+      <span className="stat-label">{label}</span>
+      <div className="stat-value">{children}</div>
+    </div>
+  );
 }
 
 export function MarketOverview({ className, onAssetChange }: MarketOverviewProps) {
@@ -32,107 +49,117 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
     return <MarketOverviewSkeleton className={className} />;
   }
 
-  // Get price from selected asset (use hyperliquid mark price as primary)
   const currentPrice = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
-
-  // Get funding rates based on best pair direction
   const bestPair = getBestPairForAsset(selectedAsset);
   const longProtocolData = selectedAsset?.protocols?.[bestPair.long];
   const shortProtocolData = selectedAsset?.protocols?.[bestPair.short];
-
   const longFundingRate = longProtocolData?.fundingRateYearly || 0;
   const shortFundingRate = shortProtocolData?.fundingRateYearly || 0;
-
-  // Net APR is always positive (higher rate - lower rate)
   const estimatedAPR = selectedAsset?.netAPR || 0;
+  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 2, 4);
 
-  // Handle asset selection (already handled by dropdown, but call callback if provided)
-  const handleAssetSelect = (asset: AssetDropdownItem) => {
-    onAssetChange?.(asset);
-  };
+  const longLabel =
+    bestPair.long.charAt(0).toUpperCase() + bestPair.long.slice(1);
+  const shortLabel =
+    bestPair.short.charAt(0).toUpperCase() + bestPair.short.slice(1);
 
-  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
+  const assetIcon = selectedAsset?.asset
+    ? hyperliquidCoinIconUrl(selectedAsset.asset)
+    : '';
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 0.1 }}
-      className={cn(
-        'bg-gradient-to-r from-background via-background/98 to-background',
-        'border-b-[0.5px] border-l-[0.5px] border-r-[0.5px] border-border-white-10',
-        'relative',
-        className
-      )}
-    >
-      {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-[var(--chart-hyperliquid)]/5 via-transparent to-[var(--chart-pink)]/5 pointer-events-none" />
-
-      <div className="mx-auto px-3 md:px-4 lg:px-5 py-0 relative z-10">
-        <div className="flex flex-wrap items-center gap-6 md:gap-8">
-          {/* Asset Selector Dropdown */}
-          <div className="relative z-[10000]">
-            <AssetDropdown
-              selectedAsset={selectedAsset || undefined}
-              onSelect={handleAssetSelect}
+    <div className={cn('panel shrink-0 overflow-hidden', className)}>
+      <div className="flex items-stretch min-h-[72px] overflow-x-auto custom-scrollbar">
+        {/* Asset identity + price */}
+        <div className="flex items-center gap-4 px-4 md:px-5 py-3 border-r border-border-white-10 shrink-0">
+          {selectedAsset && assetIcon ? (
+            <Image
+              src={assetIcon}
+              alt={selectedAsset.asset}
+              width={36}
+              height={36}
+              className="rounded-full ring-1 ring-border-white-10"
             />
+          ) : null}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <AssetDropdown
+                variant="header"
+                selectedAsset={selectedAsset || undefined}
+                onSelect={(asset) => onAssetChange?.(asset)}
+              />
+            </div>
+            {selectedAsset ? (
+              <AnimatedNumber
+                value={currentPrice}
+                formatter={priceFormatter}
+                duration={300}
+                className="text-xl font-semibold font-tabular text-text-primary leading-none"
+              />
+            ) : (
+              <span className="text-sm text-text-muted-40">Select asset</span>
+            )}
           </div>
-
-          {/* Metrics Grid */}
-          {selectedAsset ? (
-            <div className="flex flex-wrap items-center gap-6 md:gap-8 flex-1 ">
-              {/* Current Price */}
-              <MetricItem label="CURRENT PRICE">
-                <AnimatedNumber
-                  value={currentPrice}
-                  formatter={priceFormatter}
-                  duration={300}
-                  className="text-base font-semibold"
-                />
-              </MetricItem>
-
-              {/* Long Funding Rate (Hyperliquid) */}
-              <MetricItem label="LONG FUNDING RATE">
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1 rounded bg-[var(--chart-hyperliquid)]/20">
-                    <ArrowUp className="h-3 w-3 text-[var(--chart-hyperliquid)]" />
-                  </div>
-                  <span className={cn('text-sm tabular-nums ')}>
-                    {formatPercentWithSign(longFundingRate)}
-                  </span>
-                </div>
-              </MetricItem>
-
-              {/* Short Funding Rate (Pacifica) */}
-              <MetricItem label="SHORT FUNDING RATE">
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1 rounded bg-[var(--chart-pink)]/20">
-                    <ArrowDown className="h-3 w-3 text-[var(--chart-pink)]" />
-                  </div>
-                  <span className={cn('text-sm tabular-nums ')}>
-                    {formatPercentWithSign(shortFundingRate)}
-                  </span>
-                </div>
-              </MetricItem>
-
-              {/* Estimated APR (NET APR) */}
-              <MetricItem label="EST. APR">
-                <div className="flex items-center gap-1.5">
-                  <div className="px-2 py-0.5 rounded-lg backdrop-blur-sm border shadow-sm bg-green-900/30 border-green-500/20">
-                    <span className="text-sm font-semibold tabular-nums text-green-400">
-                      {formatPercentWithSign(estimatedAPR)}
-                    </span>
-                  </div>
-                </div>
-              </MetricItem>
-            </div>
-          ) : (
-            <div className="flex items-center text-text-muted-60 text-sm">
-              Select an asset to view metrics
-            </div>
-          )}
         </div>
+
+        {selectedAsset ? (
+          <>
+            <StatCell label="Long funding">
+              <span className="inline-flex items-center gap-1">
+                <ArrowUp className="h-3 w-3 text-green shrink-0" />
+                <span
+                  className={cn(
+                    'font-tabular',
+                    longFundingRate >= 0 ? 'text-green' : 'text-red'
+                  )}
+                >
+                  {formatPercentWithSign(longFundingRate)}
+                </span>
+                <span className="text-[10px] text-text-muted-40 font-normal normal-case">
+                  {longLabel}
+                </span>
+              </span>
+            </StatCell>
+
+            <StatCell label="Short funding">
+              <span className="inline-flex items-center gap-1">
+                <ArrowDown className="h-3 w-3 text-red shrink-0" />
+                <span
+                  className={cn(
+                    'font-tabular',
+                    shortFundingRate >= 0 ? 'text-green' : 'text-red'
+                  )}
+                >
+                  {formatPercentWithSign(shortFundingRate)}
+                </span>
+                <span className="text-[10px] text-text-muted-40 font-normal normal-case">
+                  {shortLabel}
+                </span>
+              </span>
+            </StatCell>
+
+            <StatCell label="Best pair" className="hidden lg:flex">
+              <span className="text-xs font-medium text-text-muted-80 normal-case tracking-normal">
+                {longLabel} / {shortLabel}
+              </span>
+            </StatCell>
+
+            <div className="flex flex-col justify-center gap-0.5 px-5 py-3 ml-auto shrink-0">
+              <span className="stat-label">Est. APR</span>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold font-tabular text-green leading-none">
+                  {formatPercentWithSign(estimatedAPR)}
+                </span>
+                <span className="h-2 w-2 rounded-full bg-green shadow-[0_0_8px_var(--green)] animate-pulse" />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center px-5 text-sm text-text-muted-40">
+            Select an asset to view funding spreads
+          </div>
+        )}
       </div>
-    </motion.div>
+    </div>
   );
 }

@@ -129,7 +129,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   const hasBothData = longVal !== null && shortVal !== null;
 
   return (
-    <div className="rounded-lg border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md">
+    <div className="rounded-sm border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md">
       <div className="mb-2 text-text-muted-60">{data.fullTimestamp}</div>
       <div className="space-y-1">
         {protocolsWithData.map((protocol) => (

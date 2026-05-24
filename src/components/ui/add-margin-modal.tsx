@@ -291,7 +291,7 @@ export function AddMarginModal({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
-            className="mb-4 flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.03]"
+            className="mb-4 flex items-center justify-between px-4 py-3 rounded-sm bg-white/[0.03]"
           >
             <span className="text-xs text-text-muted-60">Current Margin</span>
             <span className="text-sm font-semibold text-text-primary tabular-nums">
@@ -314,14 +314,13 @@ export function AddMarginModal({
             </div>
             <div
               className={cn(
-                'relative overflow-hidden rounded-xl',
-                'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-                'backdrop-blur-lg border',
-                inputError ? 'border-red-500/40' : 'border-border-white-15/60',
+                'relative overflow-hidden rounded-sm',
+                'bg-card',
+                'border',
+                inputError ? 'border-red-500/40' : 'border-border-white-10',
                 'p-3.5'
               )}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
               <div className="relative z-10 flex items-center gap-3">
                 <span className="text-sm text-text-muted-60">$</span>
                 <input
@@ -343,7 +342,7 @@ export function AddMarginModal({
                 <button
                   onClick={handleMax}
                   className={cn(
-                    'px-2 py-0.5 rounded-md text-[10px] font-medium',
+                    'px-2 py-0.5 rounded-sm text-[10px] font-medium',
                     'bg-white/5 border border-border-white-10/50',
                     'text-text-muted-60 hover:text-text-primary hover:bg-white/10',
                     'transition-colors duration-150'
@@ -367,7 +366,7 @@ export function AddMarginModal({
               <button
                 onClick={handleSuggestion}
                 className={cn(
-                  'w-full p-2.5 rounded-lg text-left',
+                  'w-full p-2.5 rounded-sm text-left',
                   'bg-blue-500/5 border border-blue-500/15',
                   'hover:bg-blue-500/10 hover:border-blue-500/25',
                   'transition-colors duration-150'
@@ -390,7 +389,7 @@ export function AddMarginModal({
             transition={{ delay: 0.22 }}
             className="mb-5"
           >
-            <div className="p-2.5 rounded-lg bg-yellow-700/10 border border-accent/20">
+            <div className="p-2.5 rounded-sm bg-yellow-700/10 border border-accent/20">
               <p className="text-[10px] text-text-muted-60 leading-relaxed">
                 {exchange === 'pacifica'
                   ? `This will deposit USDC from your Solana wallet into your ${exchangeLabel} margin account. You may need to approve the transaction in your wallet.`
@@ -409,11 +408,11 @@ export function AddMarginModal({
               onClick={handleSubmit}
               disabled={isSubmitDisabled}
               className={cn(
-                'w-full py-3 rounded-xl text-sm font-semibold tracking-wide',
+                'w-full py-3 rounded-sm text-sm font-semibold tracking-wide',
                 'transition-all duration-200',
                 isSubmitDisabled
                   ? 'bg-white/5 text-text-muted-60/40 cursor-not-allowed border border-border-white-10/30'
-                  : 'bg-gradient-to-r from-accent/80 to-accent/60 text-white hover:from-accent hover:to-accent/80 border border-accent/30 shadow-lg shadow-accent/10'
+                  : 'bg-green text-black hover:bg-green/90'
               )}
             >
               FUND {exchangeLabel.toUpperCase()}
@@ -434,13 +433,12 @@ export function AddMarginModal({
           >
             <div
               className={cn(
-                'relative overflow-hidden rounded-xl',
-                'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-                'backdrop-blur-lg border border-border-white-15/60',
+                'relative overflow-hidden rounded-sm',
+                'bg-card',
+                'border border-border-white-10',
                 'p-5'
               )}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
 
               <div className="relative z-10 space-y-3">
                 {progressSteps.map((pStep, i) => {
@@ -452,7 +450,7 @@ export function AddMarginModal({
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.2 + i * 0.08 }}
                       className={cn(
-                        'flex items-center gap-2.5 py-1 px-2 rounded-lg transition-colors',
+                        'flex items-center gap-2.5 py-1 px-2 rounded-sm transition-colors',
                         state === 'in_progress' && 'bg-blue-500/5',
                         state === 'error' && 'bg-red-500/5'
                       )}
@@ -486,7 +484,7 @@ export function AddMarginModal({
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 p-3 rounded-lg bg-red-900/20 border border-red-500/30"
+              className="mb-4 p-3 rounded-sm bg-red-900/20 border border-red-500/30"
             >
               <p className="text-xs text-red-400">{error}</p>
             </motion.div>
@@ -497,7 +495,7 @@ export function AddMarginModal({
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30"
+              className="mb-4 p-3 rounded-sm bg-green-900/20 border border-green-500/30"
             >
               <p className="text-xs text-green-400">Successfully deposited to {exchangeLabel}!</p>
             </motion.div>
@@ -516,7 +514,7 @@ export function AddMarginModal({
                     onReset();
                   }}
                   className={cn(
-                    'flex-1 py-3 rounded-xl text-sm font-semibold tracking-wide',
+                    'flex-1 py-3 rounded-sm text-sm font-semibold tracking-wide',
                     'bg-white/5 text-text-primary border border-border-white-10/50',
                     'hover:bg-white/10 transition-colors duration-200'
                   )}
@@ -527,7 +525,7 @@ export function AddMarginModal({
               <button
                 onClick={handleDone}
                 className={cn(
-                  'flex-1 py-3 rounded-xl text-sm font-semibold tracking-wide',
+                  'flex-1 py-3 rounded-sm text-sm font-semibold tracking-wide',
                   'transition-all duration-200',
                   isSuccess
                     ? 'bg-gradient-to-r from-green-600/80 to-green-500/60 text-white border border-green-500/30'

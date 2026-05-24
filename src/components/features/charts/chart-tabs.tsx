@@ -1,10 +1,5 @@
 'use client';
 
-/**
- * Chart Tabs Component
- * Reusable tabs component for chart views
- */
-
 import { cn } from '@/lib/utils';
 
 export type ChartTab = 'pnl' | 'cumulative' | 'funding';
@@ -16,34 +11,26 @@ interface ChartTabsProps {
 }
 
 const tabs: { id: ChartTab; label: string }[] = [
-  { id: 'funding', label: 'Funding Rate' },
+  { id: 'funding', label: 'Funding' },
   { id: 'pnl', label: 'PnL' },
-  // { id: 'cumulative', label: 'Cumulative PnL' },
 ];
 
 export function ChartTabs({ activeTab, onTabChange, className }: ChartTabsProps) {
   return (
-    <div
-      className={cn(
-        'flex items-center gap-6 border-b border-border-white-10 px-3 md:px-4 lg:px-5',
-        className
-      )}
-    >
+    <div className={cn('flex items-center gap-1', className)}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          type="button"
           onClick={() => onTabChange(tab.id)}
           className={cn(
-            'pb-3 text-sm cursor-pointer font-medium transition-colors relative',
+            'px-3 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer',
             activeTab === tab.id
-              ? 'text-text-primary'
-              : 'text-text-muted-60 hover:text-text-primary'
+              ? 'bg-secondary text-text-primary'
+              : 'text-text-muted-60 hover:text-text-primary hover:bg-secondary/50'
           )}
         >
           {tab.label}
-          {activeTab === tab.id && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-accent to-transparent" />
-          )}
         </button>
       ))}
     </div>

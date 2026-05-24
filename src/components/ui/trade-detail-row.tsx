@@ -20,15 +20,15 @@ export function TradeDetailRow({
 }: TradeDetailRowProps) {
   const valueClass = {
     default: 'text-text-primary',
-    green: 'text-green-400',
-    red: 'text-red-400',
+    green: 'text-green',
+    red: 'text-red',
     muted: 'text-text-muted-40',
   }[valueColor];
 
   return (
-    <div className={cn('flex items-center justify-between py-1.5', className)}>
-      <span className="text-xs text-text-muted-60">{label}</span>
-      <span className={cn('text-xs font-medium tabular-nums', valueClass)}>{value}</span>
+    <div className={cn('flex items-center justify-between py-1', className)}>
+      <span className="text-[10px] text-text-muted-40">{label}</span>
+      <span className={cn('text-[10px] font-medium tabular-nums', valueClass)}>{value}</span>
     </div>
   );
 }

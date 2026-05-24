@@ -189,16 +189,15 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className={cn(
-                        'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
-                        'backdrop-blur-lg p-3',
+                        'flex-1 relative overflow-hidden rounded-sm cursor-pointer',
+                        'p-3',
                         'transition-all duration-200',
                         'disabled:opacity-50 disabled:cursor-not-allowed',
                         isSelected
                           ? 'bg-accent/20 border-2 border-accent/60 shadow-lg shadow-accent/10'
-                          : 'bg-gradient-to-br from-card/80 via-card/70 to-card/65 border border-border-white-15/60 hover:border-border-white-30'
+                          : 'bg-card border border-border-white-10 hover:border-border-white-20'
                       )}
                     >
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
                       <div className="relative z-10 flex items-center justify-center gap-2">
                         {config && (
                           <Image
@@ -229,7 +228,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="mb-4 flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.03]"
+              className="mb-4 flex items-center justify-between px-4 py-3 rounded-sm bg-white/[0.03]"
             >
               <span className="text-xs text-text-muted-60">Available Balance</span>
               <span className="text-sm font-semibold text-text-primary tabular-nums">
@@ -249,13 +248,12 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
               </label>
               <div
                 className={cn(
-                  'relative overflow-hidden rounded-xl',
-                  'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-                  'backdrop-blur-lg border border-border-white-15/60',
+                  'relative overflow-hidden rounded-sm',
+                  'bg-card',
+                  'border border-border-white-10',
                   'p-3.5 flex items-center gap-3'
                 )}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
                 <span className="relative z-10 text-sm text-text-muted-60">$</span>
                 <input
                   type="number"
@@ -276,7 +274,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                   onClick={handleMax}
                   disabled={availableBalance <= 0 || isExecuting}
                   className={cn(
-                    'relative z-10 px-2.5 py-1 rounded-md cursor-pointer',
+                    'relative z-10 px-2.5 py-1 rounded-sm cursor-pointer',
                     'bg-white/5 border border-border-white-10/50',
                     'text-[10px] font-medium text-text-muted-60',
                     'hover:text-text-primary hover:bg-white/10',
@@ -298,7 +296,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                   exit={{ opacity: 0, height: 0 }}
                   className="mb-5"
                 >
-                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <div className="p-3 rounded-sm bg-red-500/10 border border-red-500/20">
                     <p className="text-xs text-red-400 leading-relaxed">{String(error)}</p>
                   </div>
                 </motion.div>
@@ -316,11 +314,11 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                 onClick={handleWithdraw}
                 disabled={!isValidAmount || isExecuting || !turnkeyState.isLoggedIn}
                 className={cn(
-                  'w-full py-3 rounded-xl text-sm font-semibold tracking-wide',
+                  'w-full py-3 rounded-sm text-sm font-semibold tracking-wide',
                   'transition-all duration-200',
                   !isValidAmount || isExecuting || !turnkeyState.isLoggedIn
                     ? 'bg-white/5 text-text-muted-60/40 cursor-not-allowed border border-border-white-10/30'
-                    : 'bg-gradient-to-r from-accent/80 to-accent/60 text-white hover:from-accent hover:to-accent/80 border border-accent/30 shadow-lg shadow-accent/10'
+                    : 'bg-green text-black hover:bg-green/90'
                 )}
               >
                 {isExecuting ? (
@@ -356,24 +354,23 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                   <div
                     key={step.key}
                     className={cn(
-                      'relative overflow-hidden rounded-xl',
-                      'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
-                      'backdrop-blur-lg border',
+                      'relative overflow-hidden rounded-sm',
+                      'bg-card',
+                      'border',
                       state === 'done' && 'border-green-500/30',
                       state === 'active' && 'border-accent/40',
-                      state === 'pending' && 'border-border-white-15/60',
+                      state === 'pending' && 'border-border-white-10',
                       state === 'error' && 'border-red-500/40',
                       'p-3.5 transition-colors duration-300'
                     )}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
                     <div className="relative z-10 flex items-center gap-3">
                       <div
                         className={cn(
                           'w-6 h-6 rounded-full flex items-center justify-center shrink-0',
                           state === 'done' && 'bg-green-500/20',
                           state === 'active' && 'bg-accent/20',
-                          state === 'pending' && 'bg-card/50 border border-border-white-15/60',
+                          state === 'pending' && 'bg-card border border-border-white-10',
                           state === 'error' && 'bg-red-500/20'
                         )}
                       >
@@ -418,7 +415,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                 >
                   <div
                     className={cn(
-                      'flex items-center justify-center gap-2 py-2.5 rounded-xl',
+                      'flex items-center justify-center gap-2 py-2.5 rounded-sm',
                       'bg-accent/10 border border-accent/20 text-accent'
                     )}
                   >
@@ -442,14 +439,14 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className={cn(
-                    'w-full relative overflow-hidden rounded-xl cursor-pointer',
+                    'w-full relative overflow-hidden rounded-sm cursor-pointer',
                     'bg-green-500/15 border border-green-500/30',
                     'py-2.5 text-xs font-semibold text-green-400',
                     'hover:bg-green-500/25 hover:border-green-500/50',
                     'transition-colors duration-200'
                   )}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-sm" />
                   <span className="relative z-10 flex items-center justify-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Done
@@ -466,7 +463,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.35 }}
-        className="p-3 rounded-lg bg-yellow-700/10 border border-accent/20"
+        className="p-3 rounded-sm bg-yellow-700/10 border border-accent/20"
       >
         <p className="text-xs text-text-muted-60 leading-relaxed">
           Withdrawals move USDC from the exchange to your Solana wallet.
