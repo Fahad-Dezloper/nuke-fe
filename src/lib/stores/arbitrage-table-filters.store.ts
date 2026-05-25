@@ -11,7 +11,7 @@ export function defaultExchangeSelection(): Record<HedgeVenueProtocol, boolean> 
     pacifica: true,
     phoenix: true,
     backpack: false,
-    lighter: true,
+    lighter: false,
   };
 }
 
