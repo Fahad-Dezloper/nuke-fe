@@ -33,9 +33,13 @@ The client executor recognizes:
 
 **Preferred**: backend sends Phoenix `funding` in the **same hourly rate units** as Hyperliquid/Pacifica so APR math is identical. If not, set `NEXT_PUBLIC_PHOENIX_FUNDING_HOURLY_DIVISOR` as a temporary FE scale fix until the BE is aligned.
 
-## Leverage
+## Leverage & margin mode (hedges)
 
-Phoenix legs register with **cross** margin (`MarginType.Cross`). Per-market leverage updates are **not** wired through Rise in this build; the executor skips bulk leverage updates for Phoenix while still opening with the requested notional sizing.
+- Traders register on the **cross** subaccount (`subaccount_index = 0`); USDC deposits land there.
+- **Hedge opens** use Phoenix `POST /v1/ix/place-isolated-market-order` with `transferAmount` (USDC micros) = leg margin, `skipTransferToParent: true`, and shared `hedgeBaseSize` for notional.
+- **Hedge closes** use reduce-only market orders on the isolated subaccount when one exists (Rise `buildPlaceMarketOrder` with resolved `traderSubaccountIndex`).
+- **Mirrored TP/SL** (same Pacifica mark bands as HL/Pacifica) attach on isolated open via `tpSl` on `POST /v1/ix/place-isolated-market-order`.
+- Disable isolated hedges: `NEXT_PUBLIC_HEDGE_ISOLATED_MARGIN=false` (legacy cross open on subaccount 0).
 
 ## QA matrix (Flight + hedges)
 

@@ -19,6 +19,8 @@ import type {
   ProtocolMetadata,
 } from '../types';
 import { BUILDER_CODE } from '@/constants';
+import { mapHedgeTpslToPacificaCreateOrder } from '@/lib/hedge-intent/hedge-tpsl';
+import { hedgeUsesIsolatedMargin } from '@/lib/trading/margin-mode';
 
 /**
  * Pacifica Protocol Adapter
@@ -104,6 +106,8 @@ export class PacificaAdapter implements ProtocolAdapter {
         slippage_percent: slippagePercent,
         reduce_only: false,
         builder_code: BUILDER_CODE,
+        ...(params.hedgeTpsl && mapHedgeTpslToPacificaCreateOrder(params.hedgeTpsl)),
+        ...(params.hedgeTpsl && { tpsl_prices_pre_quantized: true }),
       };
 
       // Call Pacifica service

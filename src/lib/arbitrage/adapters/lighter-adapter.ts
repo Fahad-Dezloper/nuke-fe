@@ -16,8 +16,10 @@ import { getLighterL2Credentials } from '@/lib/services/lighter/lighter-credenti
 import {
   computeLighterOpenAmounts,
   fetchLighterPerpRow,
+  lighterHumanPriceToInt,
   lighterWorstPriceForClose,
 } from '@/lib/services/lighter/lighter-reads';
+import type { HedgeLegTpslPrices } from '@/lib/hedge-intent/hedge-tpsl';
 import { LIGHTER_HTTP_MAINNET } from '@/lib/services/lighter/constants';
 import { ErrorCode, createError } from '@/lib/errors';
 
@@ -76,6 +78,10 @@ export class LighterAdapter implements ProtocolAdapter {
       if (!row) {
         return this.fail(params, `Asset ${params.asset} not found on Lighter perps`);
       }
+      const marketIndex = row.market_id;
+      if (marketIndex == null || marketIndex < 0) {
+        return this.fail(params, 'Lighter market_id missing for asset');
+      }
 
       const marginUsd = parseFloat(params.margin);
       if (!Number.isFinite(marginUsd) || marginUsd <= 0) {
@@ -119,6 +125,23 @@ export class LighterAdapter implements ProtocolAdapter {
         return this.fail(params, String(res.message));
       }
 
+      let tpslWarning: string | undefined;
+      if (params.hedgeTpsl) {
+        const priceDecimals = row.price_decimals ?? row.supported_price_decimals ?? 0;
+        const tpslErr = await this.attachMirroredHedgeTpsl({
+          hedgeTpsl: params.hedgeTpsl,
+          positionDirection: params.direction,
+          marketIndex,
+          baseAmount,
+          priceDecimals: Number(priceDecimals),
+          apiKeyIndex: creds.apiKeyIndex,
+        });
+        if (tpslErr) {
+          tpslWarning = tpslErr;
+          console.warn('[LighterAdapter] Mirrored TP/SL attach failed:', tpslErr);
+        }
+      }
+
       const sizeHuman = this.calculatePositionSize(params.margin, params.leverage, entryPriceStr);
 
       return {
@@ -131,7 +154,9 @@ export class LighterAdapter implements ProtocolAdapter {
         entryPrice: entryPriceStr,
         margin: params.margin,
         leverage: params.leverage,
-        message: 'Position opened on Lighter',
+        message: tpslWarning
+          ? `Position opened on Lighter (TP/SL attach failed: ${tpslWarning})`
+          : 'Position opened on Lighter with mirrored TP/SL',
         rawData: res,
       };
     } catch (error) {
@@ -253,6 +278,73 @@ export class LighterAdapter implements ProtocolAdapter {
       leverage: lev,
       unrealizedPnl: pos.unrealized_pnl,
     };
+  }
+
+  /**
+   * Place reduce-only take-profit + stop-loss triggers using the same canonical prices as HL/Pacifica.
+   */
+  private async attachMirroredHedgeTpsl(args: {
+    hedgeTpsl: HedgeLegTpslPrices;
+    positionDirection: 'long' | 'short';
+    marketIndex: number;
+    baseAmount: number;
+    priceDecimals: number;
+    apiKeyIndex: number;
+  }): Promise<string | null> {
+    const { hedgeTpsl, positionDirection, marketIndex, baseAmount, priceDecimals, apiKeyIndex } =
+      args;
+
+    if (!Number.isFinite(marketIndex) || marketIndex < 0) {
+      return 'Invalid Lighter market index';
+    }
+
+    try {
+      const tpTrigger = lighterHumanPriceToInt(hedgeTpsl.takeProfitPrice, priceDecimals);
+      const slTrigger = lighterHumanPriceToInt(hedgeTpsl.stopLossPrice, priceDecimals);
+      const tpLimit = lighterHumanPriceToInt(
+        hedgeTpsl.takeProfitLimitPrice ?? hedgeTpsl.takeProfitPrice,
+        priceDecimals
+      );
+      const slLimit = lighterHumanPriceToInt(
+        hedgeTpsl.stopLossLimitPrice ?? hedgeTpsl.stopLossPrice,
+        priceDecimals
+      );
+
+      /** Reduce-only close: sell to close long (`short`), buy to close short (`long`). */
+      const closeSide: 'long' | 'short' = positionDirection === 'long' ? 'short' : 'long';
+      const orderExpiry = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 28;
+      const base = Date.now() % 1_000_000_000;
+
+      const placeTrigger = async (
+        kind: 'take_profit' | 'stop_loss',
+        triggerPrice: number,
+        limitPrice: number,
+        clientOrderIndex: number
+      ) => {
+        await this.service.openPerp(
+          {
+            marketIndex,
+            clientOrderIndex,
+            baseAmount,
+            price: limitPrice,
+            side: closeSide,
+            orderType: kind,
+            timeInForce: 'gtt',
+            reduceOnly: true,
+            orderExpiry,
+            triggerPrice,
+            apiKeyIndex,
+          },
+          { priceProtection: true }
+        );
+      };
+
+      await placeTrigger('take_profit', tpTrigger, tpLimit, Math.floor(base + 1));
+      await placeTrigger('stop_loss', slTrigger, slLimit, Math.floor(base + 2));
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
   }
 
   private fail(params: UnifiedPositionParams, error: string): UnifiedPositionResult {

@@ -34,7 +34,17 @@ function mapTimeInForce(tif: LighterOpenPerpParams['timeInForce']): number {
 }
 
 function mapOrderType(orderType: LighterOpenPerpParams['orderType']): number {
-  return orderType === 'market' ? LighterOrderType.MARKET : LighterOrderType.LIMIT;
+  switch (orderType) {
+    case 'limit':
+      return LighterOrderType.LIMIT;
+    case 'stop_loss':
+      return LighterOrderType.STOP_LOSS;
+    case 'take_profit':
+      return LighterOrderType.TAKE_PROFIT;
+    case 'market':
+    default:
+      return LighterOrderType.MARKET;
+  }
 }
 
 /** Open order: long = bid (`is_ask` false), short = ask. */

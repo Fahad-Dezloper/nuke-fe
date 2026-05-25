@@ -7,6 +7,9 @@ export interface CreatePositionRequest {
   vaultAddress?: string;
   isLong?: boolean;
   isMarket?: boolean;
+  takeProfitPrice?: string;
+  stopLossPrice?: string;
+  canonicalTpSlPrices?: boolean;
 }
 
 export interface ClosePositionRequest {
@@ -43,6 +46,8 @@ export interface SignatureComponents {
 export interface UpdateLeverageRequest {
   leverage: number;
   assetTicker: string;
+  /** `true` = cross (default on HL UI), `false` = isolated per asset */
+  isCross?: boolean;
   vaultAddress?: string;
 }
 

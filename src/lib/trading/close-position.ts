@@ -168,6 +168,7 @@ export async function closePhoenixPosition(
       solanaAuthority: solanaAddress,
       organizationId,
       reduceOnly: true,
+      useIsolatedMargin: true,
     });
     return {
       protocol: 'phoenix',

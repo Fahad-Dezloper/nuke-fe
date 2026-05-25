@@ -13,7 +13,8 @@ import type {
   UpdateLeverageRequest,
   UserLeverageResponse,
 } from './types';
-import type { PerpOrderRequest } from '@/dex/hyperliquid/types';
+import type { PerpOrderRequest, TpSlParams } from '@/dex/hyperliquid/types';
+import { TpSlManager } from '@/dex/hyperliquid/tpsl-manager';
 
 export class HyperLiquidService {
   private perpOrders: PerpOrders;
@@ -229,6 +230,9 @@ export class HyperLiquidService {
         isMarket: request.isMarket ?? false,
         vaultAddress: request.vaultAddress,
         isLong: request.isLong ?? true,
+        takeProfitPrice: request.takeProfitPrice,
+        stopLossPrice: request.stopLossPrice,
+        canonicalTpSlPrices: request.canonicalTpSlPrices,
       };
 
       // Generate typed data using PerpOrders class
@@ -506,7 +510,7 @@ export class HyperLiquidService {
       const action: Record<string, unknown> = {
         type: 'updateLeverage',
         asset: assetIndex,
-        isCross: true, // cross-margin mode
+        isCross: request.isCross ?? false,
         leverage: request.leverage,
       };
 
@@ -570,6 +574,70 @@ export class HyperLiquidService {
    * @param userAddress - EVM wallet address
    * @returns Withdrawable balance in USD
    */
+  /**
+   * Place reduce-only TP/SL trigger orders for an open perp position.
+   */
+  async placePositionTpSl(
+    params: TpSlParams,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<PositionResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
+      if (!params.finalTakeProfitPrice && !params.finalStopLossPrice) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['finalTakeProfitPrice or finalStopLossPrice'],
+        });
+      }
+
+      const manager = new TpSlManager();
+      const typedDataResult = await manager.placeTpSlOrders(params);
+
+      const signature = await this.signL1ActionWithTurnkey(
+        typedDataResult.action,
+        typedDataResult.nonce,
+        typedDataResult.typedData,
+        walletAddress,
+        organizationId
+      );
+
+      const hyperLiquidResponse = await this.submitToHyperLiquid(
+        typedDataResult.endpoint,
+        typedDataResult.action,
+        typedDataResult.nonce,
+        signature
+      );
+
+      if (hyperLiquidResponse.status !== 'ok') {
+        const errorMsg =
+          hyperLiquidResponse.response || 'Failed to place TP/SL orders (unknown error)';
+        throw createError(ErrorCode.TRADE_POSITION_CREATE_FAILED, {
+          hyperLiquidResponse: errorMsg,
+          assetId: params.assetId,
+        });
+      }
+
+      return {
+        success: true,
+        data: hyperLiquidResponse,
+        message: 'TP/SL orders placed successfully',
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
+      console.error('Error placing HL TP/SL:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to place TP/SL orders',
+      };
+    }
+  }
+
   async fetchAccountBalance(
     userAddress: string
   ): Promise<{ success: boolean; withdrawable: number; error?: string }> {

@@ -117,7 +117,7 @@ export interface LighterOpenPerpParams {
   /** Integer worst price for taker / limit price for maker */
   price: bigint | number;
   side: 'long' | 'short';
-  orderType: 'market' | 'limit';
+  orderType: 'market' | 'limit' | 'stop_loss' | 'take_profit';
   timeInForce: 'ioc' | 'gtt' | 'alo';
   reduceOnly: boolean;
   orderExpiry: bigint | number;

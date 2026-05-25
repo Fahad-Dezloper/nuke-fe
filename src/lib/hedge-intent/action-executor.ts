@@ -66,6 +66,8 @@ import { getLighterL2Credentials } from '@/lib/services/lighter/lighter-credenti
 import { finalizeLighterL2KeysAfterDeposit } from '@/lib/services/lighter/lighter-onboarding';
 import { getSharedLighterAdapter, getSharedLighterService } from '@/lib/services/lighter/lighter-shared-adapter';
 import { LighterMarginMode } from '@/lib/services/lighter/utils/tx-constants';
+import { buildMirroredTpSlPlan } from './hedge-tpsl';
+import { hedgeUsesIsolatedMargin } from '@/lib/trading/margin-mode';
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -78,8 +80,10 @@ export interface ExecutorContext {
   evmAddress: string;
   /** User's Solana wallet address (base58) */
   solanaAddress: string;
-  /** Turnkey organization ID */
+  /** Turnkey organization ID (signing) */
   organizationId: string;
+  /** Nuke backend user UUID for `/user/*` routes */
+  userId: string;
   /** Long/short venues from UI best pair (position panel / table) */
   hedgePair: HedgePair;
 }
@@ -101,9 +105,8 @@ export interface ActionResult {
 
 const BRIDGE_REQUEST_PREFIX = 'hedge_bridge_';
 
-// ─── LocalStorage Keys for Pacifica Access ───────────────────────────────────
+// ─── LocalStorage Keys for Pacifica builder approval cache ───────────────────
 
-const PACIFICA_REFERRAL_PREFIX = 'pacifica_referral_claimed_';
 const PACIFICA_BUILDER_PREFIX = 'pacifica_builder_approved_';
 const HEDGE_ORDER_BUFFER_PCT = 1.0;
 
@@ -126,22 +129,6 @@ function hedgeExchangeLabel(exchange: string): string {
       return 'Backpack';
     default:
       return exchange;
-  }
-}
-
-function isPacificaReferralCached(account: string): boolean {
-  try {
-    return localStorage.getItem(`${PACIFICA_REFERRAL_PREFIX}${account}`) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function cachePacificaReferral(account: string): void {
-  try {
-    localStorage.setItem(`${PACIFICA_REFERRAL_PREFIX}${account}`, '1');
-  } catch {
-    /* localStorage not available */
   }
 }
 
@@ -569,7 +556,7 @@ export class HedgeActionExecutor {
         ? BigInt(Math.floor(amountUsd * 1_000_000))
         : undefined;
 
-    // Ensure referral code claimed + builder code approved before depositing to Pacifica
+    // Referral (Nuke) + builder approval (Pacifica) before deposit
     if (exchange === 'pacifica') {
       const accessError = await this.ensurePacificaAccess(context);
       if (accessError) return accessError;
@@ -658,70 +645,25 @@ export class HedgeActionExecutor {
   // ─── Pacifica Access Setup ──────────────────────────────────────────────
 
   /**
-   * Ensure the user has full Pacifica access:
-   *  1. Referral code claimed (grants beta/whitelist access)
-   *  2. Builder code approved (allows builder_code in orders)
-   *
-   * Results are cached in localStorage per account — subsequent deposits
-   * skip the API check entirely. Only signs if needed on first encounter.
+   * Pacifica prerequisites before deposit/open:
+   *  1. Referral (best-effort, never blocks): Nuke claim-status → claim only when check succeeds and not claimed
+   *  2. Builder (required): Pacifica approvals GET — approve only when NUKETRADE is missing
    */
   private async ensurePacificaAccess(
     context: ExecutorContext
   ): Promise<ActionResult | null> {
     const account = context.solanaAddress;
 
-    // ── 1. Referral code claim (beta access) ──
-    if (isPacificaReferralCached(account)) {
-      console.log('[HedgeExecutor] Pacifica beta access already confirmed (cached) ✓');
-    } else {
+    await this.ensurePacificaReferralBestEffort(context);
+
+    // Builder: always verify on Pacifica when cache miss; never re-approve if already listed
+    if (!isPacificaBuilderCached(account)) {
       try {
-        console.log('[HedgeExecutor] Checking Pacifica beta access (referral code)...');
-        const hasBetaAccess = await this.pacificaService.checkReferralCodeClaimed(context.organizationId);
-
-        if (!hasBetaAccess) {
-          console.log('[HedgeExecutor] No beta access — claiming referral code NUKETRADE...');
-          const claimResult = await this.pacificaService.claimReferralCode(
-            account,
-            context.organizationId
-          );
-
-          if (!claimResult.success) {
-            return {
-              success: false,
-              txHash: null,
-              error: claimResult.error || 'Pacifica referral code claim failed.',
-              legResults: null,
-            };
-          }
-          console.log('[HedgeExecutor] Referral code NUKETRADE claimed ✓');
-          trackReferralCodeClaimed();
-        } else {
-          console.log('[HedgeExecutor] Pacifica beta access already active ✓');
-        }
-
-        cachePacificaReferral(account);
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        console.error('[HedgeExecutor] Referral code claim failed:', err);
-        return {
-          success: false,
-          txHash: null,
-          error: `Pacifica referral code claim failed: ${errMsg}`,
-          legResults: null,
-        };
-      }
-    }
-
-    // ── 2. Builder code approval (fee sharing on orders) ──
-    if (isPacificaBuilderCached(account)) {
-      console.log('[HedgeExecutor] Builder code NUKETRADE already approved (cached) ✓');
-    } else {
-      try {
-        console.log('[HedgeExecutor] Checking builder code approval on Pacifica...');
         const isApproved = await this.pacificaService.checkBuilderCodeApproval(account);
-
-        if (!isApproved) {
-          console.log('[HedgeExecutor] Builder code not yet approved — submitting approval...');
+        if (isApproved) {
+          cachePacificaBuilder(account);
+        } else {
+          console.log('[HedgeExecutor] NUKETRADE not in approvals — submitting builder approval...');
           const approvalResult = await this.pacificaService.approveBuilderCode(
             account,
             context.organizationId
@@ -735,13 +677,9 @@ export class HedgeActionExecutor {
               legResults: null,
             };
           }
-          console.log('[HedgeExecutor] Builder code NUKETRADE approved ✓');
           trackBuilderCodeApproved();
-        } else {
-          console.log('[HedgeExecutor] Builder code NUKETRADE already approved ✓');
+          cachePacificaBuilder(account);
         }
-
-        cachePacificaBuilder(account);
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         console.error('[HedgeExecutor] Builder code approval failed:', err);
@@ -754,7 +692,38 @@ export class HedgeActionExecutor {
       }
     }
 
-    return null; // success — no error
+    return null;
+  }
+
+  /** Referral/points only — failures are logged and never surfaced to the user. */
+  private async ensurePacificaReferralBestEffort(context: ExecutorContext): Promise<void> {
+    const account = context.solanaAddress;
+
+    try {
+      const status = await this.pacificaService.checkReferralClaimedOnBackend(context.userId);
+
+      if (!status.ok) {
+        console.warn(
+          '[HedgeExecutor] Skipping referral claim — Nuke claim-status unavailable (non-fatal)'
+        );
+        return;
+      }
+
+      if (status.claimed) {
+        return;
+      }
+
+      const claimResult = await this.pacificaService.claimReferralCode(
+        account,
+        context.organizationId
+      );
+
+      if (claimResult.success) {
+        trackReferralCodeClaimed();
+      }
+    } catch (err) {
+      console.warn('[HedgeExecutor] Referral step skipped (non-fatal):', err);
+    }
   }
 
   /**
@@ -810,7 +779,7 @@ export class HedgeActionExecutor {
       exchange: normalizeHedgeExchange(l.exchange),
     }));
 
-    // Referral + builder approval (required for builder_code on orders). Deposit path runs
+    // Builder approval (required for builder_code on orders). Deposit path runs
     // this too, but users with existing Pacifica margin skip deposit and go straight to open.
     if (legs.some((l) => l.exchange === 'pacifica')) {
       const accessError = await this.ensurePacificaAccess(context);
@@ -915,7 +884,15 @@ export class HedgeActionExecutor {
       if (ex === 'hyperliquid') {
         leverageUpdates.push(
           this.hlService
-            .updateLeverage({ assetTicker: asset.toUpperCase(), leverage }, context.evmAddress, context.organizationId)
+            .updateLeverage(
+              {
+                assetTicker: asset.toUpperCase(),
+                leverage,
+                isCross: !hedgeUsesIsolatedMargin(),
+              },
+              context.evmAddress,
+              context.organizationId
+            )
             .then((r) => ({ exchangeLabel: 'HyperLiquid', ok: r.success, error: r.error }))
             .catch((err) => ({ exchangeLabel: 'HyperLiquid', ok: false, error: err instanceof Error ? err.message : String(err) }))
         );
@@ -1069,6 +1046,31 @@ export class HedgeActionExecutor {
     }
 
     // ── Step 5: Open both legs in parallel ──
+    const tpSlPlan = await buildMirroredTpSlPlan(asset, leverage);
+    if (!tpSlPlan) {
+      return {
+        success: false,
+        txHash: null,
+        error: 'Cannot open hedge: failed to build mirrored TP/SL plan (Pacifica mark/tick)',
+        legResults: null,
+      };
+    }
+
+    if (!marketPrice || parseFloat(marketPrice) <= 0) {
+      marketPrice = String(tpSlPlan.markPrice);
+    }
+
+    console.log(
+      `[HedgeExecutor] Mirrored TP/SL plan ${asset}: mark=${tpSlPlan.markPrice} ` +
+        `threshold=${tpSlPlan.thresholdPercent}% upper=${tpSlPlan.upperStop} lower=${tpSlPlan.lowerStop}`
+    );
+
+    const hedgeTpslForDirection = (dir: 'long' | 'short') =>
+      dir === 'long' ? tpSlPlan.long : tpSlPlan.short;
+
+    // ── Step 5: Open both legs in parallel (TP/SL on create where supported) ──
+    const useIsolatedMargin = hedgeUsesIsolatedMargin();
+
     const results = await Promise.allSettled(
       legs.map(async (leg) => {
         const direction = getDirection(leg.exchange);
@@ -1084,14 +1086,47 @@ export class HedgeActionExecutor {
             isMarket: true,
             price: marketPrice,
             baseSize: hedgeBaseSize,
+            hedgeTpsl: hedgeTpslForDirection(direction),
+            useIsolatedMargin,
           });
           return { exchange: leg.exchange, result };
         } else {
           if (leg.exchange === 'pacifica') {
-            // Always set leverage immediately before market open so POST /account/leverage
-            // cannot be skipped (e.g. casing bugs routing Step 2 to the wrong handler, or
-            // rejected Promise.allSettled entries). Pacifica defaults to max lev until set.
             const pacificaLev = Math.max(1, Math.min(20, Math.round(Number(leverage))));
+            if (useIsolatedMargin) {
+              const modeRes = await this.pacificaService.fetchIsolatedMargin(
+                context.solanaAddress,
+                asset.toUpperCase()
+              );
+              if (modeRes.success && modeRes.isolated === false) {
+                const marginModeRes = await this.pacificaService.updateMarginMode(
+                  asset.toUpperCase(),
+                  true,
+                  context.solanaAddress,
+                  context.organizationId
+                );
+                if (!marginModeRes.success) {
+                  return {
+                    exchange: leg.exchange,
+                    result: {
+                      success: false,
+                      positionId: '',
+                      protocol: 'pacifica',
+                      asset,
+                      direction,
+                      size: '0',
+                      entryPrice: marketPrice ?? '0',
+                      margin: marginForLegs.toString(),
+                      leverage: pacificaLev,
+                      error:
+                        marginModeRes.error ||
+                        'Failed to set isolated margin on Pacifica before open',
+                      message: marginModeRes.message,
+                    },
+                  };
+                }
+              }
+            }
             const levRes = await this.pacificaService.updateLeverage(
               asset.toUpperCase(),
               pacificaLev,
@@ -1125,6 +1160,8 @@ export class HedgeActionExecutor {
               organizationId: context.organizationId,
               isMarket: true,
               price: marketPrice,
+              hedgeTpsl: hedgeTpslForDirection(direction),
+              useIsolatedMargin,
             });
             return { exchange: leg.exchange, result };
           }
@@ -1142,6 +1179,8 @@ export class HedgeActionExecutor {
               isMarket: true,
               price: marketPrice,
               baseSize: hedgeBaseSize,
+              useIsolatedMargin,
+              hedgeTpsl: hedgeTpslForDirection(direction),
             });
             return { exchange: leg.exchange, result };
           }
@@ -1157,6 +1196,7 @@ export class HedgeActionExecutor {
               isMarket: true,
               price: marketPrice,
               slippagePercent: '0.5',
+              hedgeTpsl: hedgeTpslForDirection(direction),
             });
             return { exchange: leg.exchange, result };
           }

@@ -14,6 +14,8 @@ export {
   login,
   getToken,
   getJWT,
+  getAuthUserId,
+  requireAuthUserId,
   setToken,
   clearAuth,
   isAuthenticated,

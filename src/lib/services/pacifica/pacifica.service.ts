@@ -6,14 +6,31 @@ import type {
   CancelOrderRequest,
   CreateOrderResponse,
   PacificaApiResponse,
+  SetPositionTpSlRequest,
 } from './types';
+import { TpSlManager } from '@/dex/pacifica/tpsl-manager';
+import { Side } from '@/dex/pacifica/types';
 import { prepareSigningData, messageToBytes } from './utils/signing';
 import { signPacificaMessageWithTurnkey } from './utils/turnkey-signing';
 import { roundAmount, roundPrice } from '@/dex/pacifica/utils/rounding';
 import axios from 'axios';
-import { BUILDER_CODE, BUILDER_MAX_FEE_RATE, EXPIRY_WINDOW } from '@/constants';
+import { BUILDER_CODE, BUILDER_MAX_FEE_RATE, EXPIRY_WINDOW, REFERRAL_CODE } from '@/constants';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
+
+/** Pacifica returns 400 when the wallet already has a referral code on file. */
+function pacificaReferralAlreadyClaimed(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  const rec = body as Record<string, unknown>;
+  const err = String(rec.error ?? '').toLowerCase();
+  return (
+    err.includes('check violation') ||
+    err.includes('already claimed') ||
+    err.includes('already exists') ||
+    err.includes('duplicate')
+  );
+}
+
 export class PacificaService {
   private baseUrl: string;
   private timeout: number;
@@ -81,43 +98,47 @@ export class PacificaService {
     }
   }
 
+  // ─── Referral code (points) — check via Nuke BE, claim on Pacifica ─────
+
   /**
-   * Check if the user has already claimed Pacifica access via our backend.
+   * Nuke claim-status for referral points. On HTTP/error, `ok` is false — do not attempt Pacifica claim.
    */
-  async checkReferralCodeClaimed(userId: string): Promise<boolean> {
+  async checkReferralClaimedOnBackend(
+    userId: string
+  ): Promise<{ ok: true; claimed: boolean } | { ok: false }> {
     try {
       const data = await apiClient.get<{ is_claimed: boolean }>(
         API_ENDPOINTS.pacificaClaim.status(userId)
       );
-      return data.is_claimed === true;
+      return { ok: true, claimed: data.is_claimed === true };
     } catch (err) {
-      console.warn('[Pacifica] Error checking claim status:', err);
-      return false;
+      console.warn('[Pacifica] Nuke referral claim-status check failed:', err);
+      return { ok: false };
+    }
+  }
+
+  private async recordReferralClaimOnBackend(): Promise<void> {
+    try {
+      await apiClient.post(API_ENDPOINTS.pacificaClaim.claim);
+    } catch (err) {
+      console.warn('[Pacifica] Nuke referral claim record failed (non-fatal):', err);
     }
   }
 
   /**
-   * Claim the NUKETRADE referral code for the user.
-   *
-   * Signs a `claim_referral_code` payload and POSTs to
-   * /referral/user/code/claim
-   *
-   * This grants beta/whitelist access + referral tracking in one step.
-   *
-   * @param account - Solana wallet address
-   * @param organizationId - Turnkey organization ID
+   * Claim REFERRAL_CODE on Pacifica for points. Signs POST /referral/user/code/claim.
+   * On success (or wallet already has a referral on Pacifica), syncs Nuke BE via POST /user/claim/pacifica.
    */
   async claimReferralCode(
     account: string,
     organizationId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      
       const timestamp = Date.now();
 
       const message = new TextEncoder().encode(
         JSON.stringify({
-          data: { code: BUILDER_CODE },
+          data: { code: REFERRAL_CODE },
           expiry_window: 5000,
           timestamp,
           type: 'claim_referral_code',
@@ -131,26 +152,44 @@ export class PacificaService {
         signature,
         timestamp,
         expiry_window: 5000,
-        code: BUILDER_CODE,
+        code: REFERRAL_CODE,
       };
 
-      const apiResponse = await this.submitToPacifica('/referral/user/code/claim', finalRequest);
+      const response = await fetch(`${this.baseUrl}/referral/user/code/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalRequest),
+      });
 
-      if (apiResponse.error) {
-        return { success: false, error: `Referral code claim failed: ${apiResponse.error}` };
+      const apiResponse = (await response.json().catch(() => ({}))) as PacificaApiResponse & {
+        code?: number;
+      };
+
+      if (response.ok && !apiResponse.error) {
+        await this.recordReferralClaimOnBackend();
+        return { success: true };
       }
 
-      await apiClient.post(API_ENDPOINTS.pacificaClaim.claim);
+      if (pacificaReferralAlreadyClaimed(apiResponse)) {
+        console.log(
+          '[Pacifica] Referral already set on Pacifica for this wallet — syncing Nuke claim record'
+        );
+        await this.recordReferralClaimOnBackend();
+        return { success: true };
+      }
 
-      return { success: true };
+      const errDetail =
+        apiResponse.error ||
+        (response.ok ? 'Unknown Pacifica referral error' : `HTTP ${response.status}`);
+      return { success: false, error: `Referral code claim failed: ${errDetail}` };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      console.error('[Pacifica] Referral code claim failed:', err);
+      console.warn('[Pacifica] Referral code claim failed (non-fatal):', errMsg);
       return { success: false, error: `Referral code claim failed: ${errMsg}` };
     }
   }
 
-  // ─── Builder Code Approval ─────────────────────────────────────────────
+  // ─── Builder Code Approval (check on Pacifica) ─────────────────────────
 
   /**
    * Checks whether the user has already approved the NUKETRADE builder code.
@@ -300,6 +339,96 @@ export class PacificaService {
    * @param organizationId - Turnkey organization ID
    * @returns Success/failure response
    */
+  /**
+   * Set cross or isolated margin mode for a symbol (must be done before opening a position).
+   * POST /account/margin — `update_margin_mode`
+   */
+  async updateMarginMode(
+    symbol: string,
+    isIsolated: boolean,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
+      if (!symbol) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, { missingFields: ['symbol'] });
+      }
+
+      const operationData: Record<string, unknown> = {
+        symbol: symbol.toUpperCase(),
+        is_isolated: isIsolated,
+      };
+
+      const { timestamp, signature } = await this.signOrderRequest(
+        'update_margin_mode',
+        operationData,
+        walletAddress,
+        organizationId,
+        this.expiryWindow
+      );
+
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        expiry_window: this.expiryWindow,
+        ...operationData,
+      };
+
+      const apiResponse = await this.submitToPacifica('/account/margin', finalRequest);
+
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED, {
+          error: apiResponse.error,
+          symbol,
+        });
+      }
+
+      return {
+        success: true,
+        message: `Pacifica margin mode set to ${isIsolated ? 'isolated' : 'cross'}`,
+        data: apiResponse,
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to update Pacifica margin mode',
+      };
+    }
+  }
+
+  /**
+   * Whether the symbol is configured for isolated margin (false = cross / default).
+   */
+  async fetchIsolatedMargin(
+    account: string,
+    symbol: string
+  ): Promise<{ success: boolean; isolated: boolean | null; error?: string }> {
+    const settingsResult = await this.getAccountSettings(account);
+    if (!settingsResult.success || !settingsResult.data) {
+      return {
+        success: false,
+        isolated: null,
+        error: settingsResult.error || 'Failed to fetch account settings',
+      };
+    }
+    const entry = settingsResult.data.find(
+      (s) => s.symbol.toUpperCase() === symbol.toUpperCase()
+    );
+    return {
+      success: true,
+      isolated: entry?.isolated ?? false,
+    };
+  }
+
   async updateLeverage(
     symbol: string,
     leverage: number,
@@ -425,27 +554,47 @@ export class PacificaService {
       }
 
       if (request.take_profit) {
-        operationData.take_profit = {
-          stop_price: await roundPrice(request.take_profit.stop_price, symbol),
-          ...(request.take_profit.limit_price && {
-            limit_price: await roundPrice(request.take_profit.limit_price, symbol),
-          }),
-          ...(request.take_profit.client_order_id && {
-            client_order_id: request.take_profit.client_order_id,
-          }),
-        };
+        if (request.tpsl_prices_pre_quantized) {
+          operationData.take_profit = {
+            stop_price: request.take_profit.stop_price,
+            limit_price: request.take_profit.limit_price ?? request.take_profit.stop_price,
+            ...(request.take_profit.client_order_id && {
+              client_order_id: request.take_profit.client_order_id,
+            }),
+          };
+        } else {
+          operationData.take_profit = {
+            stop_price: await roundPrice(request.take_profit.stop_price, symbol),
+            ...(request.take_profit.limit_price && {
+              limit_price: await roundPrice(request.take_profit.limit_price, symbol),
+            }),
+            ...(request.take_profit.client_order_id && {
+              client_order_id: request.take_profit.client_order_id,
+            }),
+          };
+        }
       }
 
       if (request.stop_loss) {
-        operationData.stop_loss = {
-          stop_price: await roundPrice(request.stop_loss.stop_price, symbol),
-          ...(request.stop_loss.limit_price && {
-            limit_price: await roundPrice(request.stop_loss.limit_price, symbol),
-          }),
-          ...(request.stop_loss.client_order_id && {
-            client_order_id: request.stop_loss.client_order_id,
-          }),
-        };
+        if (request.tpsl_prices_pre_quantized) {
+          operationData.stop_loss = {
+            stop_price: request.stop_loss.stop_price,
+            limit_price: request.stop_loss.limit_price ?? request.stop_loss.stop_price,
+            ...(request.stop_loss.client_order_id && {
+              client_order_id: request.stop_loss.client_order_id,
+            }),
+          };
+        } else {
+          operationData.stop_loss = {
+            stop_price: await roundPrice(request.stop_loss.stop_price, symbol),
+            ...(request.stop_loss.limit_price && {
+              limit_price: await roundPrice(request.stop_loss.limit_price, symbol),
+            }),
+            ...(request.stop_loss.client_order_id && {
+              client_order_id: request.stop_loss.client_order_id,
+            }),
+          };
+        }
       }
       // Sign the order request
       const { timestamp, signature } = await this.signOrderRequest(
@@ -771,6 +920,99 @@ export class PacificaService {
         success: false,
         availableToSpend: 0,
         error: getUserMessage(appError),
+      };
+    }
+  }
+
+  /**
+   * Attach mirrored TP/SL to an existing Pacifica position (`POST /positions/tpsl`).
+   */
+  async setPositionTpSl(
+    request: SetPositionTpSlRequest,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
+      if (!request.takeProfitPrice && !request.stopLossPrice) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, {
+          missingFields: ['takeProfitPrice or stopLossPrice'],
+        });
+      }
+
+      const symbol = request.symbol.toUpperCase();
+      const pacificaSide = request.side === 'bid' ? Side.Bid : Side.Ask;
+
+      const tpSlManager = new TpSlManager();
+      const { request: unsigned } = tpSlManager.prepareSetPositionTpSl({
+        account: walletAddress,
+        symbol,
+        side: pacificaSide,
+        takeProfitPrice: request.takeProfitPrice
+          ? await roundPrice(request.takeProfitPrice, symbol)
+          : undefined,
+        takeProfitLimitPrice: request.takeProfitLimitPrice
+          ? await roundPrice(request.takeProfitLimitPrice, symbol)
+          : undefined,
+        stopLossPrice: request.stopLossPrice
+          ? await roundPrice(request.stopLossPrice, symbol)
+          : undefined,
+        stopLossLimitPrice: request.stopLossLimitPrice
+          ? await roundPrice(request.stopLossLimitPrice, symbol)
+          : undefined,
+        expiryWindow: this.expiryWindow,
+      });
+
+      const operationData: Record<string, unknown> = {
+        symbol: unsigned.symbol,
+        side: request.side,
+      };
+      if (unsigned.take_profit) operationData.take_profit = unsigned.take_profit;
+      if (unsigned.stop_loss) operationData.stop_loss = unsigned.stop_loss;
+
+      const { timestamp, signature } = await this.signOrderRequest(
+        'set_position_tpsl',
+        operationData,
+        walletAddress,
+        organizationId,
+        this.expiryWindow
+      );
+
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        expiry_window: this.expiryWindow,
+        ...operationData,
+      };
+
+      const apiResponse = await this.submitToPacifica('/positions/tpsl', finalRequest);
+
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_POSITION_CREATE_FAILED, {
+          error: apiResponse.error,
+          code: apiResponse.code,
+          symbol,
+        });
+      }
+
+      return {
+        success: true,
+        data: apiResponse,
+        message: 'Position TP/SL set successfully',
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_POSITION_CREATE_FAILED);
+      console.error('Error setting Pacifica TP/SL:', appError);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to set position TP/SL',
       };
     }
   }

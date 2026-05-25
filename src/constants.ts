@@ -22,4 +22,6 @@ export const SOLANA_DIRECT_MIN_DEPOSIT_MICROS = 1_000_000; // $1 — allows smal
 // pacifica service
 export const EXPIRY_WINDOW = 300000;
 export const BUILDER_CODE = 'NUKETRADE';
+/** Pacifica referral code for points / referee attribution (same string as builder code). */
+export const REFERRAL_CODE = 'NUKETRADE';
 export const BUILDER_MAX_FEE_RATE = '0.1';

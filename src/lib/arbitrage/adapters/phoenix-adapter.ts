@@ -4,6 +4,7 @@
 
 import { positionsService } from '@/lib/api/services/positions.service';
 import { phoenixService } from '@/lib/services/phoenix';
+import { hedgeUsesIsolatedMargin } from '@/lib/trading/margin-mode';
 import type { ProtocolAdapter } from './protocol-adapter.interface';
 import type {
   UnifiedPositionParams,
@@ -69,7 +70,7 @@ export class PhoenixAdapter implements ProtocolAdapter {
         const maxMargin = collateral.usd * 0.995;
         if (marginUsd > maxMargin) {
           console.warn(
-            `[PhoenixAdapter] Capping margin $${marginUsd.toFixed(2)} → $${maxMargin.toFixed(2)} (cross collateral)`
+            `[PhoenixAdapter] Capping margin $${marginUsd.toFixed(2)} → $${maxMargin.toFixed(2)} (free cross collateral)`
           );
           marginUsd = maxMargin;
         }
@@ -79,6 +80,8 @@ export class PhoenixAdapter implements ProtocolAdapter {
         params.baseSize ??
         this.calculatePositionSize(marginUsd.toString(), params.leverage, entryPrice);
 
+      const useIsolated = params.useIsolatedMargin ?? hedgeUsesIsolatedMargin();
+
       const res = await phoenixService.placeMarketOrder({
         symbol: this.normalizeAssetName(params.asset),
         direction: params.direction,
@@ -86,6 +89,9 @@ export class PhoenixAdapter implements ProtocolAdapter {
         solanaAuthority: params.walletAddress,
         organizationId: params.organizationId,
         reduceOnly: false,
+        marginUsd: useIsolated ? marginUsd : undefined,
+        useIsolatedMargin: useIsolated,
+        hedgeTpsl: params.hedgeTpsl,
       });
 
       if (!res.success) {
@@ -153,6 +159,7 @@ export class PhoenixAdapter implements ProtocolAdapter {
         solanaAuthority: walletAddress,
         organizationId,
         reduceOnly: true,
+        useIsolatedMargin: hedgeUsesIsolatedMargin(),
       });
 
       if (!res.success) {

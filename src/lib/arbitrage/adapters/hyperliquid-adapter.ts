@@ -132,6 +132,9 @@ export class HyperLiquidAdapter implements ProtocolAdapter {
         leverage: params.leverage,
         isLong: params.direction === 'long',
         isMarket: params.isMarket ?? true,
+        takeProfitPrice: params.hedgeTpsl?.takeProfitPrice,
+        stopLossPrice: params.hedgeTpsl?.stopLossPrice,
+        canonicalTpSlPrices: Boolean(params.hedgeTpsl),
       };
 
       // Call HyperLiquid service

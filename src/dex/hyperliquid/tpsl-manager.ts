@@ -12,6 +12,104 @@ import {
 } from './utils/signing';
 import { CancelTpSlParms, Hex, TpSlOrder, TpSlParams } from './types';
 
+export interface TickLotRounding {
+  roundSize: (size: number) => string;
+  roundPrice: (price: number) => string;
+}
+
+/** Build reduce-only TP/SL legs for batched open (`normalTpsl` grouping). */
+export function buildTpSlOrderLegs(
+  tickInfo: TickLotRounding,
+  params: {
+    assetId: number;
+    isLong: boolean;
+    /** Position size in asset units (same as entry `s`). */
+    positionSize: string;
+    finalTakeProfitPrice?: string;
+    finalStopLossPrice?: string;
+    /** Pacifica-canonical prices: trigger = limit, no extra HL tick/slippage adjustment. */
+    canonicalPrices?: boolean;
+  }
+): TpSlOrder[] {
+  const orders: TpSlOrder[] = [];
+
+  if (
+    params.finalTakeProfitPrice &&
+    params.positionSize &&
+    parseFloat(params.positionSize) > 0
+  ) {
+    const tpSize = params.positionSize;
+    const tpPx = params.canonicalPrices
+      ? params.finalTakeProfitPrice
+      : tickInfo.roundPrice(Number(params.finalTakeProfitPrice));
+    const tpLimit = params.canonicalPrices
+      ? params.finalTakeProfitPrice
+      : params.isLong
+        ? tickInfo.roundPrice(
+            Number(params.finalTakeProfitPrice) -
+              (Number(params.finalTakeProfitPrice) * marketSlippage) / 100
+          )
+        : tickInfo.roundPrice(
+            Number(params.finalTakeProfitPrice) +
+              (Number(params.finalTakeProfitPrice) * marketSlippage) / 100
+          );
+
+    orders.push({
+      a: params.assetId,
+      b: !params.isLong,
+      p: tpLimit,
+      s: tickInfo.roundSize(Number(tpSize)),
+      r: true,
+      t: {
+        trigger: {
+          isMarket: true,
+          triggerPx: tpPx,
+          tpsl: 'tp',
+        },
+      },
+    });
+  }
+
+  if (
+    params.finalStopLossPrice &&
+    params.positionSize &&
+    parseFloat(params.positionSize) > 0
+  ) {
+    const slSize = params.positionSize;
+    const slPx = params.canonicalPrices
+      ? params.finalStopLossPrice
+      : tickInfo.roundPrice(Number(params.finalStopLossPrice));
+    const slLimit = params.canonicalPrices
+      ? params.finalStopLossPrice
+      : params.isLong
+        ? tickInfo.roundPrice(
+            Number(params.finalStopLossPrice) -
+              (Number(params.finalStopLossPrice) * marketSlippage) / 100
+          )
+        : tickInfo.roundPrice(
+            Number(params.finalStopLossPrice) +
+              (Number(params.finalStopLossPrice) * marketSlippage) / 100
+          );
+
+    orders.push({
+      a: params.assetId,
+      b: !params.isLong,
+      p: slLimit,
+      s: tickInfo.roundSize(Number(slSize)),
+      r: true,
+      t: {
+        trigger: {
+          isMarket: true,
+          triggerPx: slPx,
+          tpsl: 'sl',
+        },
+      },
+    });
+  }
+
+  return orders;
+}
+
 export class TpSlManager {
   private baseUrl = HYPERLIQUID_API;
 
@@ -37,76 +135,15 @@ export class TpSlManager {
 
       if (!tickInfo) throw new Error('Tick info details not found');
 
-      // Take Profit Order
-      if (
-        params.finalTakeProfitPrice &&
-        params.currentPositionSize &&
-        parseFloat(params.currentPositionSize) > 0
-      ) {
-        // Use provided TP size or default to full position size
-        const tpSize = params.takeProfitSize || params.currentPositionSize;
-
-        //if long decrease the price by marketSlippage percentage otherwise increase it by marketSlippage percentage
-        const priceWithSlippage = params.isLong
-          ? tickInfo.roundPrice(
-              Number(params.finalTakeProfitPrice) -
-                (Number(params.finalTakeProfitPrice) * marketSlippage) / 100
-            )
-          : tickInfo.roundPrice(
-              Number(params.finalTakeProfitPrice) +
-                (Number(params.finalTakeProfitPrice) * marketSlippage) / 100
-            );
-
-        orders.push({
-          a: params.assetId,
-          b: !params.isLong, // Opposite of position direction
-          p: priceWithSlippage,
-          s: tickInfo.roundSize(Number(tpSize)),
-          r: true, // Reduce only
-          t: {
-            trigger: {
-              isMarket: true,
-              triggerPx: tickInfo.roundPrice(Number(params.finalTakeProfitPrice)),
-              tpsl: 'tp',
-            },
-          },
-        });
-      }
-
-      // Stop Loss Order
-      if (
-        params.finalStopLossPrice &&
-        params.currentPositionSize &&
-        parseFloat(params.currentPositionSize) > 0
-      ) {
-        // Use provided SL size or default to full position size
-        const slSize = params.stopLossSize || params.currentPositionSize;
-
-        const priceWithSlippage = params.isLong
-          ? tickInfo.roundPrice(
-              Number(params.finalStopLossPrice) -
-                (Number(params.finalStopLossPrice) * marketSlippage) / 100
-            )
-          : tickInfo.roundPrice(
-              Number(params.finalStopLossPrice) +
-                (Number(params.finalStopLossPrice) * marketSlippage) / 100
-            );
-
-        orders.push({
-          a: params.assetId,
-          b: !params.isLong, // Opposite of position direction
-          p: priceWithSlippage,
-          s: tickInfo.roundSize(Number(slSize)),
-          r: true, // Reduce only
-          t: {
-            trigger: {
-              isMarket: true,
-              triggerPx: tickInfo.roundPrice(Number(params.finalStopLossPrice)),
-              tpsl: 'sl',
-            },
-          },
-        });
-      }
+      orders.push(
+        ...buildTpSlOrderLegs(tickInfo, {
+          assetId: params.assetId,
+          isLong: params.isLong,
+          positionSize: params.takeProfitSize || params.stopLossSize || params.currentPositionSize,
+          finalTakeProfitPrice: params.finalTakeProfitPrice,
+          finalStopLossPrice: params.finalStopLossPrice,
+        })
+      );
 
       if (orders.length === 0) {
         throw new Error('No take profit or stop loss price provided, or position size is zero.');

@@ -43,6 +43,26 @@ function getDecimalPlaces(stepSize: string): number {
  *   roundToStep(0.000035,  "0.00001") // "0.00003"
  *   roundToStep(5.7,       "1")       // "5"
  */
+/**
+ * Rounds **up** to the nearest multiple of `stepSize` (for upper TP/SL bands).
+ */
+export function roundToStepUp(value: number | string, stepSize: string): string {
+  const val = typeof value === 'number' ? value : parseFloat(value);
+  const step = parseFloat(stepSize);
+
+  if (isNaN(val) || isNaN(step) || step <= 0) {
+    return String(val);
+  }
+
+  const decimals = getDecimalPlaces(stepSize);
+  const multiplier = Math.pow(10, decimals);
+  const stepInt = Math.round(step * multiplier);
+  const valInt = Math.ceil(val * multiplier - 1e-9);
+  const roundedInt = Math.ceil(valInt / stepInt) * stepInt;
+
+  return (roundedInt / multiplier).toFixed(decimals);
+}
+
 export function roundToStep(
   value: number | string,
   stepSize: string
@@ -107,4 +127,14 @@ export async function roundPrice(
     return String(price);
   }
   return roundToStep(price, meta.tick_size);
+}
+
+/** Upper band: ceil to tick (mirrored hedge TP/SL). */
+export async function roundPriceUp(
+  price: number | string,
+  symbol: string
+): Promise<string> {
+  const meta = await getAssetMeta(symbol);
+  if (!meta) return String(price);
+  return roundToStepUp(price, meta.tick_size);
 }
