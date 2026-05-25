@@ -43,7 +43,12 @@ export function WalletStatus() {
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { formattedBalance, isLoading: isBalanceLoading } = useUSDCBalanceSolana();
-  const { hlBalance, pacBalance, isLoading: isExchangeLoading } = useExchangeBalances();
+  const {
+    hlBalance,
+    pacBalance,
+    phoenixBalance,
+    isLoading: isExchangeLoading,
+  } = useExchangeBalances();
   const [balanceHover, setBalanceHover] = useState(false);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -63,15 +68,15 @@ export function WalletStatus() {
   }, []);
 
   // Get wallet addresses
-  const walletAddress = getEVMAddress(state.userWallets) || 'Connected';
+  const evmAddress = getEVMAddress(state.userWallets) || 'Connected';
   const solanaAddress = getSolanaAddress(state.userWallets) || '';
 
   const handleCopyAddress = useCallback(() => {
-    navigator.clipboard.writeText(walletAddress).then(() => {
+    navigator.clipboard.writeText(solanaAddress).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
-  }, [walletAddress]);
+  }, [solanaAddress]);
 
   if (!state.isLoggedIn) {
     return null;
@@ -79,6 +84,7 @@ export function WalletStatus() {
 
   const hlConfig = getProtocolConfig('hyperliquid');
   const pacConfig = getProtocolConfig('pacifica');
+  const phxConfig = getProtocolConfig('phoenix');
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -92,9 +98,9 @@ export function WalletStatus() {
 
   // Truncate address for display
   const displayAddress =
-    walletAddress.length > 20
-      ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-      : walletAddress;
+    solanaAddress.length > 20
+      ? `${solanaAddress.slice(0, 6)}...${solanaAddress.slice(-4)}`
+      : solanaAddress;
 
   // Balance has never been fetched yet (null initial state)
   const hasLoaded =
@@ -216,6 +222,35 @@ export function WalletStatus() {
                         ) : (
                           <span className="text-xs font-semibold text-text-primary tabular-nums">
                             ${pacBalance.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Phoenix row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            {phxConfig && (
+                              <Image
+                                src={phxConfig.logo}
+                                alt={phxConfig.displayName}
+                                width={20}
+                                height={20}
+                                className="rounded-full ring-1 ring-white/10"
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-text-primary leading-tight">
+                              {phxConfig?.displayName ?? 'Phoenix'}
+                            </span>
+                          </div>
+                        </div>
+                        {isExchangeLoading ? (
+                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                        ) : (
+                          <span className="text-xs font-semibold text-text-primary tabular-nums">
+                            ${phoenixBalance.toFixed(2)}
                           </span>
                         )}
                       </div>
@@ -356,13 +391,13 @@ export function WalletStatus() {
       <DepositModal
         isOpen={isDepositModalOpen}
         onClose={() => setIsDepositModalOpen(false)}
-        walletAddress={walletAddress}
+        walletAddress={solanaAddress}
       />
 
       <ExportWalletModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        evmAddress={walletAddress}
+        evmAddress={evmAddress}
         solanaAddress={solanaAddress}
       />
 

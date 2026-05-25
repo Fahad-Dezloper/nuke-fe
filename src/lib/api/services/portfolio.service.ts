@@ -8,7 +8,7 @@
 import { apiClient } from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 
-export type VenueKey = 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
+export type VenueKey = 'hyperliquid' | 'pacifica' | 'phoenix' | 'backpack' | 'lighter';
 
 export type PerformanceTimeframe = 'day' | 'week' | 'month' | 'all';
 

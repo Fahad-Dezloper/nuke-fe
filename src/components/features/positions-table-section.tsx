@@ -16,6 +16,7 @@ import { ClosePositionModal } from '@/components/ui/close-position-modal';
 import { useTurnkey, getEVMAddress, getSolanaAddress } from '@/lib/turnkey';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
 import type { ClosePositionResult } from '@/hooks/use-close-position';
+import { phoenixService } from '@/lib/services/phoenix';
 
 interface PositionsTableSectionContentProps {
   className?: string;
@@ -53,17 +54,28 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
 
   // Open the close-position modal
   const handleClosePosition = useCallback(
-    (asset: string) => {
+    async (asset: string) => {
       const assetSymbol = asset.split('-')[0];
       const rawPosition = rawPositions.find((p) => p.symbol === assetSymbol);
       if (!rawPosition) {
         console.error(`[close-position] No raw position found for asset: ${assetSymbol}`);
         return;
       }
-      setSelectedRawPosition(rawPosition);
+
+      let positionForClose: PositionApiResponse = rawPosition;
+
+      // Aggregated API often omits Phoenix; hydrate from Rise so modal + close include it.
+      if (!rawPosition.phoenix && solanaAddress) {
+        const phxLeg = await phoenixService.fetchOpenPositionLeg(solanaAddress, assetSymbol);
+        if (phxLeg) {
+          positionForClose = { ...rawPosition, phoenix: phxLeg };
+        }
+      }
+
+      setSelectedRawPosition(positionForClose);
       setIsCloseModalOpen(true);
     },
-    [rawPositions]
+    [rawPositions, solanaAddress]
   );
 
   // Execute the close from the modal's confirm

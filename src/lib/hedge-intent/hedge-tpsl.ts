@@ -124,6 +124,42 @@ export async function buildMirroredTpSlPlan(
 }
 
 /** Pacifica create_market_order: semantic TP/SL per side (no field swap). */
+/** Phoenix `place-isolated-market-order` bracket config (USD trigger/execution prices). */
+export function mapHedgeTpslToPhoenixIsolatedIx(
+  tpsl: HedgeLegTpslPrices,
+  numBaseLots?: bigint | number
+): {
+  takeProfitTriggerPrice: number;
+  stopLossTriggerPrice: number;
+  takeProfitExecutionPrice: number;
+  stopLossExecutionPrice: number;
+  numBaseLots?: number;
+} {
+  const tpTrigger = Number.parseFloat(tpsl.takeProfitPrice);
+  const slTrigger = Number.parseFloat(tpsl.stopLossPrice);
+  const tpExec = Number.parseFloat(tpsl.takeProfitLimitPrice ?? tpsl.takeProfitPrice);
+  const slExec = Number.parseFloat(tpsl.stopLossLimitPrice ?? tpsl.stopLossPrice);
+
+  const out: {
+    takeProfitTriggerPrice: number;
+    stopLossTriggerPrice: number;
+    takeProfitExecutionPrice: number;
+    stopLossExecutionPrice: number;
+    numBaseLots?: number;
+  } = {
+    takeProfitTriggerPrice: tpTrigger,
+    stopLossTriggerPrice: slTrigger,
+    takeProfitExecutionPrice: tpExec,
+    stopLossExecutionPrice: slExec,
+  };
+
+  if (numBaseLots != null) {
+    out.numBaseLots = Number(numBaseLots);
+  }
+
+  return out;
+}
+
 export function mapHedgeTpslToPacificaCreateOrder(tpsl: HedgeLegTpslPrices): {
   take_profit: { stop_price: string; limit_price: string };
   stop_loss: { stop_price: string; limit_price: string };

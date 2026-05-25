@@ -46,6 +46,8 @@ export interface SignatureComponents {
 export interface UpdateLeverageRequest {
   leverage: number;
   assetTicker: string;
+  /** `true` = cross (default on HL UI), `false` = isolated per asset */
+  isCross?: boolean;
   vaultAddress?: string;
 }
 

@@ -20,6 +20,7 @@ import type {
 } from '../types';
 import { BUILDER_CODE } from '@/constants';
 import { mapHedgeTpslToPacificaCreateOrder } from '@/lib/hedge-intent/hedge-tpsl';
+import { hedgeUsesIsolatedMargin } from '@/lib/trading/margin-mode';
 
 /**
  * Pacifica Protocol Adapter

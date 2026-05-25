@@ -33,6 +33,7 @@ import {
 import { marketFeedDataAtom } from '@/lib/stores/market-feed.store';
 import { getBestPair } from '@/hooks/use-best-pair';
 import { queryKeys } from '@/lib/query-keys';
+import { isPhoenixTradingEnabled } from '@/lib/phoenix/env';
 // Backpack authenticated balance refresh disabled (display-only demo).
 // import { refreshBackpackMarginBalance } from '@/lib/stores/backpack-margin.store';
 import { hedgeIntentApi } from './api';
@@ -98,6 +99,8 @@ function toHedgeExchangeName(exchange: Exchange): ExchangeName {
       return 'Hyperliquid';
     case 'pacifica':
       return 'Pacifica';
+    case 'phoenix':
+      return 'Phoenix';
     case 'backpack':
       return 'Backpack';
     case 'lighter':
@@ -390,6 +393,17 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
       storeHedgePair(pair);
 
       try {
+        if (
+          !isPhoenixTradingEnabled() &&
+          (params.longExchange === 'phoenix' || params.shortExchange === 'phoenix')
+        ) {
+          toast.error('Phoenix trading is disabled', {
+            description: 'Set NEXT_PUBLIC_PHOENIX_TRADING_ENABLED=true in .env and restart the dev server.',
+            duration: 6000,
+          });
+          throw new Error('Phoenix trading is disabled');
+        }
+
         const exchanges =
           params.exchanges ??
           ([

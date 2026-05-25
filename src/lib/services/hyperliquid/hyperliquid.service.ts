@@ -510,7 +510,7 @@ export class HyperLiquidService {
       const action: Record<string, unknown> = {
         type: 'updateLeverage',
         asset: assetIndex,
-        isCross: true, // cross-margin mode
+        isCross: request.isCross ?? false,
         leverage: request.leverage,
       };
 

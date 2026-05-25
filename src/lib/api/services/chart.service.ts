@@ -9,7 +9,7 @@ import { API_ENDPOINTS } from '../endpoints';
 /**
  * API Response Types
  */
-export type ChartVenueKey = 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
+export type ChartVenueKey = 'hyperliquid' | 'pacifica' | 'phoenix' | 'backpack' | 'lighter';
 
 export interface ChartDataPoint {
   id: string;
@@ -23,6 +23,7 @@ export interface ChartDataPoint {
 export interface ChartApiResponse {
   hyperliquid: ChartDataPoint[];
   pacifica: ChartDataPoint[];
+  phoenix?: ChartDataPoint[];
   backpack: ChartDataPoint[];
   lighter?: ChartDataPoint[];
 }
@@ -55,6 +56,7 @@ export const chartService = {
       return {
         hyperliquid: response.hyperliquid ?? [],
         pacifica: response.pacifica ?? [],
+        phoenix: response.phoenix ?? [],
         backpack: response.backpack ?? [],
         lighter: response.lighter ?? [],
       };

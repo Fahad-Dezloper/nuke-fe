@@ -24,6 +24,7 @@ import {
   type ChartApiResponse,
   type ChartTimeframe,
 } from '@/lib/api/services/chart.service';
+import { normalizePhoenixHourlyFunding } from '@/lib/phoenix/funding-normalize';
 import { queryKeys } from '@/lib/query-keys';
 import type { Protocol } from '@/hooks/use-best-pair';
 
@@ -94,14 +95,17 @@ export interface ChartDataPoint {
   fullTimestamp: string;
   hyperliquid: number | null;
   pacifica: number | null;
+  phoenix: number | null;
   backpack: number | null;
   lighter: number | null;
   hyperliquidRaw: number;
   pacificaRaw: number;
+  phoenixRaw: number;
   backpackRaw: number;
   lighterRaw: number;
   projectedHyperliquid: number | null;
   projectedPacifica: number | null;
+  projectedPhoenix: number | null;
   projectedBackpack: number | null;
   projectedLighter: number | null;
   longProtocol: Protocol;
@@ -144,17 +148,20 @@ function transformChartData(
   // Normalize to empty arrays so the chart never crashes on `.forEach`.
   const hyperliquid = chartData.hyperliquid ?? [];
   const pacifica = chartData.pacifica ?? [];
+  const phoenix = chartData.phoenix ?? [];
   const backpack = chartData.backpack ?? [];
   const lighter = chartData.lighter ?? [];
 
   const hyperliquidMap = buildTimestampMap(hyperliquid, timeframe);
   const pacificaMap = buildTimestampMap(pacifica, timeframe);
+  const phoenixMap = buildTimestampMap(phoenix, timeframe);
   const backpackMap = buildTimestampMap(backpack, timeframe);
   const lighterMap = buildTimestampMap(lighter, timeframe);
 
   const allNormalizedTimestamps = new Set<string>();
   hyperliquidMap.forEach((_, key) => allNormalizedTimestamps.add(key));
   pacificaMap.forEach((_, key) => allNormalizedTimestamps.add(key));
+  phoenixMap.forEach((_, key) => allNormalizedTimestamps.add(key));
   backpackMap.forEach((_, key) => allNormalizedTimestamps.add(key));
   lighterMap.forEach((_, key) => allNormalizedTimestamps.add(key));
 
@@ -164,23 +171,29 @@ function transformChartData(
   return sortedTimestamps.map((normalizedTimestamp, index) => {
     const hlData = hyperliquidMap.get(normalizedTimestamp);
     const pacData = pacificaMap.get(normalizedTimestamp);
+    const phxData = phoenixMap.get(normalizedTimestamp);
     const bpData = backpackMap.get(normalizedTimestamp);
     const ltData = lighterMap.get(normalizedTimestamp);
     const displayTimestamp =
       hlData?.timestamp ||
       pacData?.timestamp ||
+      phxData?.timestamp ||
       bpData?.timestamp ||
       ltData?.timestamp ||
       normalizedTimestamp;
 
     const hlYearly = hlData ? hourlyToYearlyPercentage(hlData.rate) : null;
     const pacYearly = pacData ? hourlyToYearlyPercentage(pacData.rate) : null;
+    const phxYearly = phxData
+      ? hourlyToYearlyPercentage(normalizePhoenixHourlyFunding(phxData.rate))
+      : null;
     const bpYearly = bpData ? hourlyToYearlyPercentage(bpData.rate) : null;
     const ltYearly = ltData ? hourlyToYearlyPercentage(ltData.rate) : null;
 
     const yearly: Record<Protocol, number | null> = {
       hyperliquid: hlYearly,
       pacifica: pacYearly,
+      phoenix: phxYearly,
       backpack: bpYearly,
       lighter: ltYearly,
     };
@@ -196,14 +209,17 @@ function transformChartData(
       fullTimestamp: formatFullTimestamp(displayTimestamp),
       hyperliquid: hlYearly ?? null,
       pacifica: pacYearly ?? null,
+      phoenix: phxYearly ?? null,
       backpack: bpYearly ?? null,
       lighter: ltYearly ?? null,
       hyperliquidRaw: hlData?.rate || 0,
       pacificaRaw: pacData?.rate || 0,
+      phoenixRaw: phxData?.rate || 0,
       backpackRaw: bpData?.rate || 0,
       lighterRaw: ltData?.rate || 0,
       projectedHyperliquid: isProjected && hlData ? (hlYearly ?? null) : null,
       projectedPacifica: isProjected && pacData ? (pacYearly ?? null) : null,
+      projectedPhoenix: isProjected && phxData ? (phxYearly ?? null) : null,
       projectedBackpack: isProjected && bpData ? (bpYearly ?? null) : null,
       projectedLighter: isProjected && ltData ? (ltYearly ?? null) : null,
       longProtocol: consistentLong,

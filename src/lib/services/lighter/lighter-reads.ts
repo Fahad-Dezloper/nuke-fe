@@ -20,6 +20,15 @@ export async function fetchLighterPerpRow(assetSymbol: string) {
 /**
  * Protective limit price for a reduce-only market close (taker-friendly bound).
  */
+/** Human USD price → Lighter integer price (same scale as `last_trade_price`). */
+export function lighterHumanPriceToInt(humanPrice: string, priceDecimals: number): number {
+  const n = Number.parseFloat(humanPrice);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new RangeError(`Invalid Lighter price: ${humanPrice}`);
+  }
+  return Math.max(1, Math.round(n * 10 ** priceDecimals));
+}
+
 export function lighterWorstPriceForClose(
   positionSide: 'long' | 'short',
   lastTradePrice: number,

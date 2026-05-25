@@ -2,7 +2,7 @@
 
 /**
  * Close Position Modal
- * Interactive modal showing the close-position flow for both legs (HL + Pacifica).
+ * Interactive modal showing the close-position flow for every open venue leg.
  * Follows the same glassmorphism design as DepositModal / ExportWalletModal.
  */
 
@@ -12,8 +12,9 @@ import { Loader2, Check, AlertTriangle, X, ArrowDownRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import Image from 'next/image';
-import type { ClosePositionResult, CloseLegResult } from '@/hooks/use-close-position';
+import type { ClosePositionResult } from '@/hooks/use-close-position';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
+import { getCloseableLegs } from '@/lib/positions/close-position-legs';
 import { getProtocolConfig } from '@/lib/protocols/config';
 import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
 
@@ -170,10 +171,10 @@ export function ClosePositionModal({
 
     setPhase('closing');
 
-    // Set both legs to "closing"
     const initialStatuses: Record<string, 'pending' | 'closing' | 'success' | 'error'> = {};
-    if (position.hyperliquid) initialStatuses.hyperliquid = 'closing';
-    if (position.pacifica) initialStatuses.pacifica = 'closing';
+    for (const { protocol } of getCloseableLegs(position)) {
+      initialStatuses[protocol] = 'closing';
+    }
     setLegStatuses(initialStatuses);
 
     // Execute close
@@ -191,10 +192,11 @@ export function ClosePositionModal({
 
   if (!position) return null;
 
-  const { hyperliquid: hl, pacifica: pac } = position;
+  const closeableLegs = getCloseableLegs(position);
   const isAllSuccess = result?.status === 'success';
   const isPartial = result?.status === 'partial';
   const isError = result?.status === 'error';
+  const legCount = closeableLegs.length;
 
   return (
     <Modal
@@ -229,11 +231,14 @@ export function ClosePositionModal({
         </div>
         <p className="text-xs text-text-muted-60 mt-2">
           {phase === 'confirm' &&
-            'This will close both legs of your hedged position simultaneously.'}
+            (legCount > 1
+              ? `This will close all ${legCount} legs of your hedged position simultaneously.`
+              : 'This will close your position as a market order.')}
           {phase === 'closing' && 'Signing and submitting close orders...'}
-          {phase === 'result' && isAllSuccess && 'Both legs have been closed successfully.'}
-          {phase === 'result' && isPartial && 'One leg failed to close. Please retry manually.'}
-          {phase === 'result' && isError && 'Both legs failed to close. Please try again.'}
+          {phase === 'result' && isAllSuccess &&
+            (legCount > 1 ? 'All legs have been closed successfully.' : 'Position closed successfully.')}
+          {phase === 'result' && isPartial && 'One or more legs failed to close. Please retry manually.'}
+          {phase === 'result' && isError && 'Failed to close. Please try again.'}
         </p>
       </motion.div>
 
@@ -260,24 +265,16 @@ export function ClosePositionModal({
         transition={{ delay: 0.2 }}
         className="flex flex-col gap-2.5 mb-5"
       >
-        {hl && (
+        {closeableLegs.map(({ protocol, leg }) => (
           <LegStatusRow
-            protocol="hyperliquid"
-            side={hl.side}
-            size={hl.size}
+            key={protocol}
+            protocol={protocol}
+            side={leg.side}
+            size={leg.size}
             symbol={position.symbol}
-            status={legStatuses.hyperliquid || 'pending'}
+            status={legStatuses[protocol] || 'pending'}
           />
-        )}
-        {pac && (
-          <LegStatusRow
-            protocol="pacifica"
-            side={pac.side}
-            size={pac.size}
-            symbol={position.symbol}
-            status={legStatuses.pacifica || 'pending'}
-          />
-        )}
+        ))}
       </motion.div>
 
       {/* Error details */}
@@ -426,8 +423,8 @@ export function ClosePositionModal({
           className="mt-4 p-3 rounded-lg text-yellow-600 bg-yellow-700/10 border border-accent/20"
         >
           <p className="text-xs text-text-muted-60 leading-relaxed">
-            Both positions will be closed as market orders. Slippage may occur during high
-            volatility.
+            {legCount > 1 ? 'All legs' : 'The position'} will be closed as market orders. Slippage may
+            occur during high volatility.
           </p>
         </motion.div>
       )}

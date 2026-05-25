@@ -39,6 +39,9 @@ export const hlBalanceAtom = atom<number>(0);
 /** Pacifica available_to_spend balance (free margin) in USD */
 export const pacBalanceAtom = atom<number>(0);
 
+/** Phoenix free collateral (USDC) in USD — from Rise trader snapshot */
+export const phxBalanceAtom = atom<number>(0);
+
 /** Backpack USDC available (perp collateral) in USD */
 export const bpBalanceAtom = atom<number>(0);
 
@@ -62,6 +65,7 @@ export interface MarginValidation {
 function protocolLabel(p: Protocol): string {
   if (p === 'hyperliquid') return 'Hyperliquid';
   if (p === 'pacifica') return 'Pacifica';
+  if (p === 'phoenix') return 'Phoenix';
   if (p === 'backpack') return 'Backpack';
   return 'Lighter';
 }
@@ -92,21 +96,25 @@ export const marginValidationAtom = atom<MarginValidation>((get) => {
       ? get(hlBalanceAtom)
       : long === 'pacifica'
         ? get(pacBalanceAtom)
-        : long === 'backpack'
-          ? get(bpBalanceAtom)
-          : long === 'lighter'
-            ? get(ltBalanceAtom)
-            : 0;
+        : long === 'phoenix'
+          ? get(phxBalanceAtom)
+          : long === 'backpack'
+            ? get(bpBalanceAtom)
+            : long === 'lighter'
+              ? get(ltBalanceAtom)
+              : 0;
   const shortFree =
     short === 'hyperliquid'
       ? get(hlBalanceAtom)
       : short === 'pacifica'
         ? get(pacBalanceAtom)
-        : short === 'backpack'
-          ? get(bpBalanceAtom)
-          : short === 'lighter'
-            ? get(ltBalanceAtom)
-            : 0;
+        : short === 'phoenix'
+          ? get(phxBalanceAtom)
+          : short === 'backpack'
+            ? get(bpBalanceAtom)
+            : short === 'lighter'
+              ? get(ltBalanceAtom)
+              : 0;
 
   const maxPerSide = Math.min(longFree, shortFree);
   const maxMargin = Math.floor(maxPerSide * 2 * 100) / 100;

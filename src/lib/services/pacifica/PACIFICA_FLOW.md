@@ -137,7 +137,10 @@ Detailed sequence:
    - Hyperliquid + `pacificaService.fetchLeverage(...)`.
 2. Decide per exchange whether update is required.
    - For Pacifica, `null` means default leverage, so update still proceeds.
-3. If needed, call `pacificaService.updateLeverage(symbol, leverage, wallet, organizationId)`.
+3. For hedges with isolated margin (default): `updateMarginMode(symbol, true, ...)` when settings are still cross, then `updateLeverage(...)`.
+4. If needed, call `pacificaService.updateLeverage(symbol, leverage, wallet, organizationId)`.
+
+`updateMarginMode(...)` — `type: "update_margin_mode"`, `is_isolated: true`, POST `/account/margin` (cannot change while position is open).
 
 `updateLeverage(...)` internals (`pacifica.service.ts`):
 

@@ -59,6 +59,8 @@ function rawRateFor(point: ChartDataPoint, p: Protocol): number {
       return point.hyperliquidRaw;
     case 'pacifica':
       return point.pacificaRaw;
+    case 'phoenix':
+      return point.phoenixRaw;
     case 'backpack':
       return point.backpackRaw;
     case 'lighter':

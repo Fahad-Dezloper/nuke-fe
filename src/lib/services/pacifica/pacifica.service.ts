@@ -339,6 +339,96 @@ export class PacificaService {
    * @param organizationId - Turnkey organization ID
    * @returns Success/failure response
    */
+  /**
+   * Set cross or isolated margin mode for a symbol (must be done before opening a position).
+   * POST /account/margin — `update_margin_mode`
+   */
+  async updateMarginMode(
+    symbol: string,
+    isIsolated: boolean,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<CreateOrderResponse> {
+    try {
+      if (!walletAddress) {
+        throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
+      }
+      if (!organizationId) {
+        throw createError(ErrorCode.AUTH_ORGANIZATION_NOT_FOUND);
+      }
+      if (!symbol) {
+        throw createError(ErrorCode.VALID_MISSING_REQUIRED_FIELD, { missingFields: ['symbol'] });
+      }
+
+      const operationData: Record<string, unknown> = {
+        symbol: symbol.toUpperCase(),
+        is_isolated: isIsolated,
+      };
+
+      const { timestamp, signature } = await this.signOrderRequest(
+        'update_margin_mode',
+        operationData,
+        walletAddress,
+        organizationId,
+        this.expiryWindow
+      );
+
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        expiry_window: this.expiryWindow,
+        ...operationData,
+      };
+
+      const apiResponse = await this.submitToPacifica('/account/margin', finalRequest);
+
+      if (apiResponse.error) {
+        throw createError(ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED, {
+          error: apiResponse.error,
+          symbol,
+        });
+      }
+
+      return {
+        success: true,
+        message: `Pacifica margin mode set to ${isIsolated ? 'isolated' : 'cross'}`,
+        data: apiResponse,
+      };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.TRADE_LEVERAGE_UPDATE_FAILED);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+        message: 'Failed to update Pacifica margin mode',
+      };
+    }
+  }
+
+  /**
+   * Whether the symbol is configured for isolated margin (false = cross / default).
+   */
+  async fetchIsolatedMargin(
+    account: string,
+    symbol: string
+  ): Promise<{ success: boolean; isolated: boolean | null; error?: string }> {
+    const settingsResult = await this.getAccountSettings(account);
+    if (!settingsResult.success || !settingsResult.data) {
+      return {
+        success: false,
+        isolated: null,
+        error: settingsResult.error || 'Failed to fetch account settings',
+      };
+    }
+    const entry = settingsResult.data.find(
+      (s) => s.symbol.toUpperCase() === symbol.toUpperCase()
+    );
+    return {
+      success: true,
+      isolated: entry?.isolated ?? false,
+    };
+  }
+
   async updateLeverage(
     symbol: string,
     leverage: number,

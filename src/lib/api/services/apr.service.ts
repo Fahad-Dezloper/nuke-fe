@@ -11,7 +11,7 @@ import { API_ENDPOINTS } from '../endpoints';
  * Spread APR entry for a single asset
  */
 /** Venue keys returned by `/aggregated/average/apr` (lowercase). */
-export type AprVenueKey = 'hyperliquid' | 'pacifica' | 'backpack' | 'lighter';
+export type AprVenueKey = 'hyperliquid' | 'pacifica' | 'phoenix' | 'backpack' | 'lighter';
 
 export interface SpreadAprEntry {
   long_platform: AprVenueKey;

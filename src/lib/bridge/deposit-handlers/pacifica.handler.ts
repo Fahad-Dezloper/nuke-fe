@@ -14,6 +14,7 @@ import {
   formatUSDCBalanceSolana,
   signAndSubmitPacificaDeposit,
 } from '../solana-utils';
+import { SOLANA_DIRECT_MIN_DEPOSIT_MICROS } from '@/constants';
 import { CHAIN_IDS, MIN_DEPOSIT_AMOUNT, PACIFICA_GAS_REIMBURSEMENT } from '../types';
 import type { BridgeStep, TransferWithAuthorizationData } from '../types';
 import type {
@@ -101,12 +102,17 @@ export class PacificaDepositHandler implements DepositHandler {
     const solanaBalance = await getUSDCBalanceOnSolana(solanaRecipientAddress);
     const gasBuffer = BigInt(PACIFICA_GAS_REIMBURSEMENT);
 
+    const minMicros =
+      depositAmountMicros !== undefined && depositAmountMicros > BigInt(0)
+        ? BigInt(SOLANA_DIRECT_MIN_DEPOSIT_MICROS)
+        : BigInt(MIN_DEPOSIT_AMOUNT);
+
     let amountToDeposit: bigint;
 
     if (depositAmountMicros !== undefined && depositAmountMicros > BigInt(0)) {
-      if (depositAmountMicros < BigInt(MIN_DEPOSIT_AMOUNT)) {
+      if (depositAmountMicros < minMicros) {
         throw new Error(
-          `Minimum Pacifica deposit is ${formatUSDCBalanceSolana(BigInt(MIN_DEPOSIT_AMOUNT))} USDC`
+          `Minimum Pacifica deposit is ${formatUSDCBalanceSolana(minMicros)} USDC`
         );
       }
       const requiredBalance = depositAmountMicros + gasBuffer;
@@ -117,7 +123,7 @@ export class PacificaDepositHandler implements DepositHandler {
       }
       amountToDeposit = depositAmountMicros;
     } else {
-      const minRequired = BigInt(MIN_DEPOSIT_AMOUNT) + gasBuffer;
+      const minRequired = minMicros + gasBuffer;
       if (solanaBalance < minRequired) {
         throw new Error(
           `Insufficient balance for Pacifica deposit. Need at least ${formatUSDCBalanceSolana(minRequired)} USDC (including 0.2 USDC gas reimbursement), but balance is ${formatUSDCBalanceSolana(solanaBalance)} USDC`

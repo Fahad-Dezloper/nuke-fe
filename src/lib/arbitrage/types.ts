@@ -46,6 +46,16 @@ export interface UnifiedPositionParams {
   slippagePercent?: string;
 
   /**
+   * Optional: Pre-computed position size in base asset units (e.g. BTC).
+   * Used by hedge open so HL (USD) and Phoenix (base lots) stay the same size.
+   */
+  baseSize?: string;
+
+  /**
+   * When true (default for hedges), venues use isolated margin so leg margin matches panel input.
+   */
+  useIsolatedMargin?: boolean;
+  /**
    * Mirrored hedge TP/SL — attached on open where the venue supports it
    * (Hyperliquid `normalTpsl` batch, Pacifica `create_market_order` fields).
    */

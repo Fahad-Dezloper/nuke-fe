@@ -10,6 +10,7 @@ import type { SpreadAprMap, SpreadAprEntry } from '@/lib/api/services/apr.servic
 export const TABLE_EXCHANGE_ORDER: HedgeVenueProtocol[] = [
   'hyperliquid',
   'pacifica',
+  'phoenix',
   'backpack',
   'lighter',
 ];
@@ -39,9 +40,11 @@ export function protocolFundingYearly(
       ? asset.hyperliquidFundingRate
       : protocol === 'pacifica'
         ? asset.pacificaFundingRate
-        : protocol === 'backpack'
-          ? asset.backpackFundingRate
-          : asset.lighterFundingRate;
+        : protocol === 'phoenix'
+          ? asset.phoenixFundingRate
+          : protocol === 'backpack'
+            ? asset.backpackFundingRate
+            : asset.lighterFundingRate;
   const v = typeof direct === 'number' && Number.isFinite(direct) ? direct : fallback;
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }

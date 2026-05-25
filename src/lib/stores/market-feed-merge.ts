@@ -16,6 +16,7 @@ function marketFeedRowKey(item: AssetDropdownItem): string {
     hl: item.hyperliquidFundingRate,
     pc: item.pacificaFundingRate,
     bp: item.backpackFundingRate ?? null,
+    phx: item.phoenixFundingRate ?? null,
     net: item.netAPR,
     m30: item.apr30D,
     ml: item.maxLeverage,

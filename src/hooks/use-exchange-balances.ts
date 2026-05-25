@@ -16,6 +16,7 @@ import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { queryKeys } from '@/lib/query-keys';
 import { HyperLiquidService } from '@/lib/services/hyperliquid/hyperliquid.service';
 import { PacificaService } from '@/lib/services/pacifica/pacifica.service';
+import { PhoenixService } from '@/lib/services/phoenix/phoenix.service';
 import { fetchLighterAvailableUsd } from '@/lib/services/lighter/lighter-reads';
 import { tryApplyStoredLighterCredentials } from '@/lib/services/lighter/lighter-onboarding';
 import { usdcBalanceSolanaAtom } from '@/lib/stores/usdc-balance.store';
@@ -23,6 +24,7 @@ import { formatUSDCBalance } from '@/lib/bridge/balance';
 import {
   hlBalanceAtom,
   pacBalanceAtom,
+  phxBalanceAtom,
   bpBalanceAtom,
   ltBalanceAtom,
   baseBalanceAtom,
@@ -30,6 +32,7 @@ import {
 
 const hlService = new HyperLiquidService();
 const pacService = new PacificaService();
+const phoenixBalanceService = new PhoenixService();
 
 export interface ExchangeBalances {
   /** Hyperliquid withdrawable (free margin) in USD */
@@ -40,6 +43,8 @@ export interface ExchangeBalances {
   bpBalance: number;
   /** Lighter available USDC (perp collateral) in USD */
   ltBalance: number;
+  /** Phoenix free collateral (USDC) in USD */
+  phoenixBalance: number;
   /** Solana USDC wallet balance in USD */
   solanaBalance: number;
   isLoading: boolean;
@@ -51,6 +56,7 @@ export function useExchangeBalances(): ExchangeBalances {
 
   const setHlBalance = useSetAtom(hlBalanceAtom);
   const setPacBalance = useSetAtom(pacBalanceAtom);
+  const setPhxBalance = useSetAtom(phxBalanceAtom);
   const setBpBalance = useSetAtom(bpBalanceAtom);
   const bpBalance = useAtomValue(bpBalanceAtom);
   const setLtBalance = useSetAtom(ltBalanceAtom);
@@ -77,9 +83,10 @@ export function useExchangeBalances(): ExchangeBalances {
   const hlPacQuery = useQuery({
     queryKey: queryKeys.balance.exchangeHlPac(evmAddress ?? '', solanaAddress ?? ''),
     queryFn: async () => {
-      const [hlResult, pacResult, ltResult] = await Promise.allSettled([
+      const [hlResult, pacResult, phxResult, ltResult] = await Promise.allSettled([
         hlService.fetchAccountBalance(evmAddress!),
         pacService.fetchAccountBalance(solanaAddress!),
+        phoenixBalanceService.fetchFreeCollateralUsd(solanaAddress!),
         fetchLighterAvailableUsd(evmAddress!),
       ]);
 
@@ -91,9 +98,11 @@ export function useExchangeBalances(): ExchangeBalances {
         pacResult.status === 'fulfilled' && pacResult.value.success
           ? pacResult.value.availableToSpend
           : 0;
+      const phx =
+        phxResult.status === 'fulfilled' && phxResult.value.success ? phxResult.value.usd : 0;
       const lt = ltResult.status === 'fulfilled' ? ltResult.value : 0;
 
-      return { hl, pac, lt };
+      return { hl, pac, phx, lt };
     },
     enabled: isEnabled,
     staleTime: 10_000,
@@ -107,6 +116,7 @@ export function useExchangeBalances(): ExchangeBalances {
 
   const hlBalance = hlPacQuery.data?.hl ?? 0;
   const pacBalance = hlPacQuery.data?.pac ?? 0;
+  const phoenixBalance = hlPacQuery.data?.phx ?? 0;
   const ltBalance = hlPacQuery.data?.lt ?? 0;
 
   const solanaBalance = solanaBalanceRaw !== null
@@ -122,6 +132,10 @@ export function useExchangeBalances(): ExchangeBalances {
   }, [pacBalance, setPacBalance]);
 
   useEffect(() => {
+    setPhxBalance(phoenixBalance);
+  }, [phoenixBalance, setPhxBalance]);
+
+  useEffect(() => {
     setLtBalance(ltBalance);
   }, [ltBalance, setLtBalance]);
 
@@ -132,6 +146,7 @@ export function useExchangeBalances(): ExchangeBalances {
   return {
     hlBalance,
     pacBalance,
+    phoenixBalance,
     bpBalance,
     ltBalance,
     solanaBalance,
