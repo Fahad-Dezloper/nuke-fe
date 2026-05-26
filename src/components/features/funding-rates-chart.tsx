@@ -61,26 +61,34 @@ export function FundingRatesChart({ className, fluidHeight }: FundingRatesChartP
     <div
       className={cn(
         DASHBOARD_SECTION_SHELL,
-        'flex h-full min-h-0 flex-col py-2 sm:py-3',
+        'flex h-full min-h-0 w-full max-w-full min-w-0 flex-col overflow-hidden py-1 sm:py-3',
         fluidHeight && 'flex-1',
         className
       )}
     >
       {/* Tabs + Controls */}
-      <div className="flex items-center justify-between border-b border-border-white-10 px-3 md:px-4 lg:px-5">
-        <ChartTabs activeTab={activeTab} onTabChange={setActiveTab} className="border-b-0" />
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-white-10 px-2 sm:px-3 md:px-4 lg:px-5">
+        <ChartTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          className="min-w-0 flex-1 border-b-0 px-0"
+          compact
+        />
 
-        {/* Timeframe Dropdown — for funding tab */}
-        {activeTab === 'funding' && <TimeframeDropdown value={timeframe} onChange={setTimeframe} />}
-
-        {/* PnL Duration Dropdown — for PnL tab */}
-        {activeTab === 'pnl' && <DurationDropdown value={pnlDuration} onChange={setPnlDuration} />}
+        <div className="shrink-0">
+          {activeTab === 'funding' && (
+            <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
+          )}
+          {activeTab === 'pnl' && (
+            <DurationDropdown value={pnlDuration} onChange={setPnlDuration} />
+          )}
+        </div>
       </div>
 
       {/* Chart Content */}
       <div
         className={cn(
-          'flex flex-col px-3 md:px-4 lg:px-5 pb-4',
+          'flex w-full min-w-0 flex-col overflow-hidden px-2 pb-2 sm:px-3 md:px-4 lg:px-5 sm:pb-4',
           fluidHeight && 'min-h-0 flex-1'
         )}
       >

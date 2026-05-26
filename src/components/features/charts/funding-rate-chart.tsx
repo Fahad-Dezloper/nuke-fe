@@ -228,8 +228,11 @@ export function FundingRateChart({
   }
 
   return (
-    <ChartContainer config={chartConfig} className={cn(chartClassName, 'w-full')}>
-      <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+    <ChartContainer
+      config={chartConfig}
+      className={cn(chartClassName, 'w-full max-w-full min-w-0 [&_.recharts-responsive-container]:!w-full')}
+    >
+      <LineChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 4 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" vertical={false} />
         <XAxis
           dataKey="dataIndex"
@@ -246,7 +249,8 @@ export function FundingRateChart({
           }}
         />
         <YAxis
-          tick={{ fill: 'rgba(255, 255, 255, 0.6)', fontSize: 11 }}
+          width={36}
+          tick={{ fill: 'rgba(255, 255, 255, 0.6)', fontSize: 9 }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(value) => `${value.toFixed(0)}%`}
@@ -290,31 +294,31 @@ export function FundingRateChart({
             const shortConfig = getProtocolConfig(shortProtocol);
 
             return (
-              <div className="flex items-center justify-start gap-6 pt-3 px-4">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1 pt-2 sm:gap-x-5 sm:px-4 sm:pt-3">
                 {longConfig && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <div
-                      className="h-2 w-6"
+                      className="h-1.5 w-4 sm:h-2 sm:w-6"
                       style={{ backgroundColor: `var(${longConfig.colorVar})` }}
                     />
-                    <span className="text-xs text-text-muted-60">{longProtocolName}</span>
+                    <span className="text-[9px] text-text-muted-60 sm:text-xs">{longProtocolName}</span>
                   </div>
                 )}
                 {shortConfig && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <div
-                      className="h-2 w-6"
+                      className="h-1.5 w-4 sm:h-2 sm:w-6"
                       style={{ backgroundColor: `var(${shortConfig.colorVar})` }}
                     />
-                    <span className="text-xs text-text-muted-60">{shortProtocolName}</span>
+                    <span className="text-[9px] text-text-muted-60 sm:text-xs">{shortProtocolName}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <div
-                    className="h-0.5 w-6 border-t-2 border-dashed"
+                    className="h-0.5 w-4 border-t border-dashed sm:w-6 sm:border-t-2"
                     style={{ borderColor: '#ffffff' }}
                   />
-                  <span className="text-xs text-text-muted-60">PROJECTED</span>
+                  <span className="text-[9px] text-text-muted-60 sm:text-xs">PROJECTED</span>
                 </div>
               </div>
             );

@@ -13,6 +13,7 @@ interface ChartTabsProps {
   activeTab: ChartTab;
   onTabChange: (tab: ChartTab) => void;
   className?: string;
+  compact?: boolean;
 }
 
 const tabs: { id: ChartTab; label: string }[] = [
@@ -21,11 +22,12 @@ const tabs: { id: ChartTab; label: string }[] = [
   // { id: 'cumulative', label: 'Cumulative PnL' },
 ];
 
-export function ChartTabs({ activeTab, onTabChange, className }: ChartTabsProps) {
+export function ChartTabs({ activeTab, onTabChange, className, compact }: ChartTabsProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-6 border-b border-border-white-10 px-3 md:px-4 lg:px-5',
+        'flex items-center gap-3 border-b border-border-white-10 sm:gap-6',
+        !compact && 'px-3 md:px-4 lg:px-5',
         className
       )}
     >
@@ -34,7 +36,8 @@ export function ChartTabs({ activeTab, onTabChange, className }: ChartTabsProps)
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
           className={cn(
-            'pb-3 text-sm cursor-pointer font-medium transition-colors relative',
+            'relative cursor-pointer pb-2 font-medium transition-colors sm:pb-3',
+            compact ? 'text-xs sm:text-sm' : 'text-sm',
             activeTab === tab.id
               ? 'text-text-primary'
               : 'text-text-muted-60 hover:text-text-primary'

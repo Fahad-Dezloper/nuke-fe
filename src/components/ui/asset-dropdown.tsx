@@ -31,6 +31,7 @@ import {
   ArrowDown,
   ArrowUpRight,
   ChevronsUpDown,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPercentWithSign, formatPrice } from '@/lib/utils';
@@ -228,6 +229,8 @@ export interface AssetDropdownProps {
   onSelect?: (asset: AssetDropdownItem) => void;
   className?: string;
   placeholder?: string;
+  /** Stretch trigger to full container width (mobile header) */
+  fullWidth?: boolean;
 }
 
 export function AssetDropdown({
@@ -235,6 +238,7 @@ export function AssetDropdown({
   onSelect,
   className,
   placeholder = 'Select asset',
+  fullWidth = false,
 }: AssetDropdownProps) {
   // Get assets from global store
   const assets = useAtomValue(marketFeedDataAtom);
@@ -309,6 +313,18 @@ export function AssetDropdown({
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Lock body scroll when mobile sheet is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const mq = window.matchMedia('(max-width: 1023px)');
+    if (!mq.matches) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
     };
   }, [isOpen]);
 
@@ -402,11 +418,10 @@ export function AssetDropdown({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex items-center gap-2 px-3 py-1.5 rounded-md',
-          'bg-card/40 backdrop-blur-sm border border-border-white-10/50',
-          'shadow-md shadow-black/10 transition-all',
-          'cursor-pointer group hover:bg-card/60 hover:border-border-white-20',
-          'min-w-[140px] relative z-10001'
+          'group relative z-10001 flex cursor-pointer items-center gap-2.5 rounded-md border border-border-white-10/50',
+          'bg-card/40 px-3 py-2.5 shadow-md shadow-black/10 backdrop-blur-sm transition-all',
+          'hover:border-border-white-20 hover:bg-card/60',
+          fullWidth ? 'w-full min-w-0' : 'min-w-[140px]'
         )}
       >
         {selectedAsset ? (
@@ -414,64 +429,98 @@ export function AssetDropdown({
             <Image
               src={hyperliquidCoinIconUrl(selectedAsset.asset)}
               alt={selectedAsset.asset}
-              width={20}
-              height={20}
-              className="shrink-0 rounded-full"
+              width={32}
+              height={32}
+              className="size-8 shrink-0 rounded-full ring-1 ring-border-white-10"
             />
-            <span className="font-semibold text-text-primary text-sm">{selectedAsset.asset}</span>
+            <div className="min-w-0 flex-1 text-left">
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold text-text-primary">{selectedAsset.asset}</span>
+                {fullWidth && (
+                  <span className="rounded border border-green-500/25 bg-green-500/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-green-400">
+                    {formatPercentWithSign(selectedAsset.netAPR)}
+                  </span>
+                )}
+              </div>
+              {fullWidth && (
+                <p className="mt-0.5 truncate text-[11px] text-text-muted-60">
+                  Tap to change asset
+                </p>
+              )}
+            </div>
           </>
         ) : (
-          <span className="text-text-muted-60 text-sm">{placeholder}</span>
+          <span className="flex-1 text-left text-sm text-text-muted-60">{placeholder}</span>
         )}
         <ChevronDown
           className={cn(
-            'h-3.5 w-3.5 text-text-muted-60 group-hover:text-text-primary transition-all ml-auto shrink-0',
+            'size-4 shrink-0 text-text-muted-60 transition-all group-hover:text-text-primary',
             isOpen && 'rotate-180'
           )}
         />
       </button>
 
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <button
+          type="button"
+          aria-label="Close asset list"
+          className="fixed inset-0 z-[10001] bg-black/70 lg:hidden"
+          onClick={() => {
+            setIsOpen(false);
+            setSearchQuery('');
+          }}
+        />
+      )}
+
       {/* Dropdown Menu */}
       {isOpen && (
         <div
           className={cn(
-            'absolute top-full left-0 mt-2 z-10002',
-            'w-auto min-w-[1280px] max-w-[1580px] min-h-[500px] max-h-[600px] overflow-hidden',
-            'bg-background/95 backdrop-blur-xl border border-border-white-20/50',
-            'rounded-lg shadow-2xl shadow-black/60',
-            'ring-1 ring-white/10',
-            'flex flex-col'
+            'z-[10002] flex flex-col overflow-hidden',
+            'bg-background/98 backdrop-blur-xl border border-border-white-20/50',
+            'shadow-2xl shadow-black/60 ring-1 ring-white/10',
+            // Mobile: bottom sheet
+            'fixed inset-x-0 bottom-0 max-h-[min(92dvh,760px)] rounded-t-xl border-b-0',
+            'pb-[env(safe-area-inset-bottom,0px)]',
+            // Desktop: anchored panel
+            'lg:absolute lg:inset-x-auto lg:bottom-auto lg:left-0 lg:top-full lg:mt-2',
+            'lg:min-h-[500px] lg:max-h-[600px] lg:w-auto lg:min-w-[1280px] lg:max-w-[1580px] lg:rounded-lg'
           )}
         >
+          {/* Sheet handle — mobile */}
+          <div className="flex shrink-0 justify-center pt-2 lg:hidden">
+            <div className="h-1 w-10 rounded-full bg-border-white-20" />
+          </div>
+
           {/* Header with Legend */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-white-10/50 bg-linear-to-r from-card/70 via-card/60 to-card/70 backdrop-blur-md">
-            <div className="flex items-center gap-2.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
-              <span className="text-xs font-semibold text-text-primary uppercase tracking-wider">
-                FUNDING RATE ARBITRAGE
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-white-10/50 bg-section-surface px-4 py-3 sm:px-5 sm:py-3.5 lg:bg-linear-to-r lg:from-card/70 lg:via-card/60 lg:to-card/70">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-sm font-semibold text-text-primary">Select asset</span>
+              <span className="text-[11px] text-text-muted-60 tabular-nums">
+                {sortedAndFilteredAssets.length} of {assets.length} pairs
               </span>
             </div>
-            <div className="flex items-center gap-5">
-              <div className="flex items-center gap-1.5">
-                <ArrowUp className="h-3.5 w-3.5 text-chart-hyperliquid" />
-                <span className="text-[11px] text-text-muted-60 uppercase tracking-wide font-medium">
-                  LONG
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <ArrowDown className="h-3.5 w-3.5 text-chart-pink" />
-                <span className="text-[11px] text-text-muted-60 uppercase tracking-wide font-medium">
-                  SHORT
-                </span>
-              </div>
-              <span className="text-[11px] text-text-muted-60 font-medium">
-                {sortedAndFilteredAssets.length}/{assets.length} pairs
+            <div className="flex items-center gap-2">
+              <span className="hidden text-[11px] text-text-muted-60 sm:inline">
+                Sorted by {sort.column === '7dApr' ? '7D APR' : sort.column === 'netApr' ? 'Net APR' : sort.column === 'price' ? 'Price' : 'default'}
               </span>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => {
+                  setIsOpen(false);
+                  setSearchQuery('');
+                }}
+                className="flex size-8 items-center justify-center rounded-md border border-border-white-10 bg-card/50 text-text-muted-60 transition-colors hover:text-text-primary lg:hidden"
+              >
+                <X className="size-4" />
+              </button>
             </div>
           </div>
 
           {/* Search Input */}
-          <div className="px-5 py-3 border-b border-border-white-10/50 bg-card/30">
+          <div className="shrink-0 border-b border-border-white-10/50 bg-card/30 px-3 py-2.5 sm:px-5 sm:py-3">
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted-60 pointer-events-none" />
               <input
@@ -493,14 +542,43 @@ export function AssetDropdown({
             </div>
           </div>
 
+          {/* Mobile sort chips */}
+          <div className="flex shrink-0 gap-1.5 overflow-x-auto px-4 py-2.5 lg:hidden">
+            {(
+              [
+                { col: '7dApr' as const, label: '7D APR' },
+                { col: 'netApr' as const, label: 'Net APR' },
+                { col: 'price' as const, label: 'Price' },
+              ] as const
+            ).map(({ col, label }) => (
+              <button
+                key={col}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSort(col);
+                }}
+                className={cn(
+                  'shrink-0 rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors',
+                  sort.column === col
+                    ? 'border-accent/40 bg-accent/15 text-accent'
+                    : 'border-border-white-10 bg-card/30 text-text-muted-60'
+                )}
+              >
+                {label}
+                {sort.column === col && (sort.direction === 'desc' ? ' ↓' : ' ↑')}
+              </button>
+            ))}
+          </div>
+
           {/* Exchange filters + best-pair metric */}
-          <div className="px-5 py-3 border-b border-border-white-10/50 bg-black/20">
-            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+          <div className="shrink-0 border-b border-border-white-10/50 bg-black/20 px-4 py-3 sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
               <div className="flex min-w-0 flex-col gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted-60">
                   Exchanges
                 </span>
-                <div className="flex flex-wrap gap-2">
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 sm:flex-wrap sm:overflow-visible">
                   {TABLE_EXCHANGE_ORDER.map((id) => {
                     const cfg = getProtocolConfig(id);
                     if (!cfg) return null;
@@ -519,7 +597,7 @@ export function AssetDropdown({
                           setToggleExchange(id);
                         }}
                         className={cn(
-                          'group inline-flex items-center gap-2 rounded-lg border py-2 px-4 text-xs text-left transition-all duration-200 cursor-pointer',
+                          'group inline-flex shrink-0 items-center gap-1.5 rounded-md border py-1.5 px-2.5 text-[11px] text-left transition-all duration-200 cursor-pointer sm:gap-2 sm:rounded-lg sm:py-2 sm:px-4 sm:text-xs',
                           on
                             ? ' bg-white/[0.07] text-text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]'
                             : 'border-white/[0.07] bg-transparent text-text-muted-60 hover:border-white/12 hover:bg-white/[0.03] hover:text-text-primary',
@@ -555,7 +633,7 @@ export function AssetDropdown({
                   Best pair by
                 </span>
                 <div
-                  className="inline-flex h-10 shrink-0 items-stretch rounded-lg border border-white/[0.1] bg-black/35 p-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]"
+                  className="flex h-9 w-full shrink-0 items-stretch rounded-md border border-white/[0.1] bg-black/35 p-0.5 sm:inline-flex sm:h-10 sm:w-auto sm:rounded-lg"
                   role="group"
                   aria-label="Best pair metric"
                 >
@@ -594,8 +672,8 @@ export function AssetDropdown({
             </div>
           </div>
 
-          {/* Table Header */}
-          <div className="sticky top-0 z-10001 px-5 py-3 border-b border-border-white-10/50 bg-linear-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md shadow-lg shadow-black/20 shrink-0">
+          {/* Table Header — desktop only */}
+          <div className="sticky top-0 z-10001 hidden shrink-0 border-b border-border-white-10/50 bg-linear-to-r from-card/60 via-card/50 to-card/60 px-5 py-3 shadow-lg shadow-black/20 backdrop-blur-md lg:block">
             <div className="grid gap-4" style={tableGrid}>
               <span className="text-[11px] text-text-muted-60 uppercase tracking-wider font-semibold">
                 ASSET
@@ -630,13 +708,124 @@ export function AssetDropdown({
           </div>
 
           {/* Assets List */}
-          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
+          <div className="relative min-h-0 flex-1 overflow-y-auto scroll-touch custom-scrollbar">
             {sortedAndFilteredAssets.length === 0 ? (
               <div className="flex items-center justify-center py-16">
                 <p className="text-text-muted-60 text-sm font-medium">No assets found</p>
               </div>
             ) : (
-              <div className="divide-y divide-border-white-10/30">
+              <>
+              {/* Mobile card list */}
+              <div className="flex flex-col gap-2 p-3 lg:hidden">
+                {sortedAndFilteredAssets.map((asset) => {
+                  const isSelected = selectedAsset?.asset === asset.asset;
+                  const topPairs = computeTopPairs(asset, spreadAprData, selectedList, metric);
+                  const bestPair = topPairs[0]
+                    ? { long: topPairs[0].long, short: topPairs[0].short }
+                    : getBestPairForAsset(asset);
+                  const maxLev = maxLeverageAmongSelected(asset, selectedList);
+                  const aprValue =
+                    topPairs[0] != null
+                      ? metric === 'seven_day_apr'
+                        ? (topPairs[0].sevenDayApr ?? topPairs[0].netApr)
+                        : topPairs[0].netApr
+                      : asset.netAPR;
+                  const apr = formatPercentWithSign(aprValue);
+                  const aprPositive = aprValue >= 0;
+                  const longCfg = getProtocolConfig(bestPair.long);
+                  const shortCfg = getProtocolConfig(bestPair.short);
+                  const price = formatPrice(
+                    asset.markPx || asset.hyperliquidMarkPx || 0,
+                    'USD',
+                    'en-US',
+                    2,
+                    2
+                  );
+
+                  return (
+                    <button
+                      key={asset.asset}
+                      type="button"
+                      onClick={() => handleSelect(asset, null)}
+                      className={cn(
+                        'w-full rounded-md border text-left touch-manipulation transition-all active:scale-[0.99]',
+                        isSelected
+                          ? 'border-accent/50 bg-accent/10 shadow-[0_0_0_1px_rgba(137,207,240,0.2)]'
+                          : 'border-border-white-10 bg-section-surface active:bg-card/40'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3 p-3 pb-2">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Image
+                            src={hyperliquidCoinIconUrl(asset.asset)}
+                            alt={asset.asset}
+                            width={36}
+                            height={36}
+                            className="size-9 shrink-0 rounded-full ring-1 ring-border-white-10"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-base font-bold leading-tight text-text-primary">
+                              {asset.asset}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-text-muted-60">
+                              Max leverage {maxLev}x
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          className={cn(
+                            'shrink-0 rounded-md border px-2.5 py-1.5 text-right',
+                            aprPositive
+                              ? 'border-green-500/25 bg-green-500/10'
+                              : 'border-red-500/25 bg-red-500/10'
+                          )}
+                        >
+                          <p
+                            className={cn(
+                              'text-sm font-bold tabular-nums leading-none',
+                              aprPositive ? 'text-green-400' : 'text-red-400'
+                            )}
+                          >
+                            {apr}
+                          </p>
+                          <p className="mt-1 text-[9px] font-medium uppercase tracking-wide text-text-muted-40">
+                            {metric === 'seven_day_apr' ? '7D APR' : 'Net APR'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mx-3 mb-3 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border-white-10 bg-border-white-10">
+                        <div className="bg-card/40 px-2.5 py-2">
+                          <p className="text-[9px] font-medium uppercase tracking-wider text-text-muted-40">
+                            Best pair
+                          </p>
+                          <div className="mt-1.5 flex items-center gap-1">
+                            <ProtocolIcon protocol={bestPair.long} />
+                            <ArrowUpRight className="size-3 shrink-0 text-text-muted-40" />
+                            <ProtocolIcon protocol={bestPair.short} />
+                          </div>
+                          <p className="mt-1 truncate text-[11px] font-medium text-text-primary">
+                            {longCfg?.chipLabel ?? bestPair.long}
+                            <span className="text-text-muted-40"> → </span>
+                            {shortCfg?.chipLabel ?? bestPair.short}
+                          </p>
+                        </div>
+                        <div className="bg-card/40 px-2.5 py-2">
+                          <p className="text-[9px] font-medium uppercase tracking-wider text-text-muted-40">
+                            Mark price
+                          </p>
+                          <p className="mt-2 text-sm font-semibold tabular-nums text-text-primary">
+                            {price}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Desktop table rows */}
+              <div className="hidden divide-y divide-border-white-10/30 lg:block">
                 {sortedAndFilteredAssets.map((asset) => {
                   const isSelected = selectedAsset?.asset === asset.asset;
                   const topPairs = computeTopPairs(asset, spreadAprData, selectedList, metric);
@@ -837,10 +1026,13 @@ export function AssetDropdown({
                   );
                 })}
               </div>
+              </>
             )}
-            {/* Tooltip - rendered at dropdown level for proper positioning */}
+            {/* Tooltip - desktop only */}
             {hoveredAsset && tooltipPosition && (
-              <BestPairTooltip asset={hoveredAsset} isVisible={true} position={tooltipPosition} />
+              <div className="hidden lg:block">
+                <BestPairTooltip asset={hoveredAsset} isVisible={true} position={tooltipPosition} />
+              </div>
             )}
           </div>
         </div>

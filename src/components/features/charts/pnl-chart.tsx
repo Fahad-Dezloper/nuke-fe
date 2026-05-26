@@ -262,12 +262,12 @@ export function PnLChart({
         config={chartConfig}
         className={cn(
           chartClassName,
-          'w-full [&_.recharts-surface]:outline-none [&_.recharts-wrapper]:outline-none focus:outline-none'
+          'w-full max-w-full min-w-0 [&_.recharts-responsive-container]:!w-full [&_.recharts-surface]:outline-none [&_.recharts-wrapper]:outline-none focus:outline-none'
         )}
       >
         <BarChart
           data={data}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          margin={{ top: 8, right: 4, left: -12, bottom: 0 }}
           barCategoryGap="20%"
           style={{ outline: 'none' }}
         >
@@ -315,7 +315,7 @@ export function PnLChart({
             tick={{ fill: 'rgba(255, 255, 255, 0.5)', fontSize: 10 }}
             tickLine={false}
             axisLine={false}
-            width={55}
+            width={44}
             tickFormatter={(value) => {
               if (value === 0) return '$0';
               return value > 0
@@ -359,18 +359,18 @@ export function PnLChart({
           <ChartLegend
             verticalAlign="bottom"
             content={() => (
-              <div className="flex items-center justify-start gap-6 pt-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-[11px] text-text-muted-60">FUNDING PROFIT</span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-2 sm:gap-x-5 sm:pt-3">
+                <div className="flex items-center gap-1">
+                  <div className="size-1.5 rounded-full bg-green-500 sm:size-2" />
+                  <span className="text-[9px] text-text-muted-60 sm:text-[11px]">PROFIT</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-red-500" />
-                  <span className="text-[11px] text-text-muted-60">FUNDING LOSS</span>
+                <div className="flex items-center gap-1">
+                  <div className="size-1.5 rounded-full bg-red-500 sm:size-2" />
+                  <span className="text-[9px] text-text-muted-60 sm:text-[11px]">LOSS</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-sm border border-dashed border-green-500 bg-green-500/30" />
-                  <span className="text-[11px] text-text-muted-60">PROJECTED FUNDING</span>
+                <div className="flex items-center gap-1">
+                  <div className="size-1.5 rounded-sm border border-dashed border-green-500 bg-green-500/30 sm:size-2" />
+                  <span className="text-[9px] text-text-muted-60 sm:text-[11px]">PROJECTED</span>
                 </div>
               </div>
             )}
@@ -378,7 +378,7 @@ export function PnLChart({
         </BarChart>
       </ChartContainer>
       {/* Position size note */}
-      <div className="text-[10px] text-text-muted-40 text-right mt-1 pr-2">
+      <div className="mt-1 pr-1 text-right text-[9px] text-text-muted-40 sm:pr-2 sm:text-[10px]">
         Based on ${NOTIONAL_SIZE.toLocaleString()} position size
       </div>
     </div>

@@ -39,15 +39,16 @@ export function MobileMarketHeader({ className, onAssetChange }: MobileMarketHea
         className
       )}
     >
-      <div className="relative z-[10000] mb-2.5">
+      <div className="relative z-[10000] mb-3">
         <AssetDropdown
+          fullWidth
           selectedAsset={selectedAsset || undefined}
           onSelect={(asset) => onAssetChange?.(asset)}
         />
       </div>
 
       {selectedAsset ? (
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border-white-10 bg-border-white-10">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border-white-10 bg-border-white-10/80">
           <StatCell label="PRICE">
             <AnimatedNumber
               value={currentPrice}
@@ -83,9 +84,9 @@ export function MobileMarketHeader({ className, onAssetChange }: MobileMarketHea
 
 function StatCell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="bg-section-surface px-2.5 py-2">
-      <p className="text-[9px] font-medium uppercase tracking-wider text-text-muted-40">{label}</p>
-      <div className="mt-0.5">{children}</div>
+    <div className="bg-section-surface px-3 py-2.5">
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted-40">{label}</p>
+      <div className="mt-1">{children}</div>
     </div>
   );
 }
