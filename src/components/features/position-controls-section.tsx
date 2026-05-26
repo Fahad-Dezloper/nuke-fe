@@ -11,7 +11,7 @@
  */
 
 import { useAtomValue, useAtom } from 'jotai';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { PositionControlsSection } from './trading-dashboard';
 import { cn } from '@/lib/utils';
@@ -22,9 +22,7 @@ import { PositionDetailsSection } from './position-controls/position-details-sec
 import { TradeDetailsSection } from './position-controls/trade-details-section';
 import { AssetPriceHeader } from './position-controls/asset-price-header';
 import { HedgeExecutionProgress } from './position-controls/hedge-execution-progress';
-import {
-  isLoggedInAtom,
-} from '@/lib/turnkey/store';
+import { isLoggedInAtom } from '@/lib/turnkey/store';
 import {
   marginAtom,
   leverageAtom,
@@ -34,19 +32,35 @@ import {
 import { useHedgeIntent } from '@/lib/hedge-intent';
 import { useBestPair } from '@/hooks/use-best-pair';
 import { useExchangeBalances } from '@/hooks/use-exchange-balances';
+import { usePositions } from '@/hooks/use-positions';
 import { marketFeedDataAtom } from '@/lib/stores/market-feed.store';
 import { PositionControlsSkeleton } from '@/components/ui/skeletons';
+import { useTurnkey } from '@/lib/turnkey/hooks';
+import { getEVMAddress, getSolanaAddress } from '@/lib/turnkey/wallet-utils';
+import { PacificaService } from '@/lib/services/pacifica';
+import {
+  assetHasOpenHedge,
+  existingPositionError,
+  isMinVenueNotionalMet,
+} from '@/lib/trading/open-hedge-validation';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateTradingBalances } from '@/lib/trading/invalidate-trading-balances';
 
 interface PositionControlsSectionContentProps {
   className?: string;
   onConnectWallet?: () => void;
   onOpenPosition?: () => void;
+  /** Mobile trade tab: scrollable flat panel without fixed height clipping */
+  embedded?: boolean;
 }
+
+const pacificaService = new PacificaService();
 
 export function PositionControlsSectionContent({
   className,
   onConnectWallet,
   onOpenPosition,
+  embedded,
 }: PositionControlsSectionContentProps) {
   const isLoggedIn = useAtomValue(isLoggedInAtom);
   const marketFeedData = useAtomValue(marketFeedDataAtom);
@@ -54,36 +68,62 @@ export function PositionControlsSectionContent({
   const [leverage] = useAtom(leverageAtom);
   const [selectedAsset] = useAtom(selectedAssetAtom);
   const marginValidation = useAtomValue(marginValidationAtom);
+  const { state: turnkeyState } = useTurnkey();
+  const queryClient = useQueryClient();
 
-  // ── Exchange Balances (syncs to atoms for child components) ──
+  const evmAddress = turnkeyState.userWallets?.length
+    ? getEVMAddress(turnkeyState.userWallets)
+    : null;
+  const solanaAddress = turnkeyState.userWallets?.length
+    ? getSolanaAddress(turnkeyState.userWallets)
+    : null;
+
   useExchangeBalances();
 
-  // ── Hedge Intent Hook ──────────────────────────────────────
-  const {
-    openHedge,
-    isExecuting,
-    phase,
-    statusMessage,
-    currentAction,
-    detail,
-  } = useHedgeIntent();
+  const { rawPositions, refetch: refetchPositions } = usePositions({
+    evmAddress: evmAddress ?? undefined,
+    solanaAddress: solanaAddress ?? undefined,
+    enabled: isLoggedIn && !!evmAddress && !!solanaAddress,
+  });
+
+  const openSymbols = useMemo(() => rawPositions.map((p) => p.symbol), [rawPositions]);
+
+  const hasExistingPosition = selectedAsset ? assetHasOpenHedge(selectedAsset, openSymbols) : false;
+
+  const { openHedge, isExecuting, phase, statusMessage, currentAction, detail, safetyExposure } =
+    useHedgeIntent();
   const { getBestPairForAsset } = useBestPair();
 
-  // ── Handlers ───────────────────────────────────────────────
-  const handleOpenPosition = async () => {
+  const handleOpenPosition = useCallback(async () => {
     if (onOpenPosition) {
       onOpenPosition();
       return;
     }
 
-    // Validate inputs
     if (!selectedAsset) {
       toast.error('Please select an asset');
       return;
     }
 
-    if (!margin || parseFloat(margin) <= 0) {
+    const marginNum = parseFloat(margin);
+    if (!margin || !Number.isFinite(marginNum) || marginNum <= 0) {
       toast.error('Please enter a valid margin amount');
+      return;
+    }
+
+    if (!isMinVenueNotionalMet(marginNum, leverage)) {
+      toast.error('Position size too small per venue', {
+        description: marginValidation.error ?? undefined,
+        duration: 8000,
+      });
+      return;
+    }
+
+    if (!marginValidation.isValid) {
+      toast.error('Cannot open hedge', {
+        description: marginValidation.error ?? 'Check margin and balances.',
+        duration: 8000,
+      });
       return;
     }
 
@@ -92,38 +132,81 @@ export function PositionControlsSectionContent({
       return;
     }
 
+    if (hasExistingPosition) {
+      toast.error('Position already open', {
+        description: existingPositionError(selectedAsset),
+        duration: 8000,
+      });
+      return;
+    }
+
     const assetItem = marketFeedData.find((a) => a.asset === selectedAsset) ?? null;
     const bestPair = getBestPairForAsset(assetItem);
+
+    const needsPacifica = bestPair.long === 'pacifica' || bestPair.short === 'pacifica';
+
+    if (needsPacifica && solanaAddress) {
+      try {
+        const approved = await pacificaService.checkBuilderCodeApproval(solanaAddress);
+        if (!approved) {
+          toast.message('Pacifica builder approval required', {
+            description:
+              'Confirm the Pacifica builder approval in your wallet when prompted during setup.',
+            duration: 8000,
+          });
+        }
+      } catch {
+        /* non-blocking — executor will retry */
+      }
+    }
+
     await openHedge({
       asset: selectedAsset,
-      marginUsd: parseFloat(margin),
+      marginUsd: marginNum,
       leverage,
       longExchange: bestPair.long,
       shortExchange: bestPair.short,
     });
-  };
 
-  // ── Derived state ──────────────────────────────────────────
+    if (evmAddress && solanaAddress) {
+      void invalidateTradingBalances(queryClient, { evmAddress, solanaAddress });
+    }
+    void refetchPositions();
+  }, [
+    onOpenPosition,
+    selectedAsset,
+    margin,
+    leverage,
+    marginValidation,
+    isLoggedIn,
+    hasExistingPosition,
+    marketFeedData,
+    getBestPairForAsset,
+    solanaAddress,
+    openHedge,
+    evmAddress,
+    queryClient,
+    refetchPositions,
+  ]);
+
   const canExecute =
     isLoggedIn &&
     selectedAsset &&
     margin &&
     parseFloat(margin) > 0 &&
     marginValidation.isValid &&
+    !hasExistingPosition &&
     !isExecuting;
 
   const isComplete = phase === 'complete';
-  const isFailed = phase === 'failed';
+  const isFailed = phase === 'failed' || phase === 'safety_failed';
 
-  // Auto-dismiss the floating progress 2s after terminal states
   const [progressDismissed, setProgressDismissed] = useState(false);
 
-  // Reset on new execution
-  if (isExecuting && progressDismissed) {
-    setProgressDismissed(false);
-  }
+  useEffect(() => {
+    if (isExecuting) setProgressDismissed(false);
+  }, [isExecuting]);
 
-  // Dismiss after terminal state
   useEffect(() => {
     if (!isComplete && !isFailed) return;
     const timer = setTimeout(() => setProgressDismissed(true), 2000);
@@ -132,10 +215,10 @@ export function PositionControlsSectionContent({
 
   const showProgress = (isExecuting || isComplete || isFailed) && !progressDismissed;
 
-  // Button text based on phase
   const getButtonText = (): string => {
     if (!isExecuting) {
       if (isComplete) return 'HEDGE LIVE ✓';
+      if (phase === 'safety_failed') return 'OPEN HEDGED POSITION';
       if (isFailed) return 'OPEN HEDGED POSITION';
       return 'OPEN HEDGED POSITION';
     }
@@ -146,6 +229,8 @@ export function PositionControlsSectionContent({
         return 'BRIDGING FUNDS...';
       case 'depositing':
         return 'DEPOSITING...';
+      case 'pacifica_access':
+        return 'PACIFICA ACCESS...';
       case 'opening':
         return 'OPENING POSITIONS...';
       case 'closing':
@@ -161,61 +246,58 @@ export function PositionControlsSectionContent({
 
   return (
     <PositionControlsSection
+      embedded={embedded}
       className={cn(
-        'ml-4 lg:w-[400px] xl:w-[450px] lg:shrink-0 h-full overflow-hidden mt-4',
+        embedded ? 'h-auto min-h-full' : 'h-full overflow-hidden lg:w-[400px] xl:w-[450px] lg:shrink-0',
         className
       )}
     >
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/60 via-card/50 to-card/60 backdrop-blur-md rounded-t-xl shadow-lg shadow-black/20">
+      <div className={cn('flex flex-col', embedded ? 'min-h-full' : 'h-full')}>
+        <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border-white-10/70 bg-card/25 rounded-t-lg">
           <h2 className="text-sm font-medium text-text-primary">POSITION PANEL</h2>
         </div>
 
-        {/* Asset Price Header */}
-        <AssetPriceHeader />
+        {!embedded && <AssetPriceHeader />}
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6">
-          {/* Position Size Section */}
           <PositionSizeSection />
 
-          {/* Leverage Section */}
           <LeverageSection />
 
-          {/* Position Details Section */}
+          {hasExistingPosition && selectedAsset && (
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5">
+              <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                {existingPositionError(selectedAsset)}
+              </p>
+            </div>
+          )}
+
           <PositionDetailsSection />
 
-          {/* Trade Details Section */}
           <TradeDetailsSection />
         </div>
 
-        {/* Floating progress indicator (renders via portal to top-right) */}
         {showProgress && (
           <HedgeExecutionProgress
             detail={detail}
             phase={phase}
             statusMessage={statusMessage}
             currentAction={currentAction}
+            safetyExposure={safetyExposure}
           />
         )}
 
-        {/* Footer - Wallet Connection / Open Position */}
-        <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-xl">
+        <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-md">
           {isLoggedIn ? (
-            <>
-              <ConnectWalletButton
-                onClick={handleOpenPosition}
-                size="md"
-                fullWidth
-                text={getButtonText()}
-                disabled={!canExecute || isExecuting}
-              />
-            </>
+            <ConnectWalletButton
+              onClick={handleOpenPosition}
+              size="md"
+              fullWidth
+              text={getButtonText()}
+              disabled={!canExecute || isExecuting}
+            />
           ) : (
-            <>
-              <ConnectWalletButton onClick={onConnectWallet} size="md" fullWidth />
-            </>
+            <ConnectWalletButton onClick={onConnectWallet} size="md" fullWidth />
           )}
         </div>
       </div>

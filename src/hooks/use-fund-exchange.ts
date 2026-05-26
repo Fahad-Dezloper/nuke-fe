@@ -37,7 +37,7 @@ import {
 } from '@/lib/bridge/solana-direct-deposit';
 import { SOLANA_DIRECT_MIN_DEPOSIT_MICROS } from '@/constants';
 import { PACIFICA_GAS_REIMBURSEMENT } from '@/lib/bridge/types';
-import { queryKeys } from '@/lib/query-keys';
+import { invalidateTradingBalances } from '@/lib/trading/invalidate-trading-balances';
 import {
   trackBridgeStarted,
   trackBridgeCompleted,
@@ -206,8 +206,9 @@ export function useFundExchange(): UseFundExchangeReturn {
           setStep('success');
           setStatusMessage(`Successfully funded ${label}!`);
 
-          await queryClient.invalidateQueries({
-            queryKey: queryKeys.balance.exchangeHlPac(wallet.evmAddress, wallet.solanaAddress),
+          await invalidateTradingBalances(queryClient, {
+            evmAddress: wallet.evmAddress,
+            solanaAddress: wallet.solanaAddress,
           });
 
           toast.success(`${label} Funded`, {
@@ -334,8 +335,9 @@ export function useFundExchange(): UseFundExchangeReturn {
         setStep('success');
         setStatusMessage(`Successfully funded ${label}!`);
 
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.balance.exchangeHlPac(wallet.evmAddress, wallet.solanaAddress),
+        await invalidateTradingBalances(queryClient, {
+          evmAddress: wallet.evmAddress,
+          solanaAddress: wallet.solanaAddress,
         });
 
         toast.success(`${label} Funded`, {

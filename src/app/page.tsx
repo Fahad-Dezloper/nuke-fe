@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { Suspense, useEffect, useCallback } from 'react';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { MarketOverview } from '@/components/features/market-overview';
 import {
@@ -9,14 +9,15 @@ import {
   PositionsTableSectionContent,
   PositionControlsSectionContent,
 } from '@/components/features';
+import { MobileTradingView } from '@/components/features/mobile/mobile-trading-view';
 import { SectionErrorBoundary } from '@/components/error-boundary';
+import { TradingUrlSync } from '@/components/features/trading-url-sync';
 import { selectedAssetAtom as positionSelectedAssetAtom } from '@/components/features/position-controls/store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import type { AssetDropdownItem } from '@/types/positions';
 
 /**
  * Normalize asset name (e.g., "BTC-PERP" -> "BTC").
- * Defined outside the component to avoid recreating on every render.
  */
 function normalizeAssetName(asset: string): string {
   return asset.replace(/-PERP$/, '').toUpperCase();
@@ -26,8 +27,6 @@ export default function Home() {
   const setPositionSelectedAsset = useSetAtom(positionSelectedAssetAtom);
   const globalSelectedAsset = useAtomValue(selectedAssetAtom);
 
-  // Sync symbol only when the *ticker* changes — not when the same row gets a
-  // new object reference from market-feed polling.
   const globalAssetSymbol = globalSelectedAsset?.asset;
   useEffect(() => {
     if (globalAssetSymbol) {
@@ -44,32 +43,39 @@ export default function Home() {
   );
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="shrink-0">
-        <SectionErrorBoundary name="Market Overview">
-          <MarketOverview onAssetChange={handleAssetChange} />
-        </SectionErrorBoundary>
-      </div>
-      <TradingDashboard className="flex-1 min-h-0">
-        {/* Left Side - Chart Section */}
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="mb-4 shrink-0">
-            <SectionErrorBoundary name="Chart">
-              <ChartSectionContent />
-            </SectionErrorBoundary>
-          </div>
-          <div className="flex-1 min-h-0">
-            <SectionErrorBoundary name="Positions">
-              <PositionsTableSectionContent />
-            </SectionErrorBoundary>
-          </div>
-        </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <Suspense fallback={null}>
+        <TradingUrlSync />
+      </Suspense>
 
-        {/* Right Side - Position Controls */}
-        <SectionErrorBoundary name="Position Controls">
-          <PositionControlsSectionContent />
-        </SectionErrorBoundary>
-      </TradingDashboard>
+      {/* Mobile: DexScreener-style tabbed views */}
+      <MobileTradingView onAssetChange={handleAssetChange} />
+
+      {/* Desktop: split trading terminal */}
+      <div className="hidden min-h-0 flex-1 flex-col overflow-hidden lg:flex">
+        <div className="shrink-0">
+          <SectionErrorBoundary name="Market Overview">
+            <MarketOverview onAssetChange={handleAssetChange} />
+          </SectionErrorBoundary>
+        </div>
+        <TradingDashboard className="min-h-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <div className="mb-4 shrink-0">
+              <SectionErrorBoundary name="Chart">
+                <ChartSectionContent />
+              </SectionErrorBoundary>
+            </div>
+            <div className="min-h-0 flex-1">
+              <SectionErrorBoundary name="Positions">
+                <PositionsTableSectionContent />
+              </SectionErrorBoundary>
+            </div>
+          </div>
+          <SectionErrorBoundary name="Position Controls">
+            <PositionControlsSectionContent />
+          </SectionErrorBoundary>
+        </TradingDashboard>
+      </div>
     </div>
   );
 }

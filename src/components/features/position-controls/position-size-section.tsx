@@ -46,7 +46,7 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
             value={positionSize}
             onChange={(e) => setPositionSize(e.target.value)}
             className={cn(
-              'w-full pr-28 bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-xl text-text-primary placeholder:text-text-muted-40 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20',
+              'w-full pr-28 bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-md text-text-primary placeholder:text-text-muted-40 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20',
               validation.error && 'border-red-500/40 focus:border-red-500/60'
             )}
           />
@@ -63,7 +63,7 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
             </button>
           )}
         </div>
-        <div className="flex items-center gap-1.5 bg-card/40 backdrop-blur-sm border border-border-white-10/50 rounded-xl px-3 py-2 shadow-md shadow-black/10">
+        <div className="flex items-center gap-1.5 bg-card/40 backdrop-blur-sm border border-border-white-10/50 rounded-md px-3 py-2 shadow-md shadow-black/10">
           <Image
             src="/tokens/usdc.png"
             alt="USDC"

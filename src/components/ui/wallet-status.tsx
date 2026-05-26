@@ -158,7 +158,7 @@ export function WalletStatus() {
                     onClick={(e) => e.stopPropagation()}
                     className={cn(
                       'absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50',
-                      'w-56 rounded-xl',
+                      'w-56 rounded-md',
                       'bg-card border border-border-white-10/50 backdrop-blur-xl',
                       'shadow-xl shadow-black/60',
                       'pointer-events-auto'

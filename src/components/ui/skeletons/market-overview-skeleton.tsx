@@ -16,7 +16,7 @@ interface MarketOverviewSkeletonProps {
 /** Mimics a single MetricItem with label + value */
 function MetricItemSkeleton() {
   return (
-    <div className="flex flex-col gap-1.5 border-l-[0.5px] border-l-border-white-10 pl-8 py-4 w-[180px]">
+    <div className="flex w-full flex-col gap-1.5 rounded-md border border-border-white-10 px-3 py-2.5 lg:w-[180px] lg:rounded-none lg:border-0 lg:border-l lg:pl-8 lg:py-4">
       <Skeleton className="h-3 w-20 bg-border-white-5" />
       <Skeleton className="h-5 w-24 bg-border-white-5" />
     </div>
@@ -34,18 +34,15 @@ export function MarketOverviewSkeleton({ className }: MarketOverviewSkeletonProp
       )}
     >
       <div className="mx-auto px-3 md:px-4 lg:px-5 py-0 relative z-10">
-        <div className="flex flex-wrap items-center gap-6 md:gap-8">
-          {/* Asset Dropdown Trigger Skeleton */}
-          <div className="relative z-[10000]">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/40 border border-border-white-10/50 min-w-[140px]">
+        <div className="flex flex-col gap-3 py-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:py-0">
+          <div className="relative z-[10000] w-full sm:w-auto">
+            <div className="flex min-w-[140px] items-center gap-2 rounded-md border border-border-white-10/50 bg-card/40 px-3 py-1.5">
               <Skeleton className="h-5 w-5 rounded-full bg-border-white-5" />
               <Skeleton className="h-4 w-12 bg-border-white-5" />
-              <Skeleton className="h-3.5 w-3.5 ml-auto bg-border-white-5" />
+              <Skeleton className="ml-auto h-3.5 w-3.5 bg-border-white-5" />
             </div>
           </div>
-
-          {/* Metric Items Skeleton */}
-          <div className="flex flex-wrap items-center gap-6 md:gap-8 flex-1">
+          <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:flex-1 lg:flex-wrap lg:gap-6">
             <MetricItemSkeleton />
             <MetricItemSkeleton />
             <MetricItemSkeleton />

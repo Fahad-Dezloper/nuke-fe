@@ -24,6 +24,7 @@ import type {
   NextActionResponse,
   ActionResultRequest,
   HedgeIntentStatus,
+  HedgeIntentDetail,
 } from './types';
 
 // ─── Polling Intervals ───────────────────────────────────────────────────────
@@ -52,6 +53,16 @@ export interface EngineCallbacks {
 
   /** Fired on unrecoverable errors (engine will stop) */
   onError?: (error: string) => void;
+
+  /**
+   * Fired when a leg remains open after partial open + failed safety close.
+   * User must close manually from the positions table.
+   */
+  onSafetyExposure?: (info: {
+    asset: string;
+    exchange: string;
+    message: string;
+  }) => void;
 
   /** Fired when the intent reaches a terminal state successfully */
   onComplete?: (intentId: string, finalStatus: HedgeIntentStatus) => void;
@@ -222,6 +233,10 @@ export class HedgeIntentEngine {
           }
         }
 
+        if (nextAction.action === 'CLOSE_POSITION') {
+          await this.reportSafetyExposureIfNeeded(intentId, errorMsg, callbacks);
+        }
+
         // All other failures: halt the engine
         console.error(`[HedgeEngine] Action ${nextAction.action} failed — stopping execution.`, errorMsg);
         callbacks.onError?.(errorMsg);
@@ -253,7 +268,20 @@ export class HedgeIntentEngine {
         // CANCELLED is NOT success — don't treat it as 'complete'
         callbacks.onError?.('Hedge has been cancelled. No positions were opened.');
       } else if (finalStatus === 'FAILED') {
-        callbacks.onError?.('Hedge intent failed. Check your positions.');
+        const exposed = this.findExposedLeg(detail);
+        if (exposed) {
+          const msg =
+            `Safety close did not complete. You may still have an open ${exposed.asset} position on ${exposed.exchangeLabel}. ` +
+            'Close it from the positions table below.';
+          callbacks.onSafetyExposure?.({
+            asset: exposed.asset,
+            exchange: exposed.exchange,
+            message: msg,
+          });
+          callbacks.onError?.(msg);
+        } else {
+          callbacks.onError?.('Hedge intent failed. Check your positions.');
+        }
       } else {
         // Unknown terminal — report as error rather than assuming success
         callbacks.onError?.(`Hedge ended with unexpected status: ${finalStatus}`);
@@ -264,6 +292,55 @@ export class HedgeIntentEngine {
       callbacks.onError?.(
         `Unable to verify hedge status (${errMsg}). Please check your positions manually.`
       );
+    }
+  }
+
+  private findExposedLeg(detail: HedgeIntentDetail): {
+    asset: string;
+    exchange: string;
+    exchangeLabel: string;
+  } | null {
+    const asset = detail.intent.asset;
+    const openLeg = detail.legs.find(
+      (l) => l.status === 'ACTIVE' || l.status === 'CLOSING' || l.status === 'OPENING_POSITION'
+    );
+    if (!openLeg) return null;
+    const ex = String(openLeg.exchange).toLowerCase();
+    const label =
+      ex === 'hyperliquid'
+        ? 'Hyperliquid'
+        : ex === 'pacifica'
+          ? 'Pacifica'
+          : ex === 'phoenix'
+            ? 'Phoenix'
+            : ex === 'lighter'
+              ? 'Lighter'
+              : ex === 'backpack'
+                ? 'Backpack'
+                : openLeg.exchange;
+    return { asset, exchange: ex, exchangeLabel: label };
+  }
+
+  private async reportSafetyExposureIfNeeded(
+    intentId: string,
+    closeError: string,
+    callbacks: EngineCallbacks
+  ): Promise<void> {
+    try {
+      const detail = await hedgeIntentApi.getDetail(intentId);
+      const exposed = this.findExposedLeg(detail);
+      if (!exposed) return;
+
+      const msg =
+        `Could not close your ${exposed.asset} ${exposed.exchangeLabel} leg automatically (${closeError}). ` +
+        'Please close it manually from the positions table.';
+      callbacks.onSafetyExposure?.({
+        asset: exposed.asset,
+        exchange: exposed.exchange,
+        message: msg,
+      });
+    } catch {
+      /* detail fetch failed — onError still fires */
     }
   }
 

@@ -7,12 +7,8 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import {
-  ChartTabs,
-  PnLChart,
-  FundingRateChart,
-  type ChartTab,
-} from './charts';
+import { DASHBOARD_SECTION_SHELL } from './trading-dashboard';
+import { ChartTabs, PnLChart, FundingRateChart, type ChartTab } from './charts';
 import type { PnLDuration } from './charts/pnl-chart';
 import { useFundingRateChart } from '@/hooks/use-funding-rate-chart';
 import { ChartSkeleton } from '@/components/ui/skeletons';
@@ -33,9 +29,15 @@ const PNL_DURATION_OPTIONS: { value: PnLDuration; label: string }[] = [
 
 interface FundingRatesChartProps {
   className?: string;
+  /** Fill available height on mobile tab views */
+  fluidHeight?: boolean;
 }
 
-export function FundingRatesChart({ className }: FundingRatesChartProps) {
+const CHART_HEIGHT_FIXED = 'h-[260px]';
+const CHART_HEIGHT_FLUID = 'h-full min-h-[220px] flex-1';
+
+export function FundingRatesChart({ className, fluidHeight }: FundingRatesChartProps) {
+  const chartHeight = fluidHeight ? CHART_HEIGHT_FLUID : CHART_HEIGHT_FIXED;
   const [activeTab, setActiveTab] = useState<ChartTab>('funding');
   const [timeframe, setTimeframe] = useState<ChartTimeframe>('30m');
   const [pnlDuration, setPnlDuration] = useState<PnLDuration>('1D');
@@ -48,10 +50,7 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
   } = useFundingRateChart({ timeframe });
 
   // PnL chart data — always uses 1h timeframe for hourly candles
-  const {
-    data: pnlFundingData,
-    loading: pnlLoading,
-  } = useFundingRateChart({ timeframe: '1h' });
+  const { data: pnlFundingData, loading: pnlLoading } = useFundingRateChart({ timeframe: '1h' });
 
   const isInitialLoad = fundingLoading && (!fundingData || fundingData.length === 0);
   if (isInitialLoad) {
@@ -61,9 +60,9 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
   return (
     <div
       className={cn(
-        'flex flex-col h-full bg-gradient-to-br from-background/80 via-card/40 to-background/80',
-        'border border-border-white-10/50 rounded-2xl py-4 mt-4',
-        'backdrop-blur-md shadow-xl shadow-black/30',
+        DASHBOARD_SECTION_SHELL,
+        'flex h-full min-h-0 flex-col py-2 sm:py-3',
+        fluidHeight && 'flex-1',
         className
       )}
     >
@@ -72,43 +71,55 @@ export function FundingRatesChart({ className }: FundingRatesChartProps) {
         <ChartTabs activeTab={activeTab} onTabChange={setActiveTab} className="border-b-0" />
 
         {/* Timeframe Dropdown — for funding tab */}
-        {activeTab === 'funding' && (
-          <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
-        )}
+        {activeTab === 'funding' && <TimeframeDropdown value={timeframe} onChange={setTimeframe} />}
 
         {/* PnL Duration Dropdown — for PnL tab */}
-        {activeTab === 'pnl' && (
-          <DurationDropdown value={pnlDuration} onChange={setPnlDuration} />
-        )}
+        {activeTab === 'pnl' && <DurationDropdown value={pnlDuration} onChange={setPnlDuration} />}
       </div>
 
       {/* Chart Content */}
-      <div className="px-3 md:px-4 lg:px-5 pb-4">
+      <div
+        className={cn(
+          'flex flex-col px-3 md:px-4 lg:px-5 pb-4',
+          fluidHeight && 'min-h-0 flex-1'
+        )}
+      >
         {activeTab === 'pnl' && (
           <>
             {pnlLoading && (!pnlFundingData || pnlFundingData.length === 0) ? (
-              <div className="h-[260px] flex items-center justify-center text-text-muted-60 text-xs">
+              <div
+                className={cn(
+                  chartHeight,
+                  'flex items-center justify-center text-text-muted-60 text-xs'
+                )}
+              >
                 Loading PnL data...
               </div>
             ) : (
-              <PnLChart fundingData={pnlFundingData} duration={pnlDuration} />
+              <PnLChart fundingData={pnlFundingData} duration={pnlDuration} chartClassName={chartHeight} />
             )}
           </>
         )}
         {activeTab === 'funding' && (
           <>
             {fundingLoading && (
-              <div className="h-[260px] flex items-center justify-center text-text-muted-60">
+              <div
+                className={cn(chartHeight, 'flex items-center justify-center text-text-muted-60')}
+              >
                 Loading chart data...
               </div>
             )}
             {fundingError && (
-              <div className="h-[260px] flex items-center justify-center text-red-400">
+              <div className={cn(chartHeight, 'flex items-center justify-center text-red-400')}>
                 Error loading chart data: {fundingError.message}
               </div>
             )}
             {!fundingLoading && !fundingError && (
-              <FundingRateChart data={fundingData} timeframe={timeframe} />
+              <FundingRateChart
+                data={fundingData}
+                timeframe={timeframe}
+                chartClassName={chartHeight}
+              />
             )}
           </>
         )}
@@ -190,7 +201,7 @@ function GenericDropdown<T extends string>({
         type="button"
         onClick={() => onOpenChange(!open)}
         className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
+          'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium',
           'bg-card/40 border border-border-white-10/50',
           'text-text-muted-60 hover:text-text-primary hover:border-border-white-20',
           'transition-all duration-200 select-none'
@@ -208,7 +219,7 @@ function GenericDropdown<T extends string>({
           <div
             className={cn(
               'absolute right-0 top-full mt-1 z-[101]',
-              'min-w-[100px] py-1 rounded-lg',
+              'min-w-[100px] py-1 rounded-md',
               'bg-background/95 backdrop-blur-xl border border-border-white-20/50',
               'shadow-xl shadow-black/40'
             )}

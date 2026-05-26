@@ -68,6 +68,7 @@ interface FundingRateChartProps {
   timeframe?: ChartTimeframe;
   /** @deprecated Use timeframe instead */
   duration?: string;
+  chartClassName?: string;
 }
 
 /**
@@ -165,7 +166,11 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   );
 }
 
-export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartProps) {
+export function FundingRateChart({
+  data,
+  timeframe = '30m',
+  chartClassName = 'h-[260px]',
+}: FundingRateChartProps) {
   // Determine which protocol is LONG and which is SHORT based on the first data point
   const longProtocol = useMemo(() => {
     if (data.length === 0) return 'hyperliquid';
@@ -214,14 +219,16 @@ export function FundingRateChart({ data, timeframe = '30m' }: FundingRateChartPr
 
   if (data.length === 0) {
     return (
-      <div className="h-[260px] w-full flex items-center justify-center text-text-muted-60">
+      <div
+        className={cn(chartClassName, 'w-full flex items-center justify-center text-text-muted-60')}
+      >
         No data available
       </div>
     );
   }
 
   return (
-    <ChartContainer config={chartConfig} className="h-[260px] w-full">
+    <ChartContainer config={chartConfig} className={cn(chartClassName, 'w-full')}>
       <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" vertical={false} />
         <XAxis

@@ -55,7 +55,7 @@ function LegStatusRow({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-xl',
+        'relative overflow-hidden rounded-md',
         'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
         'backdrop-blur-lg border',
         status === 'error'
@@ -67,7 +67,7 @@ function LegStatusRow({
       )}
     >
       {/* Glassmorphism overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
 
       <div className="relative z-10 flex items-center justify-between">
         {/* Left: Protocol + Side */}
@@ -313,7 +313,7 @@ export function ClosePositionModal({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
+                'flex-1 relative overflow-hidden rounded-md cursor-pointer',
                 'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
                 'backdrop-blur-lg border border-border-white-15/60',
                 'py-2.5 text-xs font-medium text-text-muted-60',
@@ -328,14 +328,14 @@ export function ClosePositionModal({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
+                'flex-1 relative overflow-hidden rounded-md cursor-pointer',
                 'bg-red-500/15 border border-red-500/30',
                 'py-2.5 text-xs font-semibold text-red-400',
                 'hover:bg-red-500/25 hover:border-red-500/50',
                 'transition-colors duration-200'
               )}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-md" />
               <span className="relative z-10">Close Position</span>
             </motion.button>
           </div>
@@ -344,7 +344,7 @@ export function ClosePositionModal({
         {phase === 'closing' && (
           <div
             className={cn(
-              'flex items-center justify-center gap-2 py-2.5 rounded-xl',
+              'flex items-center justify-center gap-2 py-2.5 rounded-md',
               'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400'
             )}
           >
@@ -359,14 +359,14 @@ export function ClosePositionModal({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className={cn(
-              'w-full relative overflow-hidden rounded-xl cursor-pointer',
+              'w-full relative overflow-hidden rounded-md cursor-pointer',
               'bg-green-500/15 border border-green-500/30',
               'py-2.5 text-xs font-semibold text-green-400',
               'hover:bg-green-500/25 hover:border-green-500/50',
               'transition-colors duration-200'
             )}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-md" />
             <span className="relative z-10 flex items-center justify-center gap-1.5">
               <Check className="w-3.5 h-3.5" />
               Done
@@ -381,7 +381,7 @@ export function ClosePositionModal({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
+                'flex-1 relative overflow-hidden rounded-md cursor-pointer',
                 'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
                 'backdrop-blur-lg border border-border-white-15/60',
                 'py-2.5 text-xs font-medium text-text-muted-60',
@@ -400,14 +400,14 @@ export function ClosePositionModal({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
+                'flex-1 relative overflow-hidden rounded-md cursor-pointer',
                 'bg-red-500/15 border border-red-500/30',
                 'py-2.5 text-xs font-semibold text-red-400',
                 'hover:bg-red-500/25 hover:border-red-500/50',
                 'transition-colors duration-200'
               )}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-md" />
               <span className="relative z-10">Retry</span>
             </motion.button>
           </div>

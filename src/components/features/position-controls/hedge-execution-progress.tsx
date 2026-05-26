@@ -5,10 +5,6 @@
  *
  * A compact, animated floating card that appears top-right below the navbar
  * when a hedge intent is executing. Renders via portal to document.body.
- *
- * Since bridge + deposit are now handled separately via "Add Margin",
- * this typically shows: Setting leverage → Opening positions.
- * But it still supports the full flow if the intent triggers bridge/deposit.
  */
 
 import { useState } from 'react';
@@ -23,56 +19,14 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { HedgeIntentDetail, HedgeLeg, ExecutionPhase } from '@/lib/hedge-intent';
-
-// ─── Step Logic ───────────────────────────────────────────────────────────────
+import type {
+  HedgeIntentDetail,
+  HedgeLeg,
+  ExecutionPhase,
+  SafetyExposureInfo,
+} from '@/lib/hedge-intent';
 
 type StepState = 'pending' | 'active' | 'done' | 'error' | 'skipped';
-
-function wasBridgeSkipped(leg: HedgeLeg): boolean {
-  const available = (leg.existing_onchain_usd || 0) + (leg.existing_margin_usd || 0);
-  return available >= leg.target_amount_usd;
-}
-
-function wasDepositSkipped(leg: HedgeLeg): boolean {
-  return (leg.existing_margin_usd || 0) >= leg.target_amount_usd;
-}
-
-function legBridgeState(leg: HedgeLeg | undefined): StepState {
-  if (!leg) return 'pending';
-  if (wasBridgeSkipped(leg)) return 'skipped';
-  switch (leg.status) {
-    case 'BRIDGE_IN_PROGRESS':
-      return 'active';
-    case 'BRIDGE_CONFIRMED':
-    case 'DEPOSIT_IN_PROGRESS':
-    case 'FUNDED':
-    case 'OPENING_POSITION':
-    case 'ACTIVE':
-      return 'done';
-    case 'FAILED':
-      return 'error';
-    default:
-      return 'pending';
-  }
-}
-
-function legDepositState(leg: HedgeLeg | undefined): StepState {
-  if (!leg) return 'pending';
-  if (wasDepositSkipped(leg)) return 'skipped';
-  switch (leg.status) {
-    case 'DEPOSIT_IN_PROGRESS':
-      return 'active';
-    case 'FUNDED':
-    case 'OPENING_POSITION':
-    case 'ACTIVE':
-      return 'done';
-    case 'FAILED':
-      return 'error';
-    default:
-      return 'pending';
-  }
-}
 
 function openPositionState(detail: HedgeIntentDetail | null): StepState {
   if (!detail) return 'pending';
@@ -85,19 +39,54 @@ function openPositionState(detail: HedgeIntentDetail | null): StepState {
   return 'pending';
 }
 
+function safetyCloseState(detail: HedgeIntentDetail | null, phase: ExecutionPhase): StepState {
+  if (phase === 'closing') return 'active';
+  if (phase === 'safety_failed') return 'error';
+  if (!detail) return 'pending';
+  if (detail.intent.status === 'FAILED' && detail.legs.some((l) => l.status === 'ACTIVE')) {
+    return 'error';
+  }
+  if (detail.legs.some((l) => l.status === 'CLOSED')) return 'done';
+  return 'pending';
+}
+
 interface Step {
   label: string;
   state: StepState;
 }
 
-function buildSteps(detail: HedgeIntentDetail | null): Step[] {
-  const hl = detail?.legs.find((l) => l.exchange === 'hyperliquid');
-  const pac = detail?.legs.find((l) => l.exchange === 'pacifica');
+function buildSteps(
+  detail: HedgeIntentDetail | null,
+  phase: ExecutionPhase,
+  includesPacifica: boolean
+): Step[] {
+  const steps: Step[] = [];
 
-  return [
+  if (includesPacifica && ['depositing', 'pacifica_access', 'opening', 'closing'].includes(phase)) {
+    steps.push({
+      label: 'Pacifica builder access',
+      state:
+        phase === 'pacifica_access'
+          ? 'active'
+          : phase === 'depositing'
+            ? 'pending'
+            : 'done',
+    });
+  }
+
+  steps.push(
     { label: 'Setting leverage', state: openPositionState(detail) },
-    { label: 'Opening positions', state: openPositionState(detail) },
-  ].filter((s) => s.state !== 'skipped');
+    { label: 'Opening positions', state: openPositionState(detail) }
+  );
+
+  if (phase === 'closing' || phase === 'safety_failed') {
+    steps.push({
+      label: 'Safety close (exposed leg)',
+      state: safetyCloseState(detail, phase),
+    });
+  }
+
+  return steps.filter((s) => s.state !== 'skipped');
 }
 
 function computeProgress(steps: Step[]): number {
@@ -105,8 +94,6 @@ function computeProgress(steps: Step[]): number {
   const done = steps.filter((s) => s.state === 'done').length;
   return Math.round((done / steps.length) * 100);
 }
-
-// ─── Step Row ─────────────────────────────────────────────────────────────────
 
 function StepRow({ step }: { step: Step }) {
   return (
@@ -130,13 +117,12 @@ function StepRow({ step }: { step: Step }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
 interface HedgeExecutionProgressProps {
   detail: HedgeIntentDetail | null;
   phase: ExecutionPhase;
   statusMessage: string;
   currentAction: string | null;
+  safetyExposure?: SafetyExposureInfo | null;
   className?: string;
 }
 
@@ -144,27 +130,34 @@ export function HedgeExecutionProgress({
   detail,
   phase,
   statusMessage,
+  safetyExposure,
 }: HedgeExecutionProgressProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const isRunning = !['idle', 'complete', 'failed'].includes(phase);
+  const isRunning = !['idle', 'complete', 'failed', 'safety_failed'].includes(phase);
   const isComplete = phase === 'complete';
   const isFailed = phase === 'failed';
+  const isSafetyFailed = phase === 'safety_failed';
   const isVisible = phase !== 'idle';
 
-  const isSafetyMode =
-    detail?.intent.status === 'FAILED' &&
-    detail.legs.some((l) => l.status === 'ACTIVE' || l.status === 'CLOSING');
+  const legs = detail?.legs ?? [];
+  const includesPacifica = legs.some((l: HedgeLeg) => l.exchange === 'pacifica');
 
-  const steps = buildSteps(detail);
-  const progress = isComplete ? 100 : isFailed ? 0 : computeProgress(steps);
+  const isSafetyMode =
+    phase === 'closing' ||
+    (detail?.intent.status === 'FAILED' &&
+      detail.legs.some((l) => l.status === 'ACTIVE' || l.status === 'CLOSING'));
+
+  const steps = buildSteps(detail, phase, includesPacifica);
+  const progress = isComplete ? 100 : isFailed || isSafetyFailed ? 0 : computeProgress(steps);
   const activeStep = steps.find((s) => s.state === 'active');
 
-  // Headline text
   const headline = (() => {
     if (isComplete) return 'Hedge Live';
-    if (isSafetyMode) return 'Safety Mode';
+    if (isSafetyFailed) return 'Manual Close Required';
+    if (isSafetyMode && phase === 'closing') return 'Safety Mode';
     if (isFailed) return 'Hedge Failed';
+    if (phase === 'pacifica_access') return 'Pacifica builder approval';
     if (activeStep) return activeStep.label;
     if (phase === 'creating') return 'Creating intent...';
     return 'Processing...';
@@ -181,20 +174,21 @@ export function HedgeExecutionProgress({
           exit={{ opacity: 0, y: -12, x: 12 }}
           transition={{ type: 'spring', damping: 24, stiffness: 260 }}
           className={cn(
-            'fixed top-16 right-4 z-[60] w-72',
-            'rounded-xl border',
+            'fixed top-16 right-4 z-[60] w-80',
+            'rounded-md border',
             'shadow-2xl shadow-black/40',
             'backdrop-blur-xl',
             isComplete
               ? 'bg-green-950/80 border-green-500/20'
-              : isFailed
-                ? 'bg-red-950/80 border-red-500/20'
-                : 'bg-[#0c0c0f]/90 border-white/[0.08]'
+              : isSafetyFailed
+                ? 'bg-amber-950/80 border-amber-500/25'
+                : isFailed
+                  ? 'bg-red-950/80 border-red-500/20'
+                  : 'bg-[#0c0c0f]/90 border-white/[0.08]'
           )}
         >
-          {/* Progress bar — thin line at the very top */}
           {isRunning && (
-            <div className="h-[2px] w-full rounded-t-xl overflow-hidden bg-white/[0.04]">
+            <div className="h-[2px] w-full rounded-t-md overflow-hidden bg-white/[0.04]">
               <motion.div
                 className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
                 initial={{ width: 0 }}
@@ -204,38 +198,42 @@ export function HedgeExecutionProgress({
             </div>
           )}
 
-          {/* Header row — always visible */}
           <button
+            type="button"
             onClick={() => setExpanded((v) => !v)}
             className="w-full flex items-center gap-3 px-4 py-3 text-left"
           >
-            {/* Status icon */}
             <div className="shrink-0">
               {isRunning && <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />}
               {isComplete && <CheckCircle2 className="h-4 w-4 text-green-400" />}
-              {isFailed && !isSafetyMode && <XCircle className="h-4 w-4 text-red-400" />}
-              {isSafetyMode && <AlertTriangle className="h-4 w-4 text-amber-400" />}
+              {isFailed && !isSafetyFailed && <XCircle className="h-4 w-4 text-red-400" />}
+              {(isSafetyMode || isSafetyFailed) && (
+                <AlertTriangle className="h-4 w-4 text-amber-400" />
+              )}
             </div>
 
-            {/* Text */}
             <div className="flex-1 min-w-0">
               <p
                 className={cn(
                   'text-xs font-medium truncate',
                   isComplete && 'text-green-400',
-                  isFailed && !isSafetyMode && 'text-red-400',
-                  isSafetyMode && 'text-amber-400',
+                  isFailed && !isSafetyFailed && 'text-red-400',
+                  (isSafetyMode || isSafetyFailed) && 'text-amber-400',
                   isRunning && 'text-white'
                 )}
               >
                 {headline}
               </p>
-              {isRunning && statusMessage && (
+              {(isRunning || isSafetyFailed) && statusMessage && (
                 <p className="text-[10px] text-white/40 truncate mt-0.5">{statusMessage}</p>
+              )}
+              {isSafetyFailed && safetyExposure && (
+                <p className="text-[10px] text-amber-200/70 mt-1 leading-snug">
+                  {safetyExposure.message}
+                </p>
               )}
             </div>
 
-            {/* Expand chevron */}
             {steps.length > 0 && (
               <div className="shrink-0 text-white/30">
                 {expanded ? (
@@ -247,7 +245,6 @@ export function HedgeExecutionProgress({
             )}
           </button>
 
-          {/* Expanded step list */}
           <AnimatePresence>
             {expanded && steps.length > 0 && (
               <motion.div
@@ -262,10 +259,19 @@ export function HedgeExecutionProgress({
                     <StepRow key={i} step={step} />
                   ))}
 
-                  {isSafetyMode && (
+                  {isSafetyMode && phase === 'closing' && (
                     <div className="flex items-center gap-2 py-1 text-amber-400/80">
                       <AlertTriangle className="h-3 w-3 shrink-0" />
-                      <span className="text-[11px]">Closing exposed position...</span>
+                      <span className="text-[11px]">Closing exposed leg automatically...</span>
+                    </div>
+                  )}
+
+                  {isSafetyFailed && (
+                    <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-2">
+                      <p className="text-[10px] text-amber-100/80 leading-relaxed">
+                        Scroll to the positions table and close the remaining leg manually. Balances
+                        will refresh after you close.
+                      </p>
                     </div>
                   )}
                 </div>

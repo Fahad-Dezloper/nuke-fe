@@ -21,7 +21,7 @@ import {
   closeBackpackPosition,
   closeLighterPosition,
 } from '@/lib/trading/close-position';
-import { queryKeys } from '@/lib/query-keys';
+import { invalidateTradingBalances } from '@/lib/trading/invalidate-trading-balances';
 // Backpack authenticated balance refresh disabled (display-only demo).
 // import { refreshBackpackMarginBalance } from '@/lib/stores/backpack-margin.store';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
@@ -167,12 +167,11 @@ export function useClosePosition(options: UseClosePositionOptions) {
         setClosingAssets((prev) => ({ ...prev, [key]: status }));
         activeCloses.current.delete(key);
 
+        if (anySuccess) {
+          void invalidateTradingBalances(queryClient, { evmAddress, solanaAddress });
+        }
+
         if (allSuccess) {
-          queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
-          void queryClient.invalidateQueries({
-            queryKey: queryKeys.balance.exchangeHlPac(evmAddress, solanaAddress),
-          });
-          // Backpack display-only: skip signed balance refresh.
           onSuccess?.();
         }
 

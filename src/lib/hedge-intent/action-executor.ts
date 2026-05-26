@@ -68,6 +68,7 @@ import { getSharedLighterAdapter, getSharedLighterService } from '@/lib/services
 import { LighterMarginMode } from '@/lib/services/lighter/utils/tx-constants';
 import { buildMirroredTpSlPlan } from './hedge-tpsl';
 import { hedgeUsesIsolatedMargin } from '@/lib/trading/margin-mode';
+import { runWithRetries } from '@/lib/trading/close-leg-retries';
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -663,7 +664,9 @@ export class HedgeActionExecutor {
         if (isApproved) {
           cachePacificaBuilder(account);
         } else {
-          console.log('[HedgeExecutor] NUKETRADE not in approvals — submitting builder approval...');
+          console.log(
+            '[HedgeExecutor] NUKETRADE not in approvals — user must sign Pacifica builder approval in wallet...'
+          );
           const approvalResult = await this.pacificaService.approveBuilderCode(
             account,
             context.organizationId
@@ -1300,16 +1303,26 @@ export class HedgeActionExecutor {
       const ex = normalizeHedgeExchange(exchange);
       this.phoenixAdapter.setEvmAddress(context.evmAddress);
 
-      const closeResult =
-        ex === 'hyperliquid'
-          ? await this.closeHLPositionAction(position.hyperliquid, asset, context)
-          : ex === 'pacifica'
-            ? await this.closePacificaPositionAction(position.pacifica, asset, context)
-            : ex === 'phoenix'
-              ? await this.closePhoenixPositionAction(position.phoenix ?? null, asset, context)
-              : ex === 'lighter'
-                ? await this.closeLighterPositionAction(position.lighter ?? null, asset, context)
-                : await this.closeBackpackPositionAction(position.backpack ?? null, asset);
+      const runClose = async (): Promise<ActionResult> => {
+        if (ex === 'hyperliquid') {
+          return this.closeHLPositionAction(position.hyperliquid, asset, context);
+        }
+        if (ex === 'pacifica') {
+          return this.closePacificaPositionAction(position.pacifica, asset, context);
+        }
+        if (ex === 'phoenix') {
+          return this.closePhoenixPositionAction(position.phoenix ?? null, asset, context);
+        }
+        if (ex === 'lighter') {
+          return this.closeLighterPositionAction(position.lighter ?? null, asset, context);
+        }
+        return this.closeBackpackPositionAction(position.backpack ?? null, asset);
+      };
+
+      const closeResult = await runWithRetries(runClose, (r) => r.success, {
+        maxRetries: 3,
+        delayMs: 1500,
+      });
 
       if (closeResult.success) {
         trackPositionClosed(asset);

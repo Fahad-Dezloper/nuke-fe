@@ -206,10 +206,19 @@ export type ExecutionPhase =
   | 'creating'
   | 'bridging'
   | 'depositing'
+  | 'pacifica_access'
   | 'opening'
   | 'closing'
   | 'complete'
-  | 'failed';
+  | 'failed'
+  | 'safety_failed';
+
+/** Set when safety-mode close fails but a leg remains open */
+export interface SafetyExposureInfo {
+  asset: string;
+  exchange: Exchange;
+  message: string;
+}
 
 /** LocalStorage key for active hedge intent */
 export const ACTIVE_HEDGE_INTENT_KEY = 'active_hedge_intent_id';

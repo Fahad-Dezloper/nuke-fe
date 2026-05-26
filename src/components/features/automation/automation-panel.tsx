@@ -838,8 +838,8 @@ export function AutomationPanel() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="h-full overflow-y-auto overflow-x-hidden">
-        <div className="mx-auto max-w-6xl px-3 md:px-5 py-6 md:py-8 font-mono text-sm">
+      <div className="scroll-touch h-full overflow-x-hidden overflow-y-auto">
+        <div className="mx-auto max-w-6xl px-3 py-5 font-mono text-sm sm:px-4 md:px-5 md:py-8">
           <header className="mb-8 border-b border-border-white-10 pb-4">
             <h1 className="text-lg md:text-xl font-semibold tracking-tight text-text-primary">
               AUTOMATION

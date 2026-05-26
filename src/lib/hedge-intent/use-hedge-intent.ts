@@ -22,7 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { marginAtom } from '@/components/features/position-controls/store';
 import { useTurnkey } from '@/lib/turnkey/hooks';
-import { getWalletContext } from '@/lib/wallet-context';
+import { getWalletContext, tryGetWalletContext } from '@/lib/wallet-context';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
 import {
@@ -32,7 +32,6 @@ import {
 } from '@/lib/stores/arbitrage-table-filters.store';
 import { marketFeedDataAtom } from '@/lib/stores/market-feed.store';
 import { getBestPair } from '@/hooks/use-best-pair';
-import { queryKeys } from '@/lib/query-keys';
 import { isPhoenixTradingEnabled } from '@/lib/phoenix/env';
 // Backpack authenticated balance refresh disabled (display-only demo).
 // import { refreshBackpackMarginBalance } from '@/lib/stores/backpack-margin.store';
@@ -47,7 +46,9 @@ import type {
   ExchangeName,
   HedgePair,
   ExecutionPhase,
+  SafetyExposureInfo,
 } from './types';
+import { invalidateTradingBalances } from '@/lib/trading/invalidate-trading-balances';
 import { ACTIVE_HEDGE_INTENT_KEY, ACTIVE_HEDGE_PAIR_KEY } from './types';
 
 // ─── LocalStorage helpers ────────────────────────────────────────────────────
@@ -161,6 +162,9 @@ export interface UseHedgeIntentReturn {
   /** Error message (null if no error) */
   error: string | null;
 
+  /** Partial open + failed safety close — manual close required */
+  safetyExposure: SafetyExposureInfo | null;
+
   /** Refresh the intent detail from the backend */
   refreshDetail: () => Promise<void>;
 }
@@ -194,6 +198,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
   const [detail, setDetail] = useState<HedgeIntentDetail | null>(null);
   const [intentId, setIntentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [safetyExposure, setSafetyExposure] = useState<SafetyExposureInfo | null>(null);
 
   // ── Refs ────────────────────────────────────────────────────
   const engineRef = useRef<HedgeIntentEngine | null>(null);
@@ -239,6 +244,15 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
       onActionStart: (action, leg) => {
         setCurrentAction(action);
         setCurrentLeg(leg);
+        const pair = hedgePairRef.current;
+        const pacificaLeg =
+          pair &&
+          (pair.long === 'pacifica' || pair.short === 'pacifica') &&
+          (action === 'DEPOSIT_TO_PACIFICA' || action === 'OPEN_HEDGE_POSITION');
+        if (pacificaLeg) {
+          setPhase('pacifica_access');
+          setStatusMessage('Confirm Pacifica builder approval in your wallet if prompted...');
+        }
       },
 
       onActionComplete: (action, success) => {
@@ -252,21 +266,46 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
       },
 
       onStatusChange: (phaseStr, detailMsg) => {
-        setPhase(phaseStr as ExecutionPhase);
+        let nextPhase = phaseStr as ExecutionPhase;
+        const msg = detailMsg ?? '';
+        if (
+          msg.toLowerCase().includes('pacifica builder') ||
+          msg.toLowerCase().includes('builder approval') ||
+          msg.toLowerCase().includes('builder access')
+        ) {
+          nextPhase = 'pacifica_access';
+        }
+        setPhase(nextPhase);
         if (detailMsg) setStatusMessage(detailMsg);
+      },
+
+      onSafetyExposure: (info) => {
+        setSafetyExposure({
+          asset: info.asset,
+          exchange: info.exchange as Exchange,
+          message: info.message,
+        });
+        setPhase('safety_failed');
       },
 
       onError: (errorMsg) => {
         setError(errorMsg);
-        setPhase('failed');
         setIsExecuting(false);
         isRunningRef.current = false;
         setCurrentAction(null);
         setCurrentLeg(null);
         clearActiveIntentId();
-        toast.error('Hedge Failed', {
-          description: errorMsg || 'An unexpected error occurred.',
-          duration: 8000,
+        const wallet = tryGetWalletContext(turnkeyState);
+        if (wallet) {
+          void invalidateTradingBalances(queryClient, wallet);
+        }
+        setPhase((prev) => {
+          const isSafety = prev === 'safety_failed';
+          toast.error(isSafety ? 'Safety Close Failed' : 'Hedge Failed', {
+            description: errorMsg || 'An unexpected error occurred.',
+            duration: 10000,
+          });
+          return isSafety ? 'safety_failed' : 'failed';
         });
       },
 
@@ -275,13 +314,9 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         if (finalStatus === 'ACTIVE') {
           setPhase('complete');
           setStatusMessage('Hedge is live!');
-          // Refresh the positions table so the new hedge appears immediately
-          queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+          setSafetyExposure(null);
           const wallet = getWalletContext(turnkeyState);
-          void queryClient.invalidateQueries({
-            queryKey: queryKeys.balance.exchangeHlPac(wallet.evmAddress, wallet.solanaAddress),
-          });
-          // Backpack display-only: skip signed balance refresh.
+          void invalidateTradingBalances(queryClient, wallet);
 
           toast.success('Hedge Position Live', {
             description: 'Delta-neutral hedge is live on both legs.',
@@ -380,7 +415,13 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
   // ── Public: Open a new hedge ───────────────────────────────
   const openHedge = useCallback(
     async (params: OpenHedgeParams) => {
+      if (isRunningRef.current) {
+        toast.message('Hedge execution already in progress');
+        return;
+      }
+
       setError(null);
+      setSafetyExposure(null);
       setPhase('creating');
       setStatusMessage('Creating hedge intent...');
       setIsExecuting(true);
@@ -520,6 +561,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
     detail,
     intentId,
     error,
+    safetyExposure,
     refreshDetail,
   };
 }

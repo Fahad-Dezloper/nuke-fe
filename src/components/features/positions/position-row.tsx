@@ -7,12 +7,14 @@
  */
 
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import type { ArbitragePosition, ProtocolDataMap, ProtocolPositionData } from '@/types/positions';
 import { getProtocolConfig } from '@/lib/protocols/config';
 import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
+import { useNavigateToAssetPair } from '@/hooks/use-navigate-to-asset-pair';
 
 interface PositionRowProps {
   position: ArbitragePosition;
@@ -25,18 +27,18 @@ interface PositionRowProps {
  */
 function ProtocolTooltip({
   isVisible,
-  position: tooltipPosition,
+  anchorRect,
   title,
   data,
   field,
 }: {
   isVisible: boolean;
-  position?: { x: number; y: number };
+  anchorRect?: DOMRect | null;
   title: string;
   data: ProtocolDataMap;
   field: 'size' | 'pnl' | 'funding' | 'margin';
 }) {
-  if (!isVisible) return null;
+  if (!isVisible || !anchorRect || typeof document === 'undefined') return null;
 
   // Get all protocols with data
   const protocolsWithData = Object.entries(data)
@@ -71,32 +73,33 @@ function ProtocolTooltip({
     }
   };
 
-  return (
+  const left = anchorRect.left + anchorRect.width / 2;
+  const top = anchorRect.bottom + 8;
+
+  return createPortal(
     <div
       className={cn(
-        'absolute z-50 pointer-events-none',
-        'bg-card/95 backdrop-blur-md border border-border-white-20/50',
-        'rounded-lg shadow-2xl shadow-black/50',
-        'px-3 py-2 min-w-[180px]',
-        'animate-in fade-in-0 zoom-in-95 duration-200'
+        'fixed z-[200] pointer-events-none -translate-x-1/2',
+        'bg-[#141418] border border-white/15',
+        'rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.85)]',
+        'px-3 py-2.5 min-w-[200px]'
       )}
-      style={{
-        left: `${tooltipPosition?.x ?? 0}px`,
-        top: `${tooltipPosition?.y ?? 0}px`,
-      }}
+      style={{ left, top }}
+      role="tooltip"
     >
       <div className="text-xs font-semibold text-text-primary mb-1.5">{title}</div>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         {protocolsWithData.map(({ protocolId, displayName, data }) => (
-          <div key={protocolId} className="flex items-center justify-between gap-3">
-            <span className="text-[10px] text-text-muted-60">{displayName}:</span>
+          <div key={protocolId} className="flex items-center justify-between gap-4">
+            <span className="text-[10px] text-text-muted-60">{displayName}</span>
             <span className="text-[10px] font-medium text-text-primary tabular-nums">
               {getFieldValue(data, field)}
             </span>
           </div>
         ))}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -186,13 +189,11 @@ function ProtocolBadge({
 
 export function PositionRow({ position, onClose }: PositionRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
+  const navigateToAssetPair = useNavigateToAssetPair();
   const [hoveredField, setHoveredField] = useState<
     'size' | 'margin' | 'pricePnl' | 'fundingPnl' | null
   >(null);
-  const [tooltipPosition, setTooltipPosition] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [tooltipAnchor, setTooltipAnchor] = useState<DOMRect | null>(null);
 
   const isTotalPnlPositive =
     position.totalPnl.startsWith('+') || parseFloat(position.totalPnl.replace(/[^0-9.-]/g, '')) > 0;
@@ -207,31 +208,46 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
     event: React.MouseEvent<HTMLDivElement>
   ) => {
     if (!position.protocolData) return;
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const rowRect = rowRef.current?.getBoundingClientRect();
-    if (!rowRect) return;
-
-    // Position tooltip below the hovered element, centered horizontally
-    // Account for scroll position
-    setTooltipPosition({
-      x: rect.left - rowRect.left + rect.width / 2 - 90, // Center tooltip (tooltip width ~180px)
-      y: rect.bottom - rowRect.top + 5,
-    });
+    setTooltipAnchor(event.currentTarget.getBoundingClientRect());
     setHoveredField(field);
   };
 
   const handleMouseLeave = () => {
     setHoveredField(null);
-    setTooltipPosition(null);
+    setTooltipAnchor(null);
+  };
+
+  const handleRowClick = () => {
+    navigateToAssetPair(
+      position.asset,
+      position.long.platform,
+      position.short.platform
+    );
+  };
+
+  const handleRowKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleRowClick();
+    }
   };
 
   return (
     <div
       ref={rowRef}
-      className="relative border-b border-border-white-10/30 last:border-0 border-l-2 border-l-transparent hover:border-l-accent/50 hover:bg-card/20 hover:backdrop-blur-sm transition-all duration-200 group"
+      role="button"
+      tabIndex={0}
+      onClick={handleRowClick}
+      onKeyDown={handleRowKeyDown}
+      className={cn(
+        'relative border-b border-white/[0.08] last:border-b-0',
+        'border-l-2 border-l-transparent',
+        'cursor-pointer transition-colors duration-150',
+        'hover:border-l-accent/60 hover:bg-white/[0.04]',
+        'focus-visible:outline-none focus-visible:border-l-accent focus-visible:bg-white/[0.05]'
+      )}
     >
-      <div className="px-4 md:px-6 py-2.5">
+      <div className="px-4 md:px-6 py-3">
         <div className="grid grid-cols-[minmax(80px,0.8fr)_minmax(140px,1.2fr)_minmax(65px,0.7fr)_minmax(80px,0.8fr)_minmax(80px,0.9fr)_minmax(90px,1fr)_minmax(80px,0.8fr)_minmax(140px,1.4fr)_36px] gap-2 lg:gap-3 items-center max-w-full">
           {/* ASSET */}
           <div className="flex items-center gap-2">
@@ -383,8 +399,13 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           {/* CLOSE BUTTON */}
           <div className="flex items-center justify-end">
             <button
-              onClick={() => onClose?.(`${position.asset}-${position.leverage}`)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose?.(`${position.asset}-${position.leverage}`);
+              }}
               className="p-1 rounded-md cursor-pointer text-text-muted-60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200"
+              aria-label={`Close ${position.asset} position`}
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -398,7 +419,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           {hoveredField === 'size' && (
             <ProtocolTooltip
               isVisible={true}
-              position={tooltipPosition || undefined}
+              anchorRect={tooltipAnchor}
               title="Position Size"
               data={position.protocolData}
               field="size"
@@ -407,7 +428,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           {hoveredField === 'margin' && (
             <ProtocolTooltip
               isVisible={true}
-              position={tooltipPosition || undefined}
+              anchorRect={tooltipAnchor}
               title="Margin"
               data={position.protocolData}
               field="margin"
@@ -416,7 +437,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           {hoveredField === 'pricePnl' && (
             <ProtocolTooltip
               isVisible={true}
-              position={tooltipPosition || undefined}
+              anchorRect={tooltipAnchor}
               title="Price PNL"
               data={position.protocolData}
               field="pnl"
@@ -425,7 +446,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           {hoveredField === 'fundingPnl' && (
             <ProtocolTooltip
               isVisible={true}
-              position={tooltipPosition || undefined}
+              anchorRect={tooltipAnchor}
               title="Funding PNL"
               data={position.protocolData}
               field="funding"

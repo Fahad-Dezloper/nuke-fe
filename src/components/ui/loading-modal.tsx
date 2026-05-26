@@ -102,14 +102,14 @@ export function LoadingModal({ isOpen, type }: LoadingModalProps) {
       >
         <div
           className={cn(
-            'relative overflow-hidden rounded-xl',
+            'relative overflow-hidden rounded-md',
             'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
             'backdrop-blur-lg border border-border-white-15/60',
             'p-6'
           )}
         >
           {/* Glassmorphism overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
 
           <div className="relative z-10">
             {/* Steps */}

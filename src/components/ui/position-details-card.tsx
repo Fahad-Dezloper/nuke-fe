@@ -39,7 +39,7 @@ export function PositionDetailsCard({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 p-4 rounded-xl border border-border-white-10/50',
+        'flex flex-col gap-3 p-4 rounded-md border border-border-white-10/50',
         'backdrop-blur-md bg-gradient-to-br',
         'shadow-lg shadow-black/20',
         gradientClass,

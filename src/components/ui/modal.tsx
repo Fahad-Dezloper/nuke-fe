@@ -111,7 +111,7 @@ export function Modal({
               'relative w-full z-10',
               'bg-gradient-to-br from-card/90 via-card/85 to-card/80',
               'backdrop-blur-xl border border-border-white-20/60',
-              'rounded-2xl shadow-2xl shadow-black/60',
+              'rounded-lg shadow-2xl shadow-black/60',
               'overflow-hidden',
               maxWidthClasses[maxWidth],
               className

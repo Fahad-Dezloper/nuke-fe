@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/chart';
 import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
 import type { Protocol } from '@/hooks/use-best-pair';
+import { cn } from '@/lib/utils';
 
 const NOTIONAL_SIZE = 10000; // $10,000 assumed position size
 
@@ -46,6 +47,7 @@ interface PnLChartProps {
   fundingData: ChartDataPoint[];
   /** Duration view */
   duration: PnLDuration;
+  chartClassName?: string;
 }
 
 // --- Helpers ---
@@ -223,7 +225,11 @@ function PnLTooltip({ active, payload }: { active?: boolean; payload?: Array<{ p
 
 // --- Chart Component ---
 
-export function PnLChart({ fundingData, duration }: PnLChartProps) {
+export function PnLChart({
+  fundingData,
+  duration,
+  chartClassName = 'h-[260px]',
+}: PnLChartProps) {
   const data = useMemo(
     () => computePnLBars(fundingData, duration),
     [fundingData, duration]
@@ -242,7 +248,9 @@ export function PnLChart({ fundingData, duration }: PnLChartProps) {
 
   if (!data.length) {
     return (
-      <div className="h-[260px] flex items-center justify-center text-text-muted-60 text-xs">
+      <div
+        className={cn(chartClassName, 'flex items-center justify-center text-text-muted-60 text-xs')}
+      >
         No data available for PnL chart
       </div>
     );
@@ -252,7 +260,10 @@ export function PnLChart({ fundingData, duration }: PnLChartProps) {
     <div>
       <ChartContainer
         config={chartConfig}
-        className="h-[260px] w-full [&_.recharts-surface]:outline-none [&_.recharts-wrapper]:outline-none focus:outline-none"
+        className={cn(
+          chartClassName,
+          'w-full [&_.recharts-surface]:outline-none [&_.recharts-wrapper]:outline-none focus:outline-none'
+        )}
       >
         <BarChart
           data={data}

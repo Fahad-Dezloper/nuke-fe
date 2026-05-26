@@ -305,7 +305,7 @@ export function AddMarginModal({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
-            className="mb-4 flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.03]"
+            className="mb-4 flex items-center justify-between px-4 py-3 rounded-md bg-white/[0.03]"
           >
             <span className="text-xs text-text-muted-60">Current Margin</span>
             <span className="text-sm font-semibold text-text-primary tabular-nums">
@@ -328,14 +328,14 @@ export function AddMarginModal({
             </div>
             <div
               className={cn(
-                'relative overflow-hidden rounded-xl',
+                'relative overflow-hidden rounded-md',
                 'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
                 'backdrop-blur-lg border',
                 inputError ? 'border-red-500/40' : 'border-border-white-15/60',
                 'p-3.5'
               )}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
               <div className="relative z-10 flex items-center gap-3">
                 <span className="text-sm text-text-muted-60">$</span>
                 <input
@@ -423,7 +423,7 @@ export function AddMarginModal({
               onClick={handleSubmit}
               disabled={isSubmitDisabled}
               className={cn(
-                'w-full py-3 rounded-xl text-sm font-semibold tracking-wide',
+                'w-full py-3 rounded-md text-sm font-semibold tracking-wide',
                 'transition-all duration-200',
                 isSubmitDisabled
                   ? 'bg-white/5 text-text-muted-60/40 cursor-not-allowed border border-border-white-10/30'
@@ -448,13 +448,13 @@ export function AddMarginModal({
           >
             <div
               className={cn(
-                'relative overflow-hidden rounded-xl',
+                'relative overflow-hidden rounded-md',
                 'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
                 'backdrop-blur-lg border border-border-white-15/60',
                 'p-5'
               )}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
 
               <div className="relative z-10 space-y-3">
                 {progressSteps.map((pStep, i) => {
@@ -530,7 +530,7 @@ export function AddMarginModal({
                     onReset();
                   }}
                   className={cn(
-                    'flex-1 py-3 rounded-xl text-sm font-semibold tracking-wide',
+                    'flex-1 py-3 rounded-md text-sm font-semibold tracking-wide',
                     'bg-white/5 text-text-primary border border-border-white-10/50',
                     'hover:bg-white/10 transition-colors duration-200'
                   )}
@@ -541,7 +541,7 @@ export function AddMarginModal({
               <button
                 onClick={handleDone}
                 className={cn(
-                  'flex-1 py-3 rounded-xl text-sm font-semibold tracking-wide',
+                  'flex-1 py-3 rounded-md text-sm font-semibold tracking-wide',
                   'transition-all duration-200',
                   isSuccess
                     ? 'bg-gradient-to-r from-green-600/80 to-green-500/60 text-white border border-green-500/30'

@@ -85,7 +85,7 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <label className="text-xs text-text-muted-60 uppercase tracking-wide">TRADE DETAILS</label>
-      <div className="bg-gradient-to-br from-card/60 via-card/40 to-card/30 border border-border-white-10/50 rounded-xl overflow-hidden backdrop-blur-md shadow-lg shadow-black/20">
+      <div className="bg-gradient-to-br from-card/60 via-card/40 to-card/30 border border-border-white-10/50 rounded-md overflow-hidden backdrop-blur-md shadow-lg shadow-black/20">
         {/* Basic Info - Always Visible */}
         <div className="px-3 py-2.5 space-y-0">
           <TradeDetailRow label="Position Size" value={tradeDetails.positionSize} />

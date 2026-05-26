@@ -12,7 +12,7 @@ import { AlertTriangle } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { leverageAtom } from './store';
+import { leverageAtom, marginAtom, marginValidationAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 
 interface LeverageSectionProps {
@@ -21,7 +21,14 @@ interface LeverageSectionProps {
 
 export function LeverageSection({ className }: LeverageSectionProps) {
   const [leverage, setLeverage] = useAtom(leverageAtom);
+  const [margin] = useAtom(marginAtom);
+  const marginValidation = useAtomValue(marginValidationAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
+  const marginNum = parseFloat(margin);
+  const needsHigherLeverage =
+    Number.isFinite(marginNum) &&
+    marginNum > 0 &&
+    leverage < marginValidation.minLeverageRequired;
 
   // Get max leverage from selected asset, default to 5 if not available
   const maxLeverage = selectedAsset?.maxLeverage || 5;
@@ -90,13 +97,30 @@ export function LeverageSection({ className }: LeverageSectionProps) {
             max={maxLeverage}
             value={currentLeverage}
             onChange={handleInputChange}
-            className="w-12 h-8 bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-xl text-text-primary text-sm text-center p-0 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20"
+            className="w-12 h-8 bg-card/40 backdrop-blur-sm border-border-white-10/50 rounded-md text-text-primary text-sm text-center p-0 shadow-md shadow-black/10 focus:bg-card/60 focus:border-border-white-20"
           />
           <span className="text-sm text-text-muted-60">x</span>
         </div>
       </div>
 
       <AnimatePresence>
+        {needsHigherLeverage && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20"
+          >
+            <p className="text-[11px] text-red-300/90 leading-relaxed">
+              Each venue needs at least $10 position size. Use{' '}
+              <span className="font-semibold text-red-200">
+                {marginValidation.minLeverageRequired}x
+              </span>{' '}
+              leverage or more for ${marginNum.toFixed(2)} margin.
+            </p>
+          </motion.div>
+        )}
         {currentLeverage >= 10 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}

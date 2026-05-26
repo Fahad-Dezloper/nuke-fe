@@ -34,6 +34,7 @@ export type {
   ClosePositionActionParams,
   StepStatus,
   ExecutionPhase,
+  SafetyExposureInfo,
 } from './types';
 export { ACTIVE_HEDGE_INTENT_KEY, ACTIVE_HEDGE_PAIR_KEY } from './types';
 

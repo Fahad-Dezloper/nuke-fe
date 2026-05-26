@@ -72,8 +72,8 @@ export function PortfolioContent() {
   );
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
-      <div className="mx-auto flex min-h-full w-[85%] max-w-390 flex-col gap-12  py-8">
+    <div className="scroll-touch h-full overflow-y-auto bg-background">
+      <div className="mx-auto flex min-h-full w-full max-w-390 flex-col gap-8 px-3 py-6 sm:gap-10 sm:px-4 sm:py-8 md:w-[92%] lg:w-[85%] lg:gap-12">
         <section className="space-y-5">
           <SectionTitle>Performance</SectionTitle>
           <div className="grid items-start gap-8 lg:grid-cols-[340px_minmax(0,860px)]">

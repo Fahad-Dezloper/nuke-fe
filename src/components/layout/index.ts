@@ -8,3 +8,5 @@ export { NavbarLogo } from './navbar-logo';
 export { NavbarActions } from './navbar-actions';
 export { NavbarTabs, type NavTabItem } from './navbar-tabs';
 export { Footer } from './footer';
+export { BottomNav } from './bottom-nav';
+export { AppShell } from './app-shell';

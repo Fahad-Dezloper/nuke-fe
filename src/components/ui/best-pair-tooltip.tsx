@@ -38,7 +38,7 @@ export function BestPairTooltip({ asset, isVisible, position }: BestPairTooltipP
       className={cn(
         'absolute z-10002 pointer-events-none',
         'bg-card/60 backdrop-blur-md border border-border-white-20/50',
-        'rounded-xl shadow-2xl shadow-black/50',
+        'rounded-md shadow-2xl shadow-black/50',
         'px-4 py-3 min-w-[240px]',
         'animate-in fade-in-0 zoom-in-95 duration-200'
       )}

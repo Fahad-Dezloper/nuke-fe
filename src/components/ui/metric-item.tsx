@@ -15,7 +15,8 @@ export function MetricItem({ label, children, className }: MetricItemProps) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-1.5 border-l-[0.5px] border-l-border-white-10 pl-8 py-4 w-[180px] relative group',
+        'group relative flex w-full flex-col gap-1 rounded-md border border-border-white-10 bg-section-surface/50 px-3 py-2.5',
+        'lg:w-[180px] lg:rounded-none lg:border-0 lg:border-l lg:border-l-border-white-10 lg:bg-transparent lg:py-4 lg:pl-8',
         className
       )}
     >

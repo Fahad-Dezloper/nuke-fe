@@ -62,7 +62,7 @@ export function ArbitragePairSelector({ className }: ArbitragePairSelectorProps)
     return (
       <div className={cn('flex flex-col gap-2', className)}>
         <label className="text-xs text-text-muted-60 uppercase tracking-wide">ARBITRAGE PAIR</label>
-        <div className="text-sm text-text-muted-60 p-3 rounded-xl bg-card/40 border border-border-white-10/50">
+        <div className="text-sm text-text-muted-60 p-3 rounded-md bg-card/40 border border-border-white-10/50">
           No arbitrage pairs available for {selectedAsset}
         </div>
       </div>
@@ -79,7 +79,7 @@ export function ArbitragePairSelector({ className }: ArbitragePairSelectorProps)
           className={cn(
             'w-full flex items-center justify-between px-4 py-3',
             'bg-card/40 backdrop-blur-sm border border-border-white-10/50',
-            'rounded-xl text-text-primary text-sm',
+            'rounded-md text-text-primary text-sm',
             'hover:bg-card/60 focus:outline-none focus:ring-2 focus:ring-accent/50',
             'transition-colors shadow-md shadow-black/10'
           )}
@@ -105,7 +105,7 @@ export function ArbitragePairSelector({ className }: ArbitragePairSelectorProps)
         </button>
 
         {isOpen && (
-          <div className="absolute z-50 w-full mt-2 bg-card/95 backdrop-blur-md border border-border-white-10/50 rounded-xl shadow-lg shadow-black/20 overflow-hidden">
+          <div className="absolute z-50 w-full mt-2 bg-card/95 backdrop-blur-md border border-border-white-10/50 rounded-md shadow-lg shadow-black/20 overflow-hidden">
             <div className="max-h-60 overflow-y-auto">
               {availablePairs.map((pair) => (
                 <button

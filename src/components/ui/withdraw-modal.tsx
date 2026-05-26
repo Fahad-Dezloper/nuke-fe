@@ -189,7 +189,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className={cn(
-                        'flex-1 relative overflow-hidden rounded-xl cursor-pointer',
+                        'flex-1 relative overflow-hidden rounded-md cursor-pointer',
                         'backdrop-blur-lg p-3',
                         'transition-all duration-200',
                         'disabled:opacity-50 disabled:cursor-not-allowed',
@@ -198,7 +198,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                           : 'bg-gradient-to-br from-card/80 via-card/70 to-card/65 border border-border-white-15/60 hover:border-border-white-30'
                       )}
                     >
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
                       <div className="relative z-10 flex items-center justify-center gap-2">
                         {config && (
                           <Image
@@ -229,7 +229,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="mb-4 flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.03]"
+              className="mb-4 flex items-center justify-between px-4 py-3 rounded-md bg-white/[0.03]"
             >
               <span className="text-xs text-text-muted-60">Available Balance</span>
               <span className="text-sm font-semibold text-text-primary tabular-nums">
@@ -249,13 +249,13 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
               </label>
               <div
                 className={cn(
-                  'relative overflow-hidden rounded-xl',
+                  'relative overflow-hidden rounded-md',
                   'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
                   'backdrop-blur-lg border border-border-white-15/60',
                   'p-3.5 flex items-center gap-3'
                 )}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+                <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
                 <span className="relative z-10 text-sm text-text-muted-60">$</span>
                 <input
                   type="number"
@@ -316,7 +316,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                 onClick={handleWithdraw}
                 disabled={!isValidAmount || isExecuting || !turnkeyState.isLoggedIn}
                 className={cn(
-                  'w-full py-3 rounded-xl text-sm font-semibold tracking-wide',
+                  'w-full py-3 rounded-md text-sm font-semibold tracking-wide',
                   'transition-all duration-200',
                   !isValidAmount || isExecuting || !turnkeyState.isLoggedIn
                     ? 'bg-white/5 text-text-muted-60/40 cursor-not-allowed border border-border-white-10/30'
@@ -356,7 +356,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                   <div
                     key={step.key}
                     className={cn(
-                      'relative overflow-hidden rounded-xl',
+                      'relative overflow-hidden rounded-md',
                       'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
                       'backdrop-blur-lg border',
                       state === 'done' && 'border-green-500/30',
@@ -366,7 +366,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                       'p-3.5 transition-colors duration-300'
                     )}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
                     <div className="relative z-10 flex items-center gap-3">
                       <div
                         className={cn(
@@ -418,7 +418,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                 >
                   <div
                     className={cn(
-                      'flex items-center justify-center gap-2 py-2.5 rounded-xl',
+                      'flex items-center justify-center gap-2 py-2.5 rounded-md',
                       'bg-accent/10 border border-accent/20 text-accent'
                     )}
                   >
@@ -442,14 +442,14 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className={cn(
-                    'w-full relative overflow-hidden rounded-xl cursor-pointer',
+                    'w-full relative overflow-hidden rounded-md cursor-pointer',
                     'bg-green-500/15 border border-green-500/30',
                     'py-2.5 text-xs font-semibold text-green-400',
                     'hover:bg-green-500/25 hover:border-green-500/50',
                     'transition-colors duration-200'
                   )}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-md" />
                   <span className="relative z-10 flex items-center justify-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Done

@@ -38,8 +38,10 @@ export const selectedAssetAtom = atom(
 
     // Find the asset in the latest market feed data
     // This ensures we always get the most up-to-date data from polling
-    const asset = marketFeedData.find((a) => a.asset === selectedSymbol);
-    return asset || marketFeedData[0]; // Fallback to first if not found
+    const asset = marketFeedData.find(
+      (a) => a.asset.toUpperCase() === selectedSymbol.toUpperCase()
+    );
+    return asset ?? null;
   },
   (get, set, newAsset: AssetDropdownItem | null) => {
     // When setting, store the symbol

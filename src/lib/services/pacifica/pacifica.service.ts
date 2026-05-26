@@ -19,6 +19,45 @@ import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 
 /** Pacifica returns 400 when the wallet already has a referral code on file. */
+/** Per-symbol margin row from GET /account/settings (`data.margin_settings`). */
+export interface PacificaMarginSetting {
+  symbol: string;
+  isolated: boolean;
+  leverage: number;
+}
+
+function normalizeMarginSettingRow(row: unknown): PacificaMarginSetting | null {
+  if (!row || typeof row !== 'object') return null;
+  const r = row as Record<string, unknown>;
+  const symbol = typeof r.symbol === 'string' ? r.symbol.trim() : '';
+  if (!symbol) return null;
+  const lev = Number(r.leverage);
+  return {
+    symbol,
+    isolated: Boolean(r.isolated),
+    leverage: Number.isFinite(lev) && lev > 0 ? lev : 0,
+  };
+}
+
+/**
+ * Pacifica returns `data: { margin_settings: [...], spot_settings: [...] }`, not a bare array.
+ * @see https://pacifica.gitbook.io/docs/api-documentation/api/rest-api/account/get-account-settings
+ */
+export function parsePacificaMarginSettings(raw: unknown): PacificaMarginSetting[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .map(normalizeMarginSettingRow)
+      .filter((r): r is PacificaMarginSetting => r != null);
+  }
+  if (typeof raw !== 'object') return [];
+  const marginSettings = (raw as Record<string, unknown>).margin_settings;
+  if (!Array.isArray(marginSettings)) return [];
+  return marginSettings
+    .map(normalizeMarginSettingRow)
+    .filter((r): r is PacificaMarginSetting => r != null);
+}
+
 function pacificaReferralAlreadyClaimed(body: unknown): boolean {
   if (!body || typeof body !== 'object') return false;
   const rec = body as Record<string, unknown>;
@@ -780,7 +819,7 @@ export class PacificaService {
    */
   async getAccountSettings(
     account: string
-  ): Promise<{ success: boolean; data?: Array<{ symbol: string; isolated: boolean; leverage: number }>; error?: string }> {
+  ): Promise<{ success: boolean; data?: PacificaMarginSetting[]; error?: string }> {
     try {
       if (!account) {
         throw createError(ErrorCode.WALLET_ADDRESS_REQUIRED);
@@ -810,7 +849,7 @@ export class PacificaService {
 
       return {
         success: true,
-        data: json.data || [],
+        data: parsePacificaMarginSettings(json.data),
       };
     } catch (error) {
       const appError = toAppError(error, ErrorCode.API_BAD_REQUEST);

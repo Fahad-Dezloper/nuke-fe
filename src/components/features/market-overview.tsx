@@ -69,9 +69,9 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
       <div className="absolute inset-0 bg-gradient-to-r from-[var(--chart-hyperliquid)]/5 via-transparent to-[var(--chart-pink)]/5 pointer-events-none" />
 
       <div className="mx-auto px-3 md:px-4 lg:px-5 py-0 relative z-10">
-        <div className="flex flex-wrap items-center gap-6 md:gap-8">
+        <div className="flex flex-col gap-3 py-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:py-0 xl:gap-8">
           {/* Asset Selector Dropdown */}
-          <div className="relative z-[10000]">
+          <div className="relative z-[10000] w-full shrink-0 sm:w-auto">
             <AssetDropdown
               selectedAsset={selectedAsset || undefined}
               onSelect={handleAssetSelect}
@@ -80,7 +80,7 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
 
           {/* Metrics Grid */}
           {selectedAsset ? (
-            <div className="flex flex-wrap items-center gap-6 md:gap-8 flex-1 ">
+            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:flex-1 lg:flex-wrap lg:items-center lg:gap-6 xl:gap-8">
               {/* Current Price */}
               <MetricItem label="CURRENT PRICE">
                 <AnimatedNumber
@@ -118,7 +118,7 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
               {/* Estimated APR (NET APR) */}
               <MetricItem label="EST. APR">
                 <div className="flex items-center gap-1.5">
-                  <div className="px-2 py-0.5 rounded-lg backdrop-blur-sm border shadow-sm bg-green-900/30 border-green-500/20">
+                  <div className="px-2 py-0.5 rounded-md backdrop-blur-sm border shadow-sm bg-green-900/30 border-green-500/20">
                     <span className="text-sm font-semibold tabular-nums text-green-400">
                       {formatPercentWithSign(estimatedAPR)}
                     </span>

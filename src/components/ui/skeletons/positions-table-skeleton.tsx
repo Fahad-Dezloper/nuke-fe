@@ -6,6 +6,7 @@
  * Displayed while positions are loading for the first time
  */
 
+import { DASHBOARD_SECTION_SHELL } from '@/components/features/trading-dashboard';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -57,7 +58,8 @@ export function PositionsTableSkeleton({ className, rows = 3 }: PositionsTableSk
   return (
     <div
       className={cn(
-        'border rounded-xl border-border-white-5 bg-background h-full flex flex-col overflow-hidden',
+        DASHBOARD_SECTION_SHELL,
+        'h-full flex flex-col overflow-hidden min-h-0',
         className
       )}
     >

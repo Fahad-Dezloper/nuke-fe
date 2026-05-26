@@ -67,7 +67,7 @@ export function ConnectWalletButton({
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         className={cn(
-          'relative overflow-hidden rounded-xl cursor-pointer',
+          'relative overflow-hidden rounded-md cursor-pointer',
           'bg-gradient-to-br from-card/60 via-card/50 to-card/40',
           'backdrop-blur-xl border border-border-white-10/50',
           'text-text-primary',
@@ -83,7 +83,7 @@ export function ConnectWalletButton({
         )}
       >
         {/* Glassmorphism overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-md" />
 
         {/* Button text */}
         <span className="relative z-10">{children || text || 'CONNECT WALLET'}</span>

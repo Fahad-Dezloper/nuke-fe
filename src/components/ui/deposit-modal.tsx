@@ -130,14 +130,14 @@ export function DepositModal({
       >
         <div
           className={cn(
-            'relative overflow-hidden rounded-xl',
+            'relative overflow-hidden rounded-md',
             'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
             'backdrop-blur-lg border border-border-white-15/60',
             'p-4'
           )}
         >
           {/* Glassmorphism overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
 
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -229,14 +229,14 @@ export function DepositModal({
         </div>
         <div
           className={cn(
-            'relative overflow-hidden rounded-xl',
+            'relative overflow-hidden rounded-md',
             'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
             'backdrop-blur-lg border border-border-white-15/60',
             'p-3.5 pr-11'
           )}
         >
           {/* Glassmorphism overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
 
           <div className="relative z-10">
             <p className="text-xs font-mono text-text-primary break-all leading-relaxed">

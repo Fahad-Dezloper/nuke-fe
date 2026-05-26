@@ -42,7 +42,7 @@ import {
 } from '@/lib/stores/market-feed.store';
 import { useBestPair } from '@/hooks/use-best-pair';
 import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
-import { useAssetQueryParam } from '@/lib/hooks/use-asset-query-param';
+import { useUpdateTradingUrl } from '@/lib/hooks/use-trading-url-params';
 import { BestPairTooltip } from './best-pair-tooltip';
 import type { SpreadAprMap } from '@/lib/api/services/apr.service';
 import Image from 'next/image';
@@ -255,7 +255,7 @@ export function AssetDropdown({
   const tableGrid = useMemo(() => tableGridStyle(selectedList.length), [selectedList.length]);
 
   // URL query param sync
-  const { updateUrlWithAsset } = useAssetQueryParam();
+  const updateTradingUrl = useUpdateTradingUrl();
 
   // Use prop if provided, otherwise use global state
   const selectedAsset = propSelectedAsset || globalSelectedAsset;
@@ -325,8 +325,10 @@ export function AssetDropdown({
       else delete next[asset.asset];
       return next;
     });
-    // Update URL query param
-    updateUrlWithAsset(asset.asset);
+    updateTradingUrl({
+      asset: asset.asset,
+      pair: overridePair ?? undefined,
+    });
     // Call prop callback if provided
     onSelect?.(asset);
     setIsOpen(false);
@@ -400,7 +402,7 @@ export function AssetDropdown({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex items-center gap-2 px-3 py-1.5 rounded-xl',
+          'flex items-center gap-2 px-3 py-1.5 rounded-md',
           'bg-card/40 backdrop-blur-sm border border-border-white-10/50',
           'shadow-md shadow-black/10 transition-all',
           'cursor-pointer group hover:bg-card/60 hover:border-border-white-20',
@@ -436,7 +438,7 @@ export function AssetDropdown({
             'absolute top-full left-0 mt-2 z-10002',
             'w-auto min-w-[1280px] max-w-[1580px] min-h-[500px] max-h-[600px] overflow-hidden',
             'bg-background/95 backdrop-blur-xl border border-border-white-20/50',
-            'rounded-2xl shadow-2xl shadow-black/60',
+            'rounded-lg shadow-2xl shadow-black/60',
             'ring-1 ring-white/10',
             'flex flex-col'
           )}
@@ -478,7 +480,7 @@ export function AssetDropdown({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search asset..."
                 className={cn(
-                  'w-full pl-10 pr-4 py-2.5 rounded-xl',
+                  'w-full pl-10 pr-4 py-2.5 rounded-md',
                   'bg-card/50 backdrop-blur-sm border border-border-white-10/50',
                   'text-sm text-text-primary placeholder:text-text-muted-40',
                   'shadow-sm shadow-black/10',

@@ -22,9 +22,7 @@ export function AssetPriceHeader({ className }: AssetPriceHeaderProps) {
   const selectedAsset = useAtomValue(selectedAssetAtom);
 
   const asset = selectedAsset?.asset || 'N/A';
-  const assetLogo = selectedAsset?.asset
-    ? hyperliquidCoinIconUrl(selectedAsset.asset)
-    : '';
+  const assetLogo = selectedAsset?.asset ? hyperliquidCoinIconUrl(selectedAsset.asset) : '';
   const currentPrice = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
 
   const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
@@ -37,7 +35,7 @@ export function AssetPriceHeader({ className }: AssetPriceHeaderProps) {
         'mx-4 mt-3 mb-4 px-4 py-3.5 relative',
         'bg-gradient-to-br from-card/60 via-card/40 to-card/30',
         'backdrop-blur-xl border border-border-white-10/50',
-        'rounded-xl shadow-2xl shadow-black/40',
+        'rounded-md shadow-2xl shadow-black/40',
         'hover:border-border-white-30 hover:shadow-black/50',
         'hover:backdrop-blur-2xl hover:from-card/70 hover:via-card/50 hover:to-card/40',
         'transition-all duration-300',
@@ -46,7 +44,7 @@ export function AssetPriceHeader({ className }: AssetPriceHeaderProps) {
       )}
     >
       {/* Glassmorphism overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-xl" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-md" />
 
       {/* Content */}
       <div className="relative z-10 flex items-center justify-between">

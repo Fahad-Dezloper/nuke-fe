@@ -6,6 +6,11 @@
 import { atom } from 'jotai';
 import type { ArbitragePair } from '@/lib/arbitrage';
 import { getBestPair, type Protocol } from '@/hooks/use-best-pair';
+import {
+  getMinLeverageForMargin,
+  isMinVenueNotionalMet,
+  minVenueNotionalError,
+} from '@/lib/trading/open-hedge-validation';
 import { selectedAssetAtom as marketSelectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
 import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
@@ -60,6 +65,8 @@ export interface MarginValidation {
   error: string | null;
   /** Maximum margin the user can enter given existing exchange balances */
   maxMargin: number;
+  /** Minimum leverage required for $10 notional per venue (when margin is set) */
+  minLeverageRequired: number;
 }
 
 function protocolLabel(p: Protocol): string {
@@ -80,6 +87,7 @@ function protocolLabel(p: Protocol): string {
  */
 export const marginValidationAtom = atom<MarginValidation>((get) => {
   const marginStr = get(marginAtom);
+  const leverage = get(leverageAtom);
   const asset = get(marketSelectedAssetAtom);
   const spreadAprData = get(spreadAprDataAtom);
   const overrides = get(bestPairOverrideAtom);
@@ -121,8 +129,21 @@ export const marginValidationAtom = atom<MarginValidation>((get) => {
 
   const marginValue = parseFloat(marginStr);
 
+  const minLeverageRequired = getMinLeverageForMargin(
+    !marginStr || isNaN(marginValue) || marginValue <= 0 ? 0 : marginValue
+  );
+
   if (!marginStr || isNaN(marginValue) || marginValue <= 0) {
-    return { isValid: false, error: null, maxMargin };
+    return { isValid: false, error: null, maxMargin, minLeverageRequired };
+  }
+
+  if (!isMinVenueNotionalMet(marginValue, leverage)) {
+    return {
+      isValid: false,
+      error: minVenueNotionalError(marginValue, leverage),
+      maxMargin,
+      minLeverageRequired,
+    };
   }
 
   const perSide = marginValue / 2;
@@ -133,6 +154,7 @@ export const marginValidationAtom = atom<MarginValidation>((get) => {
       isValid: false,
       error: `Insufficient ${protocolLabel(long)} margin. Add $${shortfall} via "Add Margin".`,
       maxMargin,
+      minLeverageRequired,
     };
   }
 
@@ -142,8 +164,9 @@ export const marginValidationAtom = atom<MarginValidation>((get) => {
       isValid: false,
       error: `Insufficient ${protocolLabel(short)} margin. Add $${shortfall} via "Add Margin".`,
       maxMargin,
+      minLeverageRequired,
     };
   }
 
-  return { isValid: true, error: null, maxMargin };
+  return { isValid: true, error: null, maxMargin, minLeverageRequired };
 });

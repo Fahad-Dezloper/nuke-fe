@@ -209,13 +209,13 @@ export function ConnectWalletModal({
         >
           <div
             className={cn(
-              'relative overflow-hidden rounded-xl',
+              'relative overflow-hidden rounded-md',
               'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
               'backdrop-blur-lg border border-border-white-15/60',
               'p-3.5 flex items-center gap-3'
             )}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
             <ShieldCheck className="relative z-10 w-4 h-4 text-text-muted-60 shrink-0" />
             <input
               type="text"
@@ -241,7 +241,7 @@ export function ConnectWalletModal({
             onClick={handleValidateCode}
             disabled={!accessCode.trim() || loading !== null}
             className={cn(
-              'w-full py-3 rounded-xl text-sm font-semibold tracking-wide cursor-pointer',
+              'w-full py-3 rounded-md text-sm font-semibold tracking-wide cursor-pointer',
               'transition-all duration-200',
               !accessCode.trim() || loading !== null
                 ? 'bg-white/5 text-text-muted-60/40 cursor-not-allowed border border-border-white-10/30'
@@ -271,7 +271,7 @@ export function ConnectWalletModal({
             animate={{ opacity: 1, x: 0 }}
             className={cn(
               'w-full relative overflow-hidden cursor-pointer',
-              'px-5 py-4 rounded-xl',
+              'px-5 py-4 rounded-md',
               'bg-gradient-to-br from-card/80 via-card/70 to-card/65',
               'backdrop-blur-lg border border-border-white-15/60',
               'hover:border-border-white-25',
@@ -282,7 +282,7 @@ export function ConnectWalletModal({
               optionsDisabled && 'opacity-50 cursor-not-allowed'
             )}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/8 via-white/3 to-transparent pointer-events-none rounded-md" />
             <motion.div
               className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/8 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
               initial={false}

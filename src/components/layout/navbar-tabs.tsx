@@ -9,13 +9,11 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { isNavActive, type NavItem } from '@/lib/navigation';
 
-export interface NavTabItem {
-  label: string;
-  href: string;
-  soon?: boolean;
+export type NavTabItem = Pick<NavItem, 'label' | 'href' | 'soon'> & {
   disabled?: boolean;
-}
+};
 
 interface NavbarTabsProps {
   items: NavTabItem[];
@@ -28,7 +26,7 @@ export function NavbarTabs({ items, className }: NavbarTabsProps) {
   return (
     <nav className={cn('hidden md:flex items-center gap-1', className)}>
       {items.map((item, index) => {
-        const isActive = pathname === item.href;
+        const isActive = isNavActive(pathname, item.href);
         return <NavTab key={item.href} item={item} isActive={isActive} index={index} />;
       })}
     </nav>

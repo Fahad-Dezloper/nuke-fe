@@ -6,6 +6,7 @@
  * Displayed while chart data loads for the first time
  */
 
+import { DASHBOARD_SECTION_SHELL } from '@/components/features/trading-dashboard';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -16,12 +17,7 @@ interface ChartSkeletonProps {
 export function ChartSkeleton({ className }: ChartSkeletonProps) {
   return (
     <div
-      className={cn(
-        'flex flex-col h-full bg-gradient-to-br from-background/80 via-card/40 to-background/80',
-        'border border-border-white-10/50 rounded-2xl py-4 mt-4',
-        'backdrop-blur-md shadow-xl shadow-black/30',
-        className
-      )}
+      className={cn(DASHBOARD_SECTION_SHELL, 'flex flex-col h-full py-4 mt-4 min-h-0', className)}
     >
       {/* Tab bar skeleton */}
       <div className="flex items-center gap-6 border-b border-border-white-10 px-3 md:px-4 lg:px-5 pb-3">
