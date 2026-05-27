@@ -560,14 +560,29 @@ export class PhoenixService {
         return { success: true, txSignature };
       }
 
-      let traderSubaccountIndex = DEFAULT_TRADER_SUBACCOUNT_INDEX;
+      const feePayerAddress = getPhoenixFeePayerAddress();
+
       if (useIsolatedMargin && reduceOnly) {
         const isolatedIdx = await this.findIsolatedSubaccountForAsset(solanaAuthority, symbol);
         if (isolatedIdx != null) {
-          traderSubaccountIndex = isolatedIdx;
+          const ixs = await fetchPhoenixIsolatedMarketOrderInstructions({
+            authority: solanaAuthority,
+            symbol: phxSymbol,
+            side: phoenixSide,
+            numBaseLots,
+            transferAmountMicros: BigInt(0),
+            isReduceOnly: true,
+            subaccountIndex: isolatedIdx,
+            feePayer: feePayerAddress,
+          });
+          const txSignature = await submitRiseInstructions(ixs, solanaAuthority, organizationId, {
+            feePayerAddress,
+          });
+          return { success: true, txSignature };
         }
       }
 
+      let traderSubaccountIndex = DEFAULT_TRADER_SUBACCOUNT_INDEX;
       const ix = await client.ixs.buildPlaceMarketOrder({
         authority: solanaAuthority as Authority,
         symbol: riseMarketSymbol(phxSymbol),
@@ -576,7 +591,6 @@ export class PhoenixService {
         traderSubaccountIndex,
       });
 
-      const feePayerAddress = getPhoenixFeePayerAddress();
       const txSignature = await submitRiseInstructions(
         [normalizeRiseInstruction(ix)],
         solanaAuthority,

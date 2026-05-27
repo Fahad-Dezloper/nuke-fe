@@ -4,6 +4,7 @@
  */
 
 import {
+  ComputeBudgetProgram,
   PublicKey,
   TransactionInstruction,
   TransactionMessage,
@@ -17,6 +18,23 @@ const SOLANA_RPC_URL =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
   process.env.SOLANA_RPC_URL ||
   'https://api.mainnet-beta.solana.com';
+
+/**
+ * Flight-wrapped Phoenix market orders (especially close + settle funding) often exceed
+ * the default 200k CU per-invocation cap. Raise the tx budget (max ~1.4M on mainnet).
+ */
+const PHOENIX_COMPUTE_UNIT_LIMIT = (() => {
+  const raw = process.env.NEXT_PUBLIC_PHOENIX_COMPUTE_UNIT_LIMIT?.trim();
+  const n = raw ? Number.parseInt(raw, 10) : 1_400_000;
+  return Number.isFinite(n) && n >= 200_000 ? n : 1_400_000;
+})();
+
+function prependComputeBudgetIxs(ixs: TransactionInstruction[]): TransactionInstruction[] {
+  return [
+    ComputeBudgetProgram.setComputeUnitLimit({ units: PHOENIX_COMPUTE_UNIT_LIMIT }),
+    ...ixs,
+  ];
+}
 
 /** @solana/kit AccountRole numeric values (readonly / writable / signer variants). */
 const READONLY = 0;
@@ -136,6 +154,18 @@ async function formatSendTransactionError(
     }
   }
 
+  if (
+    base.includes('exceeded CUs meter') ||
+    base.includes('Computational budget exceeded') ||
+    logs?.some((l) => l.includes('exceeded CUs meter'))
+  ) {
+    return (
+      'Phoenix transaction failed: compute unit limit exceeded (common on Flight-wrapped closes). ' +
+      `Retry, or set NEXT_PUBLIC_PHOENIX_COMPUTE_UNIT_LIMIT (current ${PHOENIX_COMPUTE_UNIT_LIMIT}). ` +
+      `Original: ${base}`
+    );
+  }
+
   if (logs?.length) {
     return `${base}\nLogs:\n${logs.join('\n')}`;
   }
@@ -168,7 +198,7 @@ export async function submitRiseInstructions(
   const feePayer = new PublicKey(feePayerAddress);
   const usesSponsor = sponsoredFeePayer != null && sponsoredFeePayer !== authorityAddress;
 
-  const ixs = instructions.map(riseIxToWeb3);
+  const ixs = prependComputeBudgetIxs(instructions.map(riseIxToWeb3));
   const blockhash = await connection.getLatestBlockhash('confirmed');
 
   const messageV0 = new TransactionMessage({
