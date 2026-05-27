@@ -22,14 +22,15 @@ export const NAV_ITEMS: NavItem[] = [
     shortLabel: 'Automation',
     href: '/automation',
     icon: Bot,
+    soon: true
   },
-  {
-    label: 'TRADE',
-    shortLabel: 'Trade',
-    href: '/trade',
-    soon: true,
-    icon: LineChart,
-  },
+  // {
+  //   label: 'TRADE',
+  //   shortLabel: 'Trade',
+  //   href: '/trade',
+  //   soon: true,
+  //   icon: LineChart,
+  // },
   {
     label: 'PORTFOLIO',
     shortLabel: 'Portfolio',
