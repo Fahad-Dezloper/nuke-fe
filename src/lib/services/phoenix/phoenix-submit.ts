@@ -1,5 +1,6 @@
 /**
  * Turnkey-sign and submit Rise `InstructionsWithAccountsAndData` on Solana (v0 message).
+ * Optional sponsored fee payer: user signs authority, server co-signs SOL fees.
  */
 
 import {
@@ -9,6 +10,8 @@ import {
   VersionedTransaction,
 } from '@solana/web3.js';
 import { signSolanaMessageWithTurnkey } from '@/lib/bridge/solana-utils';
+import { coSignPhoenixTransaction } from '@/lib/phoenix/co-sign-client';
+import { getPhoenixFeePayerAddress } from '@/lib/phoenix/env';
 
 const SOLANA_RPC_URL =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
@@ -35,6 +38,11 @@ export type RiseInstructionLike = {
   readonly programAddress: string;
   readonly accounts: ReadonlyArray<{ readonly address: string; readonly role: number }>;
   readonly data: Uint8Array;
+};
+
+export type SubmitRiseInstructionsOptions = {
+  /** Override env fee payer (defaults to NEXT_PUBLIC_PHOENIX_FEE_PAYER_ADDRESS). */
+  feePayerAddress?: string;
 };
 
 /**
@@ -71,13 +79,81 @@ function riseIxToWeb3(ix: RiseInstructionLike): TransactionInstruction {
   });
 }
 
+/** Convert a `@solana/web3.js` instruction (e.g. SPL ATA create) for Rise submit. */
+export function web3InstructionToRise(ix: TransactionInstruction): RiseInstructionLike {
+  return {
+    programAddress: ix.programId.toBase58(),
+    accounts: ix.keys.map((k) => ({
+      address: k.pubkey.toBase58(),
+      role:
+        k.isSigner && k.isWritable
+          ? WRITABLE_SIGNER
+          : k.isSigner
+            ? READONLY_SIGNER
+            : k.isWritable
+              ? WRITABLE
+              : READONLY,
+    })),
+    data: new Uint8Array(ix.data),
+  };
+}
+
+function instructionSetNeedsAuthoritySignature(
+  ixs: TransactionInstruction[],
+  authority: PublicKey
+): boolean {
+  return ixs.some((ix) => ix.keys.some((k) => k.pubkey.equals(authority) && k.isSigner));
+}
+
+async function formatSendTransactionError(
+  connection: InstanceType<typeof import('@solana/web3.js').Connection>,
+  err: unknown
+): Promise<string> {
+  const base = err instanceof Error ? err.message : String(err);
+
+  if (base.includes('insufficient lamports') || base.includes('Transfer: insufficient lamports')) {
+    return (
+      'Phoenix transaction failed: insufficient SOL for account rent or fees. ' +
+      'Ensure NEXT_PUBLIC_PHOENIX_FEE_PAYER_ADDRESS is set and the sponsor wallet is funded, ' +
+      'or add ~0.003 SOL to the user wallet.'
+    );
+  }
+
+  if (base.includes('Attempt to debit an account but found no record of a prior credit')) {
+    return (
+      'Phoenix deposit failed: your Solana wallet has no USDC token account or zero USDC balance. ' +
+      'Send USDC to this wallet on Solana first, then retry Add margin.'
+    );
+  }
+
+  const sendErr = err as { logs?: string[]; getLogs?: () => Promise<string[]> };
+  let logs: string[] | undefined = sendErr.logs;
+  if (!logs?.length && typeof sendErr.getLogs === 'function') {
+    try {
+      logs = await sendErr.getLogs();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (logs?.length) {
+    return `${base}\nLogs:\n${logs.join('\n')}`;
+  }
+  return base;
+}
+
+function resolveFeePayerAddress(options?: SubmitRiseInstructionsOptions): string | undefined {
+  return options?.feePayerAddress?.trim() || getPhoenixFeePayerAddress();
+}
+
 /**
- * Sign (Turnkey) + send one or more Rise instructions in a single VersionedTransaction.
+ * Sign (Turnkey authority + optional sponsored fee payer) and send a VersionedTransaction.
  */
 export async function submitRiseInstructions(
   instructions: RiseInstructionLike[],
-  feePayerAndSignerAddress: string,
-  organizationId: string
+  authorityAddress: string,
+  organizationId: string,
+  options?: SubmitRiseInstructionsOptions
 ): Promise<string> {
   if (instructions.length === 0) {
     throw new PhoenixSubmitError('No Phoenix instructions to submit');
@@ -85,31 +161,54 @@ export async function submitRiseInstructions(
 
   const { Connection } = await import('@solana/web3.js');
   const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
-  const payer = new PublicKey(feePayerAndSignerAddress);
+
+  const authority = new PublicKey(authorityAddress);
+  const sponsoredFeePayer = resolveFeePayerAddress(options);
+  const feePayerAddress = sponsoredFeePayer ?? authorityAddress;
+  const feePayer = new PublicKey(feePayerAddress);
+  const usesSponsor = sponsoredFeePayer != null && sponsoredFeePayer !== authorityAddress;
 
   const ixs = instructions.map(riseIxToWeb3);
   const blockhash = await connection.getLatestBlockhash('confirmed');
 
   const messageV0 = new TransactionMessage({
-    payerKey: payer,
+    payerKey: feePayer,
     recentBlockhash: blockhash.blockhash,
     instructions: ixs,
   }).compileToV0Message();
 
-  const tx = new VersionedTransaction(messageV0);
+  let tx = new VersionedTransaction(messageV0);
+  const messageBytes = tx.message.serialize();
 
-  const sig = await signSolanaMessageWithTurnkey(
-    tx.message.serialize(),
-    feePayerAndSignerAddress,
-    organizationId
-  );
+  const needsAuthoritySig = instructionSetNeedsAuthoritySignature(ixs, authority);
 
-  tx.addSignature(payer, sig);
+  if (needsAuthoritySig) {
+    const authoritySig = await signSolanaMessageWithTurnkey(
+      messageBytes,
+      authorityAddress,
+      organizationId
+    );
+    tx.addSignature(authority, authoritySig);
+  }
 
-  const txSig = await connection.sendRawTransaction(tx.serialize(), {
-    skipPreflight: false,
-    preflightCommitment: 'confirmed',
-  });
+  if (usesSponsor) {
+    const partialBase64 = Buffer.from(tx.serialize()).toString('base64');
+    const coSignedBase64 = await coSignPhoenixTransaction(partialBase64);
+    tx = VersionedTransaction.deserialize(Buffer.from(coSignedBase64, 'base64'));
+  } else if (!needsAuthoritySig) {
+    throw new PhoenixSubmitError('Transaction has no authority signature and no fee payer configured');
+  }
+
+  let txSig: string;
+  try {
+    txSig = await connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+    });
+  } catch (err) {
+    const msg = await formatSendTransactionError(connection, err);
+    throw new PhoenixSubmitError(msg, err);
+  }
 
   const confirmation = await connection.confirmTransaction(
     { signature: txSig, ...blockhash },

@@ -25,6 +25,7 @@ import { invalidateTradingBalances } from '@/lib/trading/invalidate-trading-bala
 // Backpack authenticated balance refresh disabled (display-only demo).
 // import { refreshBackpackMarginBalance } from '@/lib/stores/backpack-margin.store';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
+import { clearFundingAprOpenTimeForRaw } from '@/lib/positions/enrich-positions';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -172,6 +173,7 @@ export function useClosePosition(options: UseClosePositionOptions) {
         }
 
         if (allSuccess) {
+          clearFundingAprOpenTimeForRaw(rawPosition);
           onSuccess?.();
         }
 

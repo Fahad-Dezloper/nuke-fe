@@ -4,12 +4,42 @@ This app uses [`@ellipsis-labs/rise`](https://docs.phoenix.trade/sdk/rise) (`cre
 
 ## Environment
 
-See [`.env.example`](.env.example) in the repo root. Required for live trading:
+Required for live trading:
 
 - `NEXT_PUBLIC_PHOENIX_TRADING_ENABLED=true`
 - `NEXT_PUBLIC_SOLANA_RPC_URL` — reliable mainnet RPC
-- **Invite (optional, off by default)**: set `NEXT_PUBLIC_PHOENIX_REQUIRE_INVITE=true` plus `NEXT_PUBLIC_PHOENIX_INVITE_CODE` or `NEXT_PUBLIC_PHOENIX_REFERRAL_CODE` when ready
-- **Flight builder (optional, off by default)**: `NEXT_PUBLIC_PHOENIX_FLIGHT_ENABLED=true` + builder authority from Phoenix Builder Dashboard
+
+**Private beta onboarding (required for new wallets):**
+
+Phoenix is in private beta. New Turnkey wallets must be activated via HTTP **before** deposit:
+
+1. `POST /v1/invite/activate` (access / invite code), or
+2. `POST /v1/invite/activate-with-referral` (referral code)
+
+The FE runs this in `ensureActivatedAndRegistered` before `buildDepositIxs`. Without it, deposit fails with:
+
+`Trader not found for provided authority and trader_pda_index`
+
+Configure **one** of:
+
+- `NEXT_PUBLIC_PHOENIX_REFERRAL_CODE` — Nuke builder referral from Phoenix (preferred for integrators)
+- `NEXT_PUBLIC_PHOENIX_INVITE_CODE` — Phoenix access / allowlist code
+- User’s Nuke access code (sessionStorage fallback) — only works if it matches a Phoenix invite code
+
+Set `NEXT_PUBLIC_PHOENIX_REQUIRE_INVITE=false` only if Phoenix opens public self-registration (no invite needed).
+
+**Sponsored SOL fee payer (recommended for new Turnkey wallets):**
+
+- `NEXT_PUBLIC_PHOENIX_FEE_PAYER_ADDRESS` — public key of the sponsor wallet (tx `payerKey`)
+- `PHOENIX_FEE_PAYER_PRIVATE_KEY` — server-only; JSON byte array or base58 secret (used by `/api/phoenix/co-sign`)
+
+When configured, Phoenix deposit/onboarding txs are co-signed by the server fee payer. Users only need **USDC** on Solana (no SOL for rent/fees). The client signs as authority via Turnkey, the API adds the fee payer signature, and the client broadcasts.
+
+**Flight builder (optional, separate from user onboarding):**
+
+- `NEXT_PUBLIC_PHOENIX_FLIGHT_ENABLED=true` + `NEXT_PUBLIC_PHOENIX_FLIGHT_BUILDER_AUTHORITY`
+- Flight routes **orders** and collects builder fees; it does **not** register end-user traders.
+- Register the builder wallet in the [Flight dashboard](https://docs.phoenix.trade/phoenix/flight.md) (on-chain `registerBuilder` + builder trader account).
 
 Symbols passed to Rise are **short tickers** (e.g. `MON`, `SOL`); the FE strips `-PERP` suffixes where needed.
 
@@ -18,7 +48,7 @@ Symbols passed to Rise are **short tickers** (e.g. `MON`, `SOL`); the FE strips 
 When the user clicks **Add margin** on a Phoenix leg (`useFundExchange` → `PhoenixDepositHandler`):
 
 1. Validates Solana USDC balance (amount + ~0.2 USDC gas buffer).
-2. **Onboard (minimal)** — `registerTrader` on-chain if snapshot missing; HTTP invite skipped unless `NEXT_PUBLIC_PHOENIX_REQUIRE_INVITE=true`.
+2. **Onboard** — `activateInvite` / `activateInviteWithReferral` for new authorities, then `registerTrader` fallback; fails fast if trader PDA still missing.
 3. **Deposit** — Rise `buildDepositIxs` for the USD amount (e.g. $5), Turnkey-sign, submit to Solana.
 4. Refreshes exchange balances (`fetchFreeCollateralUsd`).
 
@@ -51,6 +81,8 @@ The client executor recognizes:
 
 ## Troubleshooting
 
+- **`Trader not found for provided authority and trader_pda_index`** — wallet not activated for Phoenix private beta. Set `NEXT_PUBLIC_PHOENIX_REFERRAL_CODE` or `NEXT_PUBLIC_PHOENIX_INVITE_CODE`, or ensure the user’s Nuke access code is a valid Phoenix invite. Confirm `GET /trader/{authority}/state` returns a trader after onboarding.
+- **`Attempt to debit an account but found no record of a prior credit`** — wallet has no USDC SPL token account or zero USDC. Fund the Turnkey Solana wallet with USDC (and ~0.005 SOL for fees) before Add margin. The FE now prepends a USDC ATA create instruction automatically.
 - **Invite / 404 on snapshot** — user not activated; check invite/referral env and Phoenix access policy.
 - **Transaction simulation failures** — RPC quality, missing USDC/ATA, or account not registered; read Solana error in toast.
 - **Turnkey** — session must be active; signing uses the same Turnkey Solana path as Pacifica relay flows.

@@ -12,6 +12,8 @@ import type { ArbitragePosition, ProtocolPositionData, ProtocolDataMap } from '@
  */
 export interface PositionApiResponse {
   symbol: string;
+  /** ISO timestamp or unix ms/s when the hedge was opened (optional backend field). */
+  opened_at?: string | number;
   hyperliquid: {
     symbol: string;
     size: string;
@@ -101,6 +103,54 @@ function formatCurrency(value: number | string): string {
   return `${sign}$${num.toFixed(2)}`;
 }
 
+type PositionLeg = NonNullable<PositionApiResponse['hyperliquid']>;
+
+const PROTOCOL_ORDER = ['hyperliquid', 'pacifica', 'phoenix', 'backpack', 'lighter'] as const;
+
+/** Resolve long/short protocol IDs from aggregated position legs. */
+export function resolveLegProtocols(apiData: PositionApiResponse): {
+  longProtocol: string;
+  shortProtocol: string;
+} {
+  const { hyperliquid, pacifica } = apiData;
+  const backpack = apiData.backpack ?? null;
+  const lighter = apiData.lighter ?? null;
+  const phoenix = apiData.phoenix ?? null;
+
+  const legs: { id: string; data: PositionLeg }[] = [];
+  if (hyperliquid) legs.push({ id: 'hyperliquid', data: hyperliquid });
+  if (pacifica) legs.push({ id: 'pacifica', data: pacifica });
+  if (phoenix) legs.push({ id: 'phoenix', data: phoenix });
+  if (backpack) legs.push({ id: 'backpack', data: backpack });
+  if (lighter) legs.push({ id: 'lighter', data: lighter });
+
+  const legsByProtocolOrder = [...legs].sort(
+    (a, b) =>
+      PROTOCOL_ORDER.indexOf(a.id as (typeof PROTOCOL_ORDER)[number]) -
+      PROTOCOL_ORDER.indexOf(b.id as (typeof PROTOCOL_ORDER)[number])
+  );
+
+  const longLeg = legs.find((l) => l.data.side === 'Long');
+  const shortLeg = legs.find((l) => l.data.side === 'Short');
+
+  if (longLeg && shortLeg) {
+    return { longProtocol: longLeg.id, shortProtocol: shortLeg.id };
+  }
+  if (legsByProtocolOrder.length >= 2) {
+    return {
+      longProtocol: legsByProtocolOrder[0]!.id,
+      shortProtocol: legsByProtocolOrder[1]!.id,
+    };
+  }
+  if (legsByProtocolOrder.length === 1) {
+    return {
+      longProtocol: legsByProtocolOrder[0]!.id,
+      shortProtocol: legsByProtocolOrder[0]!.id,
+    };
+  }
+  return { longProtocol: 'hyperliquid', shortProtocol: 'pacifica' };
+}
+
 /**
  * Transform API response to ArbitragePosition format
  * Exported for use in hooks and testing
@@ -111,7 +161,7 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
   const lighter = apiData.lighter ?? null;
   const phoenix = apiData.phoenix ?? null;
 
-  type Leg = NonNullable<PositionApiResponse['hyperliquid']>;
+  type Leg = PositionLeg;
   const legs: { id: string; data: Leg }[] = [];
   if (hyperliquid) legs.push({ id: 'hyperliquid', data: hyperliquid });
   if (pacifica) legs.push({ id: 'pacifica', data: pacifica });
@@ -119,33 +169,7 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
   if (backpack) legs.push({ id: 'backpack', data: backpack });
   if (lighter) legs.push({ id: 'lighter', data: lighter });
 
-  const PROTOCOL_ORDER = ['hyperliquid', 'pacifica', 'phoenix', 'backpack', 'lighter'] as const;
-  const legsByProtocolOrder = [...legs].sort(
-    (a, b) => PROTOCOL_ORDER.indexOf(a.id as (typeof PROTOCOL_ORDER)[number]) -
-      PROTOCOL_ORDER.indexOf(b.id as (typeof PROTOCOL_ORDER)[number])
-  );
-
-  const longLeg = legs.find((l) => l.data.side === 'Long');
-  const shortLeg = legs.find((l) => l.data.side === 'Short');
-
-  // Map venues to LONG/SHORT column slots. When both legs share the same side (e.g. both
-  // "Short" from the API), avoid defaulting missing long → hyperliquid and short → first
-  // Short leg (also hyperliquid), which showed Hyperliquid twice.
-  let longProtocol: string;
-  let shortProtocol: string;
-  if (longLeg && shortLeg) {
-    longProtocol = longLeg.id;
-    shortProtocol = shortLeg.id;
-  } else if (legsByProtocolOrder.length >= 2) {
-    longProtocol = legsByProtocolOrder[0]!.id;
-    shortProtocol = legsByProtocolOrder[1]!.id;
-  } else if (legsByProtocolOrder.length === 1) {
-    longProtocol = legsByProtocolOrder[0]!.id;
-    shortProtocol = legsByProtocolOrder[0]!.id;
-  } else {
-    longProtocol = 'hyperliquid';
-    shortProtocol = 'pacifica';
-  }
+  const { longProtocol, shortProtocol } = resolveLegProtocols(apiData);
 
   let totalSize = 0;
   let totalPricePnl = 0;
@@ -212,6 +236,7 @@ export function transformPositionData(apiData: PositionApiResponse): ArbitragePo
       current: formatCurrency(totalFundingPnl),
       estimated: '',
     },
+    fundingApr: '—',
     totalPnl: formatCurrency(totalPricePnl + totalFundingPnl),
     protocolData: {
       hyperliquid: toProtocolRow(hyperliquid, hyperliquidPnl, hyperliquidFunding, hyperliquidMargin),

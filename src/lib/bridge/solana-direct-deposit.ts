@@ -17,7 +17,7 @@ export function assertPhoenixTradingConfigured(): void {
   }
 }
 
-/** On-chain registerTrader if needed; HTTP invite only when NEXT_PUBLIC_PHOENIX_REQUIRE_INVITE=true. */
+/** HTTP invite/referral + registerTrader if needed (Phoenix private beta). */
 export async function ensurePhoenixReadyForDeposit(
   solanaAddress: string,
   organizationId: string

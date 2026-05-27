@@ -7,6 +7,7 @@ import { CHAIN_IDS, MIN_DEPOSIT_AMOUNT, PACIFICA_GAS_REIMBURSEMENT } from '../ty
 import { getUSDCBalanceOnSolana } from '../balance-api';
 import { formatUSDCBalanceSolana } from '../solana-utils';
 import { phoenixService, PhoenixServiceError } from '@/lib/services/phoenix';
+import { isPhoenixFeePayerConfigured } from '@/lib/phoenix/env';
 import type { BridgeStep } from '../types';
 import type {
   DepositHandler,
@@ -48,7 +49,7 @@ export class PhoenixDepositHandler implements DepositHandler {
     }
 
     const solanaBalance = await getUSDCBalanceOnSolana(solanaRecipientAddress);
-    const gasBuffer = BigInt(PACIFICA_GAS_REIMBURSEMENT);
+    const gasBuffer = isPhoenixFeePayerConfigured() ? BigInt(0) : BigInt(PACIFICA_GAS_REIMBURSEMENT);
 
     const minMicros =
       depositAmountMicros !== undefined && depositAmountMicros > BigInt(0)

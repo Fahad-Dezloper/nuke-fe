@@ -50,6 +50,7 @@ import {
   trackReferralCodeClaimed,
   trackBuilderCodeApproved,
 } from '@/lib/analytics';
+import { recordPositionOpenTime } from '@/lib/positions/position-open-time';
 import type { QuoteRequest } from '@/lib/bridge/types';
 import type {
   NextActionResponse,
@@ -1250,6 +1251,7 @@ export class HedgeActionExecutor {
       trackPositionOpenFailed(asset, errorMsg);
     } else {
       trackPositionOpened(asset, leverage, marginForLegs.toString());
+      recordPositionOpenTime(asset, context.hedgePair.long, context.hedgePair.short);
     }
 
     return {

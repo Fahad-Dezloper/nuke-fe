@@ -35,6 +35,7 @@ import {
   ensurePacificaBuilderForDeposit,
   assertPhoenixTradingConfigured,
 } from '@/lib/bridge/solana-direct-deposit';
+import { isPhoenixFeePayerConfigured } from '@/lib/phoenix/env';
 import { SOLANA_DIRECT_MIN_DEPOSIT_MICROS } from '@/constants';
 import { PACIFICA_GAS_REIMBURSEMENT } from '@/lib/bridge/types';
 import { invalidateTradingBalances } from '@/lib/trading/invalidate-trading-balances';
@@ -158,19 +159,24 @@ export function useFundExchange(): UseFundExchangeReturn {
             );
           }
 
-          const gasBuffer = BigInt(PACIFICA_GAS_REIMBURSEMENT);
+          const gasBuffer =
+            exchange === 'phoenix' && isPhoenixFeePayerConfigured()
+              ? BigInt(0)
+              : BigInt(PACIFICA_GAS_REIMBURSEMENT);
           const solanaBalance = await getUSDCBalanceOnSolana(wallet.solanaAddress);
           const required = depositAmountMicros + gasBuffer;
           if (solanaBalance < required) {
             throw new Error(
-              `Insufficient Solana USDC. Need ${formatUSDCBalanceSolana(required)} (deposit + gas buffer), have ${formatUSDCBalanceSolana(solanaBalance)}`
+              gasBuffer > BigInt(0)
+                ? `Insufficient Solana USDC. Need ${formatUSDCBalanceSolana(required)} (deposit + gas buffer), have ${formatUSDCBalanceSolana(solanaBalance)}`
+                : `Insufficient Solana USDC. Need ${formatUSDCBalanceSolana(required)} for deposit, have ${formatUSDCBalanceSolana(solanaBalance)}`
             );
           }
 
           if (exchange === 'phoenix') {
             assertPhoenixTradingConfigured();
             setStep('phoenix-onboarding');
-            setStatusMessage('Preparing Phoenix account (register if needed)...');
+            setStatusMessage('Activating Phoenix account (invite + register)...');
             await ensurePhoenixReadyForDeposit(
               wallet.solanaAddress,
               wallet.organizationId

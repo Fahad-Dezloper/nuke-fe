@@ -15,6 +15,7 @@ import {
   type PositionApiResponse,
 } from '@/lib/api/services';
 import { queryKeys } from '@/lib/query-keys';
+import { enrichPositionsWithFundingApr } from '@/lib/positions/enrich-positions';
 import type { ArbitragePosition } from '@/types/positions';
 
 const EMPTY_RAW: PositionApiResponse[] = [];
@@ -54,7 +55,7 @@ export function usePositions(options: UsePositionsOptions = {}): UsePositionsRet
 
   const rawPositions = query.data ?? EMPTY_RAW;
   const positions = useMemo(
-    () => rawPositions.map(transformPositionData),
+    () => enrichPositionsWithFundingApr(rawPositions, rawPositions.map(transformPositionData)),
     [rawPositions]
   );
 

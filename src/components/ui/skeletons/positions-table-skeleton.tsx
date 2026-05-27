@@ -7,6 +7,7 @@
  */
 
 import { DASHBOARD_SECTION_SHELL } from '@/components/features/trading-dashboard';
+import { POSITIONS_TABLE_GRID } from '@/components/features/positions/positions-table-grid';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -20,7 +21,7 @@ interface PositionsTableSkeletonProps {
 function PositionRowSkeleton() {
   return (
     <div className="px-4 md:px-6 py-2.5 border-b border-border-white-10/30 last:border-0">
-      <div className="grid grid-cols-[minmax(100px,1fr)_minmax(180px,1.5fr)_minmax(70px,0.8fr)_minmax(70px,0.8fr)_minmax(90px,1fr)_minmax(110px,1.2fr)_minmax(90px,1fr)_40px] gap-3 lg:gap-4 items-center max-w-full">
+      <div className={`${POSITIONS_TABLE_GRID} items-center max-w-full`}>
         {/* Asset */}
         <div className="flex items-center gap-2">
           <Skeleton className="h-5 w-5 rounded-full bg-border-white-5" />
@@ -36,8 +37,8 @@ function PositionRowSkeleton() {
         </div>
         {/* Size */}
         <Skeleton className="h-3 w-12 bg-border-white-5" />
-        {/* APR */}
-        <Skeleton className="h-3 w-10 bg-border-white-5" />
+        {/* Margin */}
+        <Skeleton className="h-3 w-14 bg-border-white-5" />
         {/* Price PnL */}
         <Skeleton className="h-3 w-14 bg-border-white-5" />
         {/* Funding PnL */}
@@ -45,8 +46,15 @@ function PositionRowSkeleton() {
           <Skeleton className="h-3 w-14 bg-border-white-5" />
           <Skeleton className="h-2.5 w-10 bg-border-white-5" />
         </div>
+        {/* APR */}
+        <Skeleton className="h-3 w-10 bg-border-white-5" />
         {/* Total PnL */}
         <Skeleton className="h-3 w-14 bg-border-white-5" />
+        {/* Liq price */}
+        <div className="flex flex-col gap-1">
+          <Skeleton className="h-3 w-16 bg-border-white-5" />
+          <Skeleton className="h-3 w-16 bg-border-white-5" />
+        </div>
         {/* Close button */}
         <Skeleton className="h-5 w-5 rounded-md bg-border-white-5 ml-auto" />
       </div>
@@ -74,10 +82,12 @@ export function PositionsTableSkeleton({ className, rows = 3 }: PositionsTableSk
 
         {/* Table header skeleton */}
         <div className="sticky top-0 z-[1] px-4 md:px-6 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/50 via-card/40 to-card/50 backdrop-blur-md shrink-0">
-          <div className="grid grid-cols-[minmax(100px,1fr)_minmax(180px,1.5fr)_minmax(70px,0.8fr)_minmax(70px,0.8fr)_minmax(90px,1fr)_minmax(110px,1.2fr)_minmax(90px,1fr)_40px] gap-3 lg:gap-4 max-w-full">
-            {['w-12', 'w-20', 'w-8', 'w-8', 'w-16', 'w-20', 'w-16', 'w-0'].map((w, i) => (
-              <Skeleton key={i} className={cn('h-3 bg-border-white-5', w)} />
-            ))}
+          <div className={`${POSITIONS_TABLE_GRID} max-w-full`}>
+            {['w-12', 'w-20', 'w-8', 'w-10', 'w-12', 'w-16', 'w-8', 'w-12', 'w-20', 'w-0'].map(
+              (w, i) => (
+                <Skeleton key={i} className={cn('h-3 bg-border-white-5', w)} />
+              )
+            )}
           </div>
         </div>
 

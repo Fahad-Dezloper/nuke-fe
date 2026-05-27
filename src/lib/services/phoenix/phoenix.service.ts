@@ -12,10 +12,12 @@ import {
 } from '@ellipsis-labs/rise';
 import {
   isPhoenixTradingEnabled,
-  isPhoenixInviteOnboardingEnabled,
-  getPhoenixInviteCode,
-  getPhoenixReferralCode,
+  isPhoenixInviteRequired,
+  resolvePhoenixActivationCodes,
+  getPhoenixFeePayerAddress,
+  isPhoenixFeePayerConfigured,
 } from '@/lib/phoenix/env';
+import { getStoredAccessCode } from '@/lib/auth/access-code';
 import {
   fetchPhoenixIsolatedMarketOrderInstructions,
   type PhoenixIsolatedTpSlConfig,
@@ -26,10 +28,33 @@ import type { PositionApiResponse } from '@/lib/api/services/positions.service';
 import { phoenixCollateralToUsd, USDC_MICROS_PER_USD } from '@/lib/phoenix/units';
 import { hedgeUsesIsolatedMargin, usdToUsdcMicros } from '@/lib/trading/margin-mode';
 import { ensurePhoenixExchangeReady, getPhoenixRiseClient, toPhoenixSymbol } from './phoenix-client';
-import { PhoenixSubmitError, normalizeRiseInstruction, submitRiseInstructions } from './phoenix-submit';
+import {
+  PhoenixSubmitError,
+  normalizeRiseInstruction,
+  submitRiseInstructions,
+  web3InstructionToRise,
+} from './phoenix-submit';
+import {
+  PHOENIX_DEPOSIT_MIN_SOL_LAMPORTS,
+  buildUsdcAtaIdempotentIx,
+  getSolBalanceLamports,
+} from '@/lib/phoenix/solana-usdc-ata';
+import { getUSDCBalanceOnSolana } from '@/lib/bridge/balance-api';
+import { registerPhoenixTraderSponsored } from '@/lib/phoenix/register-trader-client';
 
 const DEFAULT_TRADER_PDA_INDEX = 0;
 const DEFAULT_TRADER_SUBACCOUNT_INDEX = 0;
+
+/** Invite already redeemed / trader exists — not a hard failure. */
+function isPhoenixInviteConflictError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes('already') ||
+    m.includes('activated') ||
+    m.includes('409') ||
+    m.includes('conflict')
+  );
+}
 
 export class PhoenixServiceError extends Error {
   constructor(
@@ -62,11 +87,13 @@ export class PhoenixService {
   }
 
   /**
-   * On-chain register trader if missing. HTTP invite/referral is optional (see env flags).
+   * Phoenix private beta: HTTP invite/referral creates the trader PDA server-side.
+   * On-chain registerTrader is a fallback when open access is enabled.
    */
   async ensureActivatedAndRegistered(
     solanaAuthority: string,
-    organizationId: string
+    organizationId: string,
+    options?: { userAccessCode?: string | null }
   ): Promise<void> {
     if (!this.isTradingEnabled()) {
       throw new PhoenixServiceError('Phoenix trading is disabled (NEXT_PUBLIC_PHOENIX_TRADING_ENABLED).');
@@ -79,48 +106,129 @@ export class PhoenixService {
       return;
     }
 
-    if (isPhoenixInviteOnboardingEnabled()) {
-      const invite = getPhoenixInviteCode();
-      const referral = getPhoenixReferralCode();
+    const userAccessCode =
+      options?.userAccessCode ??
+      (typeof window !== 'undefined' ? getStoredAccessCode() : null);
+    const { referralCode, inviteCode } = resolvePhoenixActivationCodes(userAccessCode);
+
+    if (isPhoenixInviteRequired() && !referralCode && !inviteCode) {
+      throw new PhoenixServiceError(
+        'Phoenix requires an invite or referral code for new accounts. Set NEXT_PUBLIC_PHOENIX_INVITE_CODE or NEXT_PUBLIC_PHOENIX_REFERRAL_CODE, or sign in with a valid access code.',
+        'INVITE'
+      );
+    }
+
+    const hadInviteCodes = !!(referralCode || inviteCode);
+    let invitedTraderPda: string | undefined;
+
+    if (hadInviteCodes) {
       try {
-        if (referral) {
-          await client.api.invite().activateInviteWithReferral({
-            authority: solanaAuthority,
-            referral_code: referral,
-          });
-        } else if (invite) {
-          await client.api.invite().activateInvite({
-            authority: solanaAuthority,
-            code: invite,
-          });
-        }
+        const activation = referralCode
+          ? await client.api.invite().activateInviteWithReferral({
+              authority: solanaAuthority,
+              referral_code: referralCode,
+            })
+          : await client.api.invite().activateInvite({
+              authority: solanaAuthority,
+              code: inviteCode!,
+            });
+        invitedTraderPda = activation.trader_pda?.trim() || undefined;
+        console.info('[Phoenix] Invite activated', {
+          authority: solanaAuthority,
+          traderPda: invitedTraderPda,
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        throw new PhoenixServiceError(`Phoenix invite activation failed: ${msg}`, 'INVITE');
+        if (!isPhoenixInviteConflictError(msg)) {
+          throw new PhoenixServiceError(`Phoenix invite activation failed: ${msg}`, 'INVITE');
+        }
+        console.info('[Phoenix] Invite already used for authority, verifying trader state');
       }
-    } else {
-      console.warn(
-        '[Phoenix] Skipping HTTP invite/referral activation (enable NEXT_PUBLIC_PHOENIX_REQUIRE_INVITE when ready)'
+
+      // HTTP invite creates the trader PDA server-side (gasless). Never fall back to on-chain RegisterTrader.
+      if (await this.confirmTraderAfterInvite(solanaAuthority, invitedTraderPda)) {
+        return;
+      }
+
+      throw new PhoenixServiceError(
+        'Phoenix invite succeeded but trader state is not yet visible. Wait a few seconds and retry.',
+        'TRADER_NOT_REGISTERED'
       );
+    }
+
+    console.warn(
+      '[Phoenix] No invite/referral code — attempting on-chain registerTrader (may fail in private beta)'
+    );
+
+    if (await this.isTraderRegistered(solanaAuthority)) {
+      return;
+    }
+
+    const feePayerAddress = getPhoenixFeePayerAddress();
+
+    if (feePayerAddress) {
+      try {
+        await registerPhoenixTraderSponsored(solanaAuthority);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('already exists')) {
+          /* trader exists on-chain */
+        } else {
+          throw new PhoenixServiceError(
+            `Phoenix registerTrader (sponsored) failed: ${msg}`,
+            'REGISTER_TRADER'
+          );
+        }
+      }
+
+      if (await this.waitForTraderRegistered(solanaAuthority, 10, 1000)) {
+        return;
+      }
+
+      throw new PhoenixServiceError(
+        'Phoenix sponsored registerTrader completed but trader state is not yet available. Retry in a few seconds.',
+        'TRADER_NOT_REGISTERED'
+      );
+    }
+
+    const registerParams = {
+      authority: solanaAuthority as Authority,
+      marginType: MarginType.Cross,
+      traderPdaIndex: DEFAULT_TRADER_PDA_INDEX,
+      traderSubaccountIndex: DEFAULT_TRADER_SUBACCOUNT_INDEX,
+      ...(feePayerAddress ? { feePayer: feePayerAddress as Authority } : { feePayer: null }),
+    };
+
+    // Rise runtime accepts feePayer for rent; TS union also documents sponsorshipToken path.
+    const regIx = await client.ixs.buildRegisterTrader(
+      registerParams as Parameters<typeof client.ixs.buildRegisterTrader>[0]
+    );
+
+    try {
+      await submitRiseInstructions([normalizeRiseInstruction(regIx)], solanaAuthority, organizationId, {
+        feePayerAddress,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('insufficient lamports') || msg.includes('0x1')) {
+        throw new PhoenixServiceError(
+          feePayerAddress
+            ? 'Phoenix registerTrader failed: sponsor fee payer may be out of SOL.'
+            : 'Phoenix registerTrader failed: wallet needs ~0.003 SOL for account rent, or configure NEXT_PUBLIC_PHOENIX_FEE_PAYER_ADDRESS.',
+          'REGISTER_TRADER'
+        );
+      }
+      throw new PhoenixServiceError(`Phoenix registerTrader failed: ${msg}`, 'REGISTER_TRADER');
     }
 
     if (await this.isTraderRegistered(solanaAuthority)) {
       return;
     }
 
-    const regIx = await client.ixs.buildRegisterTrader({
-      authority: solanaAuthority as Authority,
-      marginType: MarginType.Cross,
-      traderPdaIndex: DEFAULT_TRADER_PDA_INDEX,
-      traderSubaccountIndex: DEFAULT_TRADER_SUBACCOUNT_INDEX,
-    });
-
-    try {
-      await submitRiseInstructions([normalizeRiseInstruction(regIx)], solanaAuthority, organizationId);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn('[Phoenix] registerTrader failed (continuing — deposit may still work):', msg);
-    }
+    throw new PhoenixServiceError(
+      'Phoenix trader account not found. Private beta requires invite activation before deposit — verify your access/referral code and try again.',
+      'TRADER_NOT_REGISTERED'
+    );
   }
 
   async isTraderRegistered(solanaAuthority: string): Promise<boolean> {
@@ -133,6 +241,43 @@ export class PhoenixService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * After HTTP invite, Phoenix returns `trader_pda` for the same authority + pda index 0.
+   * Confirm via trader lookup or authority snapshot — do not re-run on-chain RegisterTrader.
+   */
+  private async confirmTraderAfterInvite(
+    solanaAuthority: string,
+    invitedTraderPda?: string
+  ): Promise<boolean> {
+    if (invitedTraderPda) {
+      const client = getPhoenixRiseClient();
+      try {
+        await client.api.traders().getTrader(invitedTraderPda);
+        return true;
+      } catch {
+        /* snapshot poll below */
+      }
+    }
+    return this.waitForTraderRegistered(solanaAuthority, 20, 1000);
+  }
+
+  /** Poll after HTTP invite — Phoenix API may take a few seconds to reflect the trader PDA. */
+  private async waitForTraderRegistered(
+    solanaAuthority: string,
+    attempts = 15,
+    delayMs = 1000
+  ): Promise<boolean> {
+    for (let i = 0; i < attempts; i++) {
+      if (await this.isTraderRegistered(solanaAuthority)) {
+        return true;
+      }
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+    return false;
   }
 
   private async fetchTraderSubaccounts(solanaAuthority: string): Promise<TraderSubaccountSnapshot[]> {
@@ -285,17 +430,45 @@ export class PhoenixService {
     await ensurePhoenixExchangeReady();
     await this.ensureActivatedAndRegistered(solanaAuthority, organizationId);
 
+    const usdcMicros = await getUSDCBalanceOnSolana(solanaAuthority);
+    if (usdcMicros < amountMicros) {
+      throw new PhoenixServiceError(
+        usdcMicros === BigInt(0)
+          ? 'No USDC on Solana. Send USDC to your wallet before depositing to Phoenix margin.'
+          : `Insufficient Solana USDC for Phoenix deposit (have ${Number(usdcMicros) / 1e6}, need ${Number(amountMicros) / 1e6}).`,
+        'INSUFFICIENT_USDC'
+      );
+    }
+
+    const solLamports = await getSolBalanceLamports(solanaAuthority);
+    if (!isPhoenixFeePayerConfigured() && solLamports < BigInt(PHOENIX_DEPOSIT_MIN_SOL_LAMPORTS)) {
+      throw new PhoenixServiceError(
+        'Insufficient SOL on Solana for Phoenix deposit fees and account rent. Keep at least 0.005 SOL in the wallet, or configure NEXT_PUBLIC_PHOENIX_FEE_PAYER_ADDRESS.',
+        'INSUFFICIENT_SOL'
+      );
+    }
+
+    const feePayerAddress = getPhoenixFeePayerAddress();
+
     const flow = await client.ixs.buildDepositIxs({
       authority: solanaAuthority as Authority,
       amount: amountMicros,
       traderPdaIndex: DEFAULT_TRADER_PDA_INDEX,
       traderSubaccountIndex: DEFAULT_TRADER_SUBACCOUNT_INDEX,
+      ...(feePayerAddress ? { feePayer: feePayerAddress as Authority } : {}),
     });
 
-    const ixs = flow.instructions.map((ix) => normalizeRiseInstruction(ix));
+    // Rise deposit ixs create the Phoenix canonical ATA but not the wallet USDC ATA Ember debits.
+    const usdcAtaIx = await buildUsdcAtaIdempotentIx(solanaAuthority, feePayerAddress);
+    const ixs = [
+      web3InstructionToRise(usdcAtaIx),
+      ...flow.instructions.map((ix) => normalizeRiseInstruction(ix)),
+    ];
 
     try {
-      return await submitRiseInstructions(ixs, solanaAuthority, organizationId);
+      return await submitRiseInstructions(ixs, solanaAuthority, organizationId, {
+        feePayerAddress,
+      });
     } catch (err) {
       if (err instanceof PhoenixSubmitError) throw err;
       const msg = err instanceof Error ? err.message : String(err);
@@ -368,6 +541,8 @@ export class PhoenixService {
           tpSl = mapHedgeTpslToPhoenixIsolatedIx(hedgeTpsl, numBaseLots);
         }
 
+        const feePayerAddress = getPhoenixFeePayerAddress();
+
         const ixs = await fetchPhoenixIsolatedMarketOrderInstructions({
           authority: solanaAuthority,
           symbol: phxSymbol,
@@ -376,9 +551,12 @@ export class PhoenixService {
           transferAmountMicros,
           skipTransferToParent: true,
           tpSl,
+          feePayer: feePayerAddress,
         });
 
-        const txSignature = await submitRiseInstructions(ixs, solanaAuthority, organizationId);
+        const txSignature = await submitRiseInstructions(ixs, solanaAuthority, organizationId, {
+          feePayerAddress,
+        });
         return { success: true, txSignature };
       }
 
@@ -398,10 +576,12 @@ export class PhoenixService {
         traderSubaccountIndex,
       });
 
+      const feePayerAddress = getPhoenixFeePayerAddress();
       const txSignature = await submitRiseInstructions(
         [normalizeRiseInstruction(ix)],
         solanaAuthority,
-        organizationId
+        organizationId,
+        { feePayerAddress }
       );
       return { success: true, txSignature };
     } catch (err) {

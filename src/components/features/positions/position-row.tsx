@@ -12,6 +12,7 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import type { ArbitragePosition, ProtocolDataMap, ProtocolPositionData } from '@/types/positions';
+import { POSITIONS_TABLE_GRID } from './positions-table-grid';
 import { getProtocolConfig } from '@/lib/protocols/config';
 import { hyperliquidCoinIconUrl } from '@/lib/hyperliquid/coin-icon-url';
 import { useNavigateToAssetPair } from '@/hooks/use-navigate-to-asset-pair';
@@ -202,6 +203,10 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
   const isFundingPnlPositive =
     position.fundingPnl.current.startsWith('+') ||
     parseFloat(position.fundingPnl.current.replace(/[^0-9.-]/g, '')) > 0;
+  const isFundingAprPositive =
+    position.fundingApr.startsWith('+') ||
+    (position.fundingApr !== '—' &&
+      parseFloat(position.fundingApr.replace(/[^0-9.-]/g, '')) > 0);
 
   const handleMouseEnter = (
     field: 'size' | 'margin' | 'pricePnl' | 'fundingPnl',
@@ -248,7 +253,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
       )}
     >
       <div className="px-4 md:px-6 py-3">
-        <div className="grid grid-cols-[minmax(80px,0.8fr)_minmax(140px,1.2fr)_minmax(65px,0.7fr)_minmax(80px,0.8fr)_minmax(80px,0.9fr)_minmax(90px,1fr)_minmax(80px,0.8fr)_minmax(140px,1.4fr)_36px] gap-2 lg:gap-3 items-center max-w-full">
+        <div className={`${POSITIONS_TABLE_GRID} items-center max-w-full`}>
           {/* ASSET */}
           <div className="flex items-center gap-2">
             <Image
@@ -337,6 +342,22 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
             </span>
             <span className="text-[10px] text-text-muted-60 tabular-nums leading-tight truncate block">
               {position.fundingPnl.estimated}
+            </span>
+          </div>
+
+          {/* FUNDING APR (realized, annualized) */}
+          <div className="min-w-0">
+            <span
+              className={cn(
+                'text-xs font-medium tabular-nums truncate block',
+                position.fundingApr === '—'
+                  ? 'text-text-muted-60'
+                  : isFundingAprPositive
+                    ? 'text-green-400'
+                    : 'text-red-400'
+              )}
+            >
+              {position.fundingApr}
             </span>
           </div>
 

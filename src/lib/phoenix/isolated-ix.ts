@@ -52,6 +52,8 @@ export type PhoenixIsolatedMarketIxParams = {
   subaccountIndex?: number;
   /** Mirrored hedge TP/SL bracket (attached on isolated open). */
   tpSl?: PhoenixIsolatedTpSlConfig;
+  /** Sponsored Solana fee payer — gasless for user when configured. */
+  feePayer?: string;
 };
 
 /**
@@ -79,6 +81,9 @@ export async function fetchPhoenixIsolatedMarketOrderInstructions(
   }
   if (params.tpSl) {
     body.tpSl = params.tpSl;
+  }
+  if (params.feePayer?.trim()) {
+    body.feePayer = params.feePayer.trim();
   }
 
   const res = await fetch(`${PHOENIX_API_URL}/v1/ix/place-isolated-market-order`, {

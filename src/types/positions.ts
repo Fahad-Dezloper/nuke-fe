@@ -51,6 +51,8 @@ export interface ArbitragePosition {
   margin: string;
   pricePnl: string;
   fundingPnl: FundingPnL;
+  /** Realized funding APR annualized from time since open. */
+  fundingApr: string;
   totalPnl: string;
   // Protocol-specific data for tooltips and inline display
   // Uses protocol ID as key for modularity (e.g., 'hyperliquid', 'pacifica', 'drift')

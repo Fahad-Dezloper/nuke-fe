@@ -26,6 +26,7 @@ export const mockArbitragePositions: ArbitragePosition[] = [
       current: '-$0.00',
       estimated: '~+$0.0025 2m',
     },
+    fundingApr: '—',
     totalPnl: '-$0.00',
   },
   {
@@ -45,6 +46,7 @@ export const mockArbitragePositions: ArbitragePosition[] = [
       current: '-$0.00',
       estimated: '~+$0.0025 2m',
     },
+    fundingApr: '—',
     totalPnl: '+$120.00',
   },
 ];
