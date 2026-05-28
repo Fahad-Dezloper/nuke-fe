@@ -82,10 +82,14 @@ function getProgressSteps(exchange: FundExchange): ProgressStep[] {
     ];
   }
 
-  const suffix: ProgressStep[] =
-    exchange === 'lighter'
-      ? [{ label: 'Linking Lighter trading keys', fundSteps: ['lighter-api-keys'] }]
-      : [];
+  // Lighter skips the bridge — sign permit + deposit only.
+  if (exchange === 'lighter') {
+    return [
+      { label: 'Signing deposit permit', fundSteps: ['signing'] },
+      { label: `Depositing to ${label}`, fundSteps: ['depositing'] },
+      { label: 'Linking Lighter trading keys', fundSteps: ['lighter-api-keys'] },
+    ];
+  }
 
   return [
     { label: 'Getting bridge quote', fundSteps: ['getting-quote'] },
@@ -93,7 +97,6 @@ function getProgressSteps(exchange: FundExchange): ProgressStep[] {
     { label: `Bridging to ${chain}`, fundSteps: ['bridging'] },
     { label: 'Waiting for confirmation', fundSteps: ['waiting-bridge'] },
     { label: `Depositing to ${label}`, fundSteps: ['depositing'] },
-    ...suffix,
   ];
 }
 
