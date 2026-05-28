@@ -7,6 +7,7 @@
 
 import { motion } from 'framer-motion';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useAtomValue } from 'jotai';
 import { AnimatedNumber } from '@/components/ui/animated-number';
@@ -17,6 +18,7 @@ import { selectedAssetAtom, marketFeedDataAtom } from '@/lib/stores/market-feed.
 import { useBestPair } from '@/hooks/use-best-pair';
 import { MarketOverviewSkeleton } from '@/components/ui/skeletons';
 import type { AssetDropdownItem } from '@/types/positions';
+import { getProtocolConfig } from '@/lib/protocols/config';
 
 interface MarketOverviewProps {
   className?: string;
@@ -42,6 +44,8 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
 
   const longFundingRate = longProtocolData?.fundingRateYearly || 0;
   const shortFundingRate = shortProtocolData?.fundingRateYearly || 0;
+  const longProtocolConfig = getProtocolConfig(bestPair.long);
+  const shortProtocolConfig = getProtocolConfig(bestPair.short);
 
   // Net APR is always positive (higher rate - lower rate)
   const estimatedAPR = selectedAsset?.netAPR || 0;
@@ -93,25 +97,49 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
 
               {/* Long Funding Rate (Hyperliquid) */}
               <MetricItem label="LONG FUNDING RATE">
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1 rounded bg-[var(--chart-hyperliquid)]/20">
-                    <ArrowUp className="h-3 w-3 text-[var(--chart-hyperliquid)]" />
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="p-1 rounded bg-[var(--chart-hyperliquid)]/20">
+                      <ArrowUp className="h-3 w-3 text-[var(--chart-hyperliquid)]" />
+                    </div>
+                    <span className={cn('text-sm tabular-nums ')}>
+                      {formatPercentWithSign(longFundingRate)}
+                    </span>
                   </div>
-                  <span className={cn('text-sm tabular-nums ')}>
-                    {formatPercentWithSign(longFundingRate)}
-                  </span>
+
+                  {longProtocolConfig?.logo ? (
+                    <Image
+                      src={longProtocolConfig.logo}
+                      alt={`${longProtocolConfig.displayName} logo`}
+                      width={16}
+                      height={16}
+                      className="h-4 w-4 rounded-full opacity-90"
+                    />
+                  ) : null}
                 </div>
               </MetricItem>
 
               {/* Short Funding Rate (Pacifica) */}
               <MetricItem label="SHORT FUNDING RATE">
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1 rounded bg-[var(--chart-pink)]/20">
-                    <ArrowDown className="h-3 w-3 text-[var(--chart-pink)]" />
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="p-1 rounded bg-[var(--chart-pink)]/20">
+                      <ArrowDown className="h-3 w-3 text-[var(--chart-pink)]" />
+                    </div>
+                    <span className={cn('text-sm tabular-nums ')}>
+                      {formatPercentWithSign(shortFundingRate)}
+                    </span>
                   </div>
-                  <span className={cn('text-sm tabular-nums ')}>
-                    {formatPercentWithSign(shortFundingRate)}
-                  </span>
+
+                  {shortProtocolConfig?.logo ? (
+                    <Image
+                      src={shortProtocolConfig.logo}
+                      alt={`${shortProtocolConfig.displayName} logo`}
+                      width={16}
+                      height={16}
+                      className="h-4 w-4 rounded-full opacity-90"
+                    />
+                  ) : null}
                 </div>
               </MetricItem>
 

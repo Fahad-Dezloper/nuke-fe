@@ -43,16 +43,38 @@ export function MobileInfoPanel() {
           />
         </GridCell>
         <GridCell label="LONG FUNDING RATE">
-          <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums">
-            <ArrowUp className="size-3.5 text-[var(--chart-hyperliquid)]" />
-            {formatPercentWithSign(longFundingRate)}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums">
+              <ArrowUp className="size-3.5 text-[var(--chart-hyperliquid)]" />
+              {formatPercentWithSign(longFundingRate)}
+            </span>
+            {longCfg?.logo ? (
+              <Image
+                src={longCfg.logo}
+                alt={`${longCfg.displayName} logo`}
+                width={14}
+                height={14}
+                className="h-3.5 w-3.5 rounded-full opacity-90"
+              />
+            ) : null}
+          </div>
         </GridCell>
         <GridCell label="SHORT FUNDING RATE">
-          <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums">
-            <ArrowDown className="size-3.5 text-[var(--chart-pink)]" />
-            {formatPercentWithSign(shortFundingRate)}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums">
+              <ArrowDown className="size-3.5 text-[var(--chart-pink)]" />
+              {formatPercentWithSign(shortFundingRate)}
+            </span>
+            {shortCfg?.logo ? (
+              <Image
+                src={shortCfg.logo}
+                alt={`${shortCfg.displayName} logo`}
+                width={14}
+                height={14}
+                className="h-3.5 w-3.5 rounded-full opacity-90"
+              />
+            ) : null}
+          </div>
         </GridCell>
         <GridCell label="EST. NET APR" span={2} highlight>
           <span className="text-lg font-bold tabular-nums text-green-400">
