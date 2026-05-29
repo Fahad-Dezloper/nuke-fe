@@ -36,7 +36,7 @@ import {
   assertPhoenixTradingConfigured,
 } from '@/lib/bridge/solana-direct-deposit';
 import { isPhoenixFeePayerConfigured } from '@/lib/phoenix/env';
-import { SOLANA_DIRECT_MIN_DEPOSIT_MICROS } from '@/constants';
+import { MIN_ADD_MARGIN_USD, SOLANA_DIRECT_MIN_DEPOSIT_MICROS } from '@/constants';
 import { PACIFICA_GAS_REIMBURSEMENT } from '@/lib/bridge/types';
 import { invalidateTradingBalances } from '@/lib/trading/invalidate-trading-balances';
 import {
@@ -148,6 +148,12 @@ export function useFundExchange(): UseFundExchangeReturn {
       setIsExecuting(true);
 
       try {
+        if (!Number.isFinite(amountUsd) || amountUsd < MIN_ADD_MARGIN_USD) {
+          throw new Error(
+            `Minimum add margin is $${MIN_ADD_MARGIN_USD} USDC (bridge fees may reduce what arrives on-chain)`
+          );
+        }
+
         const wallet = getWalletContext(turnkeyState);
 
         // Pacifica / Phoenix: USDC on Solana → exchange margin (no relay bridge).
@@ -279,8 +285,9 @@ export function useFundExchange(): UseFundExchangeReturn {
           setStep('success');
           setStatusMessage(`Successfully funded ${label}!`);
 
-          await queryClient.invalidateQueries({
-            queryKey: queryKeys.balance.exchangeHlPac(wallet.evmAddress, wallet.solanaAddress),
+          await invalidateTradingBalances(queryClient, {
+            evmAddress: wallet.evmAddress,
+            solanaAddress: wallet.solanaAddress,
           });
 
           toast.success(`${label} Funded`, {

@@ -7,6 +7,7 @@ import { AnimatedNumber } from '@/components/ui/animated-number';
 import { formatPercentWithSign, formatPrice } from '@/lib/utils';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { useBestPair } from '@/hooks/use-best-pair';
+import { fundingSpreadAprYearly } from '@/lib/arbitrage/asset-table-pairs';
 import { getProtocolConfig } from '@/lib/protocols/config';
 import Image from 'next/image';
 
@@ -28,7 +29,7 @@ export function MobileInfoPanel() {
   const currentPrice = selectedAsset.markPx || selectedAsset.hyperliquidMarkPx || 0;
   const longFundingRate = selectedAsset.protocols?.[bestPair.long]?.fundingRateYearly || 0;
   const shortFundingRate = selectedAsset.protocols?.[bestPair.short]?.fundingRateYearly || 0;
-  const estimatedAPR = selectedAsset.netAPR || 0;
+  const estimatedAPR = fundingSpreadAprYearly(longFundingRate, shortFundingRate);
   const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
 
   return (

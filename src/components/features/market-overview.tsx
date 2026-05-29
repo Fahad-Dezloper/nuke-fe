@@ -16,6 +16,7 @@ import { AssetDropdown } from '@/components/ui/asset-dropdown';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 import { selectedAssetAtom, marketFeedDataAtom } from '@/lib/stores/market-feed.store';
 import { useBestPair } from '@/hooks/use-best-pair';
+import { fundingSpreadAprYearly } from '@/lib/arbitrage/asset-table-pairs';
 import { MarketOverviewSkeleton } from '@/components/ui/skeletons';
 import type { AssetDropdownItem } from '@/types/positions';
 import { getProtocolConfig } from '@/lib/protocols/config';
@@ -47,8 +48,8 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
   const longProtocolConfig = getProtocolConfig(bestPair.long);
   const shortProtocolConfig = getProtocolConfig(bestPair.short);
 
-  // Net APR is always positive (higher rate - lower rate)
-  const estimatedAPR = selectedAsset?.netAPR || 0;
+  // Spread for the active long/short pair (not global min/max across all venues)
+  const estimatedAPR = fundingSpreadAprYearly(longFundingRate, shortFundingRate);
 
   // Handle asset selection (already handled by dropdown, but call callback if provided)
   const handleAssetSelect = (asset: AssetDropdownItem) => {

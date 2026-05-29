@@ -1050,12 +1050,17 @@ export class HedgeActionExecutor {
     }
 
     // ── Step 5: Open both legs in parallel ──
-    const tpSlPlan = await buildMirroredTpSlPlan(asset, leverage);
+    const tpSlPlan = await buildMirroredTpSlPlan(asset, leverage, {
+      longExchange,
+      shortExchange,
+      marginUsd: marginForLegs,
+    });
     if (!tpSlPlan) {
       return {
         success: false,
         txHash: null,
-        error: 'Cannot open hedge: failed to build mirrored TP/SL plan (Pacifica mark/tick)',
+        error:
+          'Cannot open hedge: mirrored TP/SL band is too wide for estimated liquidation on one or both legs',
         legResults: null,
       };
     }
@@ -1064,9 +1069,16 @@ export class HedgeActionExecutor {
       marketPrice = String(tpSlPlan.markPrice);
     }
 
+    const clampLog = tpSlPlan.liquidationClamp
+      ? ` band=${tpSlPlan.thresholdPercent.toFixed(2)}% (max target ${tpSlPlan.thresholdPercentDesired}%) ` +
+        `margin=$${tpSlPlan.liquidationClamp.marginUsd.toFixed(2)} ` +
+        `longLiq=${tpSlPlan.liquidationClamp.longLiquidationPrice.toFixed(2)} (−${tpSlPlan.liquidationClamp.longAdverseMovePercent.toFixed(2)}%) ` +
+        `shortLiq=${tpSlPlan.liquidationClamp.shortLiquidationPrice.toFixed(2)} (+${tpSlPlan.liquidationClamp.shortAdverseMovePercent.toFixed(2)}%)`
+      : '';
+
     console.log(
       `[HedgeExecutor] Mirrored TP/SL plan ${asset}: mark=${tpSlPlan.markPrice} ` +
-        `threshold=${tpSlPlan.thresholdPercent}% upper=${tpSlPlan.upperStop} lower=${tpSlPlan.lowerStop}`
+        `threshold=${tpSlPlan.thresholdPercent}% upper=${tpSlPlan.upperStop} lower=${tpSlPlan.lowerStop}${clampLog}`
     );
 
     const hedgeTpslForDirection = (dir: 'long' | 'short') =>

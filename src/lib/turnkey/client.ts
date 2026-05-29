@@ -13,6 +13,10 @@ import { WalletManager } from './wallet-manager';
 import { isOAuthRedirectInProgress, extractOAuthParams, calculateSha256 } from './utils';
 import { ErrorCode, createError, toAppError, getUserMessage } from '@/lib/errors';
 import { KeyFormat } from '@turnkey/iframe-stamper';
+import {
+  restoreAccessCodeGrant,
+  snapshotAccessCodeGrant,
+} from '@/lib/auth/access-code';
 
 /**
  * TurnkeyClient is the main client for interacting with Turnkey wallet services.
@@ -470,7 +474,9 @@ export class TurnkeyClient {
       await indexedDbClient.clear();
 
       if (typeof window !== 'undefined') {
+        const accessGrantSnapshot = snapshotAccessCodeGrant();
         localStorage.clear();
+        restoreAccessCodeGrant(accessGrantSnapshot);
       }
 
       this.updateState({

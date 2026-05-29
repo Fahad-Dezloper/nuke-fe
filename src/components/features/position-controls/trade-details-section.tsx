@@ -14,7 +14,19 @@ import { TradeDetailRow } from '@/components/ui/trade-detail-row';
 import { marginAtom, leverageAtom } from './store';
 import { selectedAssetAtom } from '@/lib/stores/market-feed.store';
 import { bridgeFeesAtom, bridgeFeesLoadingAtom } from '@/lib/stores/bridge-fees.store';
-import { useBestPair } from '@/hooks/use-best-pair';
+import { spreadAprDataAtom } from '@/lib/stores/spread-apr.store';
+import { bestPairOverrideAtom } from '@/lib/stores/best-pair-override.store';
+import {
+  bestPairMetricAtom,
+  selectedExchangesAtom,
+  selectedVenuesList,
+} from '@/lib/stores/arbitrage-table-filters.store';
+import { getBestPair } from '@/hooks/use-best-pair';
+import { fundingSpreadAprYearly } from '@/lib/arbitrage/asset-table-pairs';
+import {
+  estimateIsolatedLiquidationPriceForExchange,
+  hedgePositionSizeFromMargin,
+} from '@/lib/hedge-intent/hedge-liquidation-estimate';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 
 interface TradeDetailsSectionProps {
@@ -26,17 +38,32 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
-  const { getBestPairForAsset } = useBestPair();
+  const spreadAprData = useAtomValue(spreadAprDataAtom);
+  const overrides = useAtomValue(bestPairOverrideAtom);
+  const selectedMap = useAtomValue(selectedExchangesAtom);
+  const metric = useAtomValue(bestPairMetricAtom);
   const bridgeFees = useAtomValue(bridgeFeesAtom);
   const bridgeFeesLoading = useAtomValue(bridgeFeesLoadingAtom);
 
+  const selectedList = useMemo(() => selectedVenuesList(selectedMap), [selectedMap]);
+
+  const bestPair = useMemo(
+    () =>
+      getBestPair(
+        selectedAsset,
+        spreadAprData,
+        selectedAsset ? overrides[selectedAsset.asset] ?? null : null,
+        { selectedExchanges: selectedList, metric }
+      ),
+    [selectedAsset, spreadAprData, overrides, selectedList, metric]
+  );
+
+  const marginValue = parseFloat(margin) || 0;
+
   // Calculate trade details from selected asset, margin, and leverage
   const tradeDetails = useMemo(() => {
-    const marginValue = parseFloat(margin) || 0;
     const price = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
 
-    // Determine best pair
-    const bestPair = getBestPairForAsset(selectedAsset);
     const longProtocol = selectedAsset?.protocols?.[bestPair.long];
     const shortProtocol = selectedAsset?.protocols?.[bestPair.short];
 
@@ -53,12 +80,43 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
     const fundingShort =
       shortProtocol?.fundingRateYearly || selectedAsset?.pacificaFundingRate || 0;
 
-    // Estimated APR (Net APR from selected asset)
-    const estimatedAPR = selectedAsset?.netAPR || 0;
+    const estimatedAPR = fundingSpreadAprYearly(fundingLong, fundingShort);
 
-    // Liquidation prices (simplified calculation: entry * (1 - 1/leverage))
-    const liqLong = entryLong * (1 - 1 / leverage);
-    const liqShort = entryShort * (1 + 1 / leverage);
+    let liqLong = entryLong * (1 - 1 / leverage);
+    let liqShort = entryShort * (1 + 1 / leverage);
+
+    if (marginValue > 0 && price > 0 && leverage > 0) {
+      const positionSizeCoins = hedgePositionSizeFromMargin({
+        marginUsd: marginValue,
+        leverage,
+        markPrice: price,
+      });
+      if (positionSizeCoins != null) {
+        const longMax = longProtocol?.maxLeverage ?? 20;
+        const shortMax = shortProtocol?.maxLeverage ?? 20;
+        const estLong = estimateIsolatedLiquidationPriceForExchange({
+          exchange: bestPair.long,
+          markPrice: price,
+          marginUsd: marginValue,
+          positionSize: positionSizeCoins,
+          leverage,
+          maxLeverage: longMax,
+          side: 'long',
+        });
+        const estShort = estimateIsolatedLiquidationPriceForExchange({
+          exchange: bestPair.short,
+          markPrice: price,
+          marginUsd: marginValue,
+          positionSize: positionSizeCoins,
+          leverage,
+          maxLeverage: shortMax,
+          side: 'short',
+        });
+        if (estLong != null && Number.isFinite(estLong)) liqLong = estLong;
+        if (estShort != null && Number.isFinite(estShort)) liqShort = estShort;
+      }
+    }
+
     const totalFees = bridgeFees?.totalFeeUsd ?? 0;
 
     return {
@@ -78,9 +136,9 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
         short: formatPercentWithSign(fundingShort),
       },
       estimatedAPR: formatPercentWithSign(estimatedAPR),
-      maxDrawdown: formatPercentWithSign(100 / leverage), // Simplified: 100% / leverage
+      maxDrawdown: formatPercentWithSign(100 / leverage),
     };
-  }, [margin, leverage, selectedAsset, getBestPairForAsset, bridgeFees]);
+  }, [marginValue, leverage, selectedAsset, bestPair.long, bestPair.short, bridgeFees]);
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
@@ -128,11 +186,6 @@ export function TradeDetailsSection({ className }: TradeDetailsSectionProps) {
                 value={tradeDetails.estimatedAPR}
                 valueColor="green"
               />
-              {/* <TradeDetailRow
-                label="Max Drawdown"
-                value={tradeDetails.maxDrawdown}
-                valueColor="red"
-              /> */}
             </div>
           </div>
         )}

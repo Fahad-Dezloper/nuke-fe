@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import { getProtocolConfig } from '@/lib/protocols/config';
 import type { FundStep, FundExchange } from '@/hooks/use-fund-exchange';
-import { MIN_FUND_AMOUNT } from '@/constants';
+import { MIN_ADD_MARGIN_USD } from '@/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -197,9 +197,12 @@ export function AddMarginModal({
     (value: string): string | null => {
       const num = parseFloat(value);
       if (!value || isNaN(num) || num <= 0) return null;
-      // TEMP (testing): bypass min + balance checks.
-      // if (num < MIN_FUND_AMOUNT) return `Minimum amount is $${MIN_FUND_AMOUNT}`;
-      // if (num > baseBalance + 0.01) return `Exceeds Solana balance ($${baseBalance.toFixed(2)})`;
+      if (num < MIN_ADD_MARGIN_USD) {
+        return `Minimum amount is $${MIN_ADD_MARGIN_USD} (bridge fees may reduce what arrives on-chain)`;
+      }
+      if (num > baseBalance + 0.01) {
+        return `Exceeds Solana balance ($${baseBalance.toFixed(2)})`;
+      }
       return null;
     },
     [baseBalance]
@@ -374,7 +377,7 @@ export function AddMarginModal({
           </motion.div>
 
           {/* Match Suggestion */}
-          {suggestedAmount !== null && suggestedAmount >= MIN_FUND_AMOUNT && (
+          {suggestedAmount !== null && suggestedAmount >= MIN_ADD_MARGIN_USD && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -409,9 +412,10 @@ export function AddMarginModal({
           >
             <div className="p-2.5 rounded-lg bg-yellow-700/10 border border-accent/20">
               <p className="text-[10px] text-text-muted-60 leading-relaxed">
+                Minimum ${MIN_ADD_MARGIN_USD} USDC from Solana.{' '}
                 {exchange === 'pacifica' || exchange === 'phoenix'
-                  ? `This will deposit USDC from your Solana wallet into your ${exchangeLabel} margin account. You may need to approve the transaction in your wallet.`
-                  : `This will bridge USDC from Solana and deposit it into your ${exchangeLabel} margin account. The process usually takes 1–3 minutes.`}
+                  ? `Funds are deposited directly into your ${exchangeLabel} margin account.`
+                  : `Funds are bridged to ${exchangeLabel} (usually 1–3 minutes); bridge fees may reduce the amount that arrives.`}
               </p>
             </div>
           </motion.div>

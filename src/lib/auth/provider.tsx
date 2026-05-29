@@ -146,14 +146,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (suborgId && evmAddress && turnkeyState.isLoggedIn) {
         const idToken = turnkeyState.googleIdToken ?? undefined;
         const refreshAccessCode = getStoredAccessCode() ?? undefined;
-        login({ suborgId, evmAddress, organizationId: suborgId, idToken, accessCode: refreshAccessCode }).catch((err) => {
+        login({
+          suborgId,
+          evmAddress,
+          organizationId: suborgId,
+          idToken,
+          accessCode: refreshAccessCode,
+        }).catch((err) => {
           console.error('[AuthProvider] Token refresh failed:', err);
         });
       }
     }, refreshInMs);
 
     return () => clearTimeout(timer);
-  }, [authState.token, turnkeyState.isLoggedIn, turnkeyState.turnkeySubOrgId, turnkeyState.userWallets, login]);
+  }, [
+    authState.token,
+    turnkeyState.isLoggedIn,
+    turnkeyState.turnkeySubOrgId,
+    turnkeyState.userWallets,
+    login,
+  ]);
 
   return <>{children}</>;
 }

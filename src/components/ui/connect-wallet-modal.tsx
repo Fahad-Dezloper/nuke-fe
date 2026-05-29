@@ -3,7 +3,7 @@
 /**
  * Connect Wallet Modal Component
  * Modal for wallet connection with Google Sign-in plus EVM (EIP-6963) and Solana injects.
- * Gated behind an access code validated server-side before Turnkey is touched.
+ * Access code required once per browser (localStorage); returning users skip after logout.
  */
 
 import { motion } from 'framer-motion';
@@ -13,7 +13,11 @@ import { cn } from '@/lib/utils';
 import { Modal } from './modal';
 import { useTurnkey } from '@/lib/turnkey';
 import { useState, useCallback, useEffect } from 'react';
-import { storeAccessCode } from '@/lib/auth/access-code';
+import {
+  getStoredAccessCode,
+  hasDeviceAccessGrant,
+  markAccessCodeGranted,
+} from '@/lib/auth/access-code';
 import {
   subscribeEip6963Providers,
   type Eip6963ProviderDetail,
@@ -71,6 +75,15 @@ export function ConnectWalletModal({
   const [evmProviders, setEvmProviders] = useState<Eip6963ProviderDetail[]>([]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    if (hasDeviceAccessGrant()) {
+      setIsCodeValidated(true);
+      const stored = getStoredAccessCode();
+      if (stored) setAccessCode(stored);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isOpen || !isCodeValidated) {
       setEvmProviders([]);
       return;
@@ -99,7 +112,7 @@ export function ConnectWalletModal({
       const data = await res.json();
 
       if (data.valid) {
-        storeAccessCode(accessCode.trim());
+        markAccessCodeGranted(accessCode.trim());
         setIsCodeValidated(true);
       } else {
         setError('Invalid access code');
@@ -160,11 +173,13 @@ export function ConnectWalletModal({
   };
 
   const handleClose = useCallback(() => {
-    setAccessCode('');
     setError('');
-    setIsCodeValidated(false);
     setLoading(null);
     setWalletConnectKey(null);
+    if (!hasDeviceAccessGrant()) {
+      setAccessCode('');
+      setIsCodeValidated(false);
+    }
     onClose();
   }, [onClose]);
 

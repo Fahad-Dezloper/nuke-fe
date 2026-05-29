@@ -8,6 +8,7 @@ import { AnimatedNumber } from '@/components/ui/animated-number';
 import { formatPercentWithSign, formatPrice } from '@/lib/utils';
 import { selectedAssetAtom, marketFeedDataAtom } from '@/lib/stores/market-feed.store';
 import { useBestPair } from '@/hooks/use-best-pair';
+import { fundingSpreadAprYearly } from '@/lib/arbitrage/asset-table-pairs';
 import { MarketOverviewSkeleton } from '@/components/ui/skeletons';
 import type { AssetDropdownItem } from '@/types/positions';
 
@@ -29,7 +30,7 @@ export function MobileMarketHeader({ className, onAssetChange }: MobileMarketHea
   const bestPair = getBestPairForAsset(selectedAsset);
   const longFundingRate = selectedAsset?.protocols?.[bestPair.long]?.fundingRateYearly || 0;
   const shortFundingRate = selectedAsset?.protocols?.[bestPair.short]?.fundingRateYearly || 0;
-  const estimatedAPR = selectedAsset?.netAPR || 0;
+  const estimatedAPR = fundingSpreadAprYearly(longFundingRate, shortFundingRate);
   const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
 
   return (

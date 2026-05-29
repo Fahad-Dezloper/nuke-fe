@@ -29,6 +29,15 @@ export interface BestPairResult {
   short: HedgeVenueProtocol;
 }
 
+/**
+ * Annualized funding spread for the displayed long/short hedge (non-negative).
+ * Matches pair `netApr` in {@link computeTopPairs}: higher yearly rate − lower.
+ */
+export function fundingSpreadAprYearly(longRate: number, shortRate: number): number {
+  if (!Number.isFinite(longRate) || !Number.isFinite(shortRate)) return 0;
+  return Math.max(longRate, shortRate) - Math.min(longRate, shortRate);
+}
+
 export function protocolFundingYearly(
   asset: AssetDropdownItem,
   protocol: HedgeVenueProtocol

@@ -14,7 +14,11 @@ export const LIGHTER_ARB_USDC_SPENDER =
 export const LIGHTER_ETH_DEPOSIT_CONTRACT =
   process.env.NEXT_PUBLIC_LIGHTER_ETH_DEPOSIT_CONTRACT?.trim() ||
   '0x3B4D794a66304F130a4Db8F2551B0070dfCf5ca7';
+/** @deprecated Use {@link MIN_ADD_MARGIN_USD} for Add margin UI and `useFundExchange`. */
 export const MIN_FUND_AMOUNT = 12;
+
+/** Minimum USD for Add margin (covers bridge fees/slippage so ≥$10 lands on destination). */
+export const MIN_ADD_MARGIN_USD = 11;
 
 /** Minimum USDC for direct Solana → Pacifica/Phoenix add-margin deposits (6 decimals). */
 export const SOLANA_DIRECT_MIN_DEPOSIT_MICROS = 1_000_000; // $1 — allows small adds e.g. $5
