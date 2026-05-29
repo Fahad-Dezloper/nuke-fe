@@ -111,12 +111,11 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
     }
 
     function fundTarget(protocol: Protocol): FundExchange | null {
-      if (protocol === 'backpack') return null;
+      if (protocol === 'backpack' || protocol === 'lighter') return null;
       if (
         protocol === 'hyperliquid' ||
         protocol === 'pacifica' ||
-        protocol === 'phoenix' ||
-        protocol === 'lighter'
+        protocol === 'phoenix'
       ) {
         return protocol;
       }
