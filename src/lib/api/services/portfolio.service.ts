@@ -43,6 +43,8 @@ export interface ExchangeRow {
   connected: boolean;
   availableBalanceUsd: number | null;
   totalEquityUsd: number | null;
+  /** Trading volume (USD); backend may send per venue. */
+  volumeUsd?: number | null;
   error: string | null;
 }
 
@@ -51,6 +53,7 @@ export interface ExchangesResponse {
   totals: {
     availableBalanceUsd: number;
     totalEquityUsd: number;
+    volumeUsd?: number | null;
   };
 }
 

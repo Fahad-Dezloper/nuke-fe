@@ -28,7 +28,13 @@ import {
   leverageAtom,
   selectedAssetAtom,
   marginValidationAtom,
+  hedgeExitRangeAtom,
+  exitRangeValidationAtom,
 } from './position-controls/store';
+import {
+  ExitRangeSection,
+  ExitRangeValidationBanner,
+} from './position-controls/exit-range-section';
 import { useHedgeIntent } from '@/lib/hedge-intent';
 import { useBestPair } from '@/hooks/use-best-pair';
 import { useExchangeBalances } from '@/hooks/use-exchange-balances';
@@ -68,6 +74,8 @@ export function PositionControlsSectionContent({
   const [leverage] = useAtom(leverageAtom);
   const [selectedAsset] = useAtom(selectedAssetAtom);
   const marginValidation = useAtomValue(marginValidationAtom);
+  const exitRangeValidation = useAtomValue(exitRangeValidationAtom);
+  const exitRange = useAtomValue(hedgeExitRangeAtom);
   const { state: turnkeyState } = useTurnkey();
   const queryClient = useQueryClient();
 
@@ -127,6 +135,19 @@ export function PositionControlsSectionContent({
       return;
     }
 
+    if (!exitRangeValidation.isValid) {
+      toast.error('Cannot open hedge', {
+        description: exitRangeValidation.error ?? 'Adjust mirrored exit range.',
+        duration: 8000,
+      });
+      return;
+    }
+
+    if (!exitRange) {
+      toast.error('Configure exit range before opening.');
+      return;
+    }
+
     if (!isLoggedIn) {
       toast.error('Please connect your wallet first');
       return;
@@ -166,6 +187,7 @@ export function PositionControlsSectionContent({
       leverage,
       longExchange: bestPair.long,
       shortExchange: bestPair.short,
+      exitRange,
     });
 
     if (evmAddress && solanaAddress) {
@@ -178,6 +200,8 @@ export function PositionControlsSectionContent({
     margin,
     leverage,
     marginValidation,
+    exitRangeValidation,
+    exitRange,
     isLoggedIn,
     hasExistingPosition,
     marketFeedData,
@@ -195,6 +219,8 @@ export function PositionControlsSectionContent({
     margin &&
     parseFloat(margin) > 0 &&
     marginValidation.isValid &&
+    exitRangeValidation.isValid &&
+    !!exitRange &&
     !hasExistingPosition &&
     !isExecuting;
 
@@ -263,6 +289,9 @@ export function PositionControlsSectionContent({
           <PositionSizeSection />
 
           <LeverageSection />
+
+          <ExitRangeSection />
+          <ExitRangeValidationBanner />
 
           {hasExistingPosition && selectedAsset && (
             <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5">

@@ -3,8 +3,8 @@
  *
  * - Hyperliquid: Solana USDC → bridge to Arbitrum → HL deposit API
  * - Phoenix: direct Solana USDC → Phoenix deposit (Rise `buildDepositIxs`, Turnkey-signed)
- * - Lighter: Solana USDC → bridge to **Ethereum mainnet** → `POST /lighter/deposit` (see
- *   LIGHTER_DEPOSIT_FE_INTEGRATION.md) → then poll for L2 account + WASM + L1 `changePubKey` when keys missing.
+ * - Lighter: Solana USDC → bridge to **Ethereum mainnet** → `POST /lighter/deposit` (permit) →
+ *   L2 API key onboarding when keys missing.
  * - Backpack: Solana USDC → SPL transfer to Backpack deposit address (no bridge)
  */
 
@@ -230,74 +230,15 @@ export function useFundExchange(): UseFundExchangeReturn {
           return;
         }
 
-        // Lighter — sign a USDC permit on Ethereum mainnet and call
-        // `POST /lighter/deposit` directly. No bridge needed.
-        if (exchange === 'lighter') {
-          const { createEthereumMainnetUsdcPermit, signUsdcPermit } = await import(
-            '@/lib/bridge/usdc-permit'
-          );
-          const { depositService } = await import('@/lib/bridge/deposit.service');
-
-          const LIGHTER_PERMIT_SPENDER =
-            '0x6881Caaf4E9b69bbb7e1A860a205828ff7f74644' as `0x${string}`;
-          const amountMicros = BigInt(Math.floor(amountUsd * 1_000_000)).toString();
-
-          trackDepositStarted(exchange);
-          setStep('signing');
-          setStatusMessage('Signing Lighter deposit permit...');
-
-          const permitResult = await createEthereumMainnetUsdcPermit(
-            amountUsd.toString(),
-            wallet.evmAddress,
-            LIGHTER_PERMIT_SPENDER
-          );
-          if (!permitResult.success || !permitResult.typedData) {
-            throw new Error(permitResult.error || 'Failed to create USDC permit');
-          }
-
-          const signatureResult = await signUsdcPermit(
-            permitResult.typedData,
-            wallet.evmAddress,
-            wallet.organizationId
-          );
-          if (!signatureResult.success || !signatureResult.signature) {
-            throw new Error(signatureResult.error || 'Failed to sign USDC permit');
-          }
-
-          setStep('depositing');
-          setStatusMessage(`Depositing USDC into ${label}...`);
-
-          await depositService.depositToLighter({
-            amount: amountMicros,
-            permit: signatureResult.signature,
-          });
-
-          if (!getLighterL2Credentials()) {
-            setStep('lighter-api-keys');
-            setStatusMessage('Linking Lighter trading keys (waits for your account after deposit)...');
-            await finalizeLighterL2KeysAfterDeposit({
-              evmAddress: wallet.evmAddress,
-              organizationId: wallet.organizationId,
-            });
-          }
-
-          trackDepositCompleted(exchange);
-          setStep('success');
-          setStatusMessage(`Successfully funded ${label}!`);
-
-          await invalidateTradingBalances(queryClient, {
-            evmAddress: wallet.evmAddress,
-            solanaAddress: wallet.solanaAddress,
-          });
-
-          toast.success(`${label} Funded`, {
-            description: `$${amountUsd.toFixed(2)} USDC deposited to ${label}.`,
-            duration: 5000,
-          });
-          return;
-        }
-
         const recipient = wallet.evmAddress;
+
+        const amountMicros = BigInt(Math.floor(amountUsd * 1_000_000));
+        const solanaBalance = await getUSDCBalanceOnSolana(wallet.solanaAddress);
+        if (solanaBalance < amountMicros) {
+          throw new Error(
+            `Insufficient Solana USDC. Need ${formatUSDCBalanceSolana(amountMicros)} for bridge, have ${formatUSDCBalanceSolana(solanaBalance)}`
+          );
+        }
 
         // Backpack funding disabled (display-only demo).
 
@@ -306,7 +247,7 @@ export function useFundExchange(): UseFundExchangeReturn {
         setStep('getting-quote');
         setStatusMessage(`Getting bridge quote to ${chainLabel}...`);
 
-        const amountSmallestUnit = Math.floor(amountUsd * 1_000_000).toString();
+        const amountSmallestUnit = amountMicros.toString();
 
         const quoteRequest: QuoteRequest = {
           destinationChainId: getDestinationChainId(exchange),
@@ -399,6 +340,17 @@ export function useFundExchange(): UseFundExchangeReturn {
           bridgeRequestId: requestId,
           solanaRecipientAddress: wallet.solanaAddress,
         });
+
+        if (exchange === 'lighter' && !getLighterL2Credentials()) {
+          setStep('lighter-api-keys');
+          setStatusMessage(
+            'Linking Lighter trading keys (waits for your account after deposit)...'
+          );
+          await finalizeLighterL2KeysAfterDeposit({
+            evmAddress: wallet.evmAddress,
+            organizationId: wallet.organizationId,
+          });
+        }
 
         // ── Done ──────────────────────────────────────────────────
         trackDepositCompleted(exchange);

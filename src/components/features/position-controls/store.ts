@@ -20,11 +20,23 @@ import {
   selectedVenuesList,
 } from '@/lib/stores/arbitrage-table-filters.store';
 
+import {
+  computeHedgeExitRangeContext,
+  validateExitRangeStops,
+  type HedgeExitRangeStops,
+} from '@/lib/hedge-intent/hedge-exit-range';
+
 // Leverage state (1-5x)
 export const leverageAtom = atom<number>(3);
 
 // Margin/Position size state (in USD)
 export const marginAtom = atom<string>('');
+
+/** User-selected mirrored exit stops (lower = long SL / short TP, upper = long TP / short SL). */
+export const hedgeExitRangeAtom = atom<HedgeExitRangeStops | null>(null);
+
+/** When set, exit range was manually adjusted for this context key — skip auto-reset. */
+export const hedgeExitRangeTouchedAtom = atom<string | null>(null);
 
 // Currency selection for margin
 export const marginCurrencyAtom = atom<string>('USD');
@@ -169,4 +181,63 @@ export const marginValidationAtom = atom<MarginValidation>((get) => {
   }
 
   return { isValid: true, error: null, maxMargin, minLeverageRequired };
+});
+
+export interface ExitRangeValidation {
+  isValid: boolean;
+  error: string | null;
+  lowerOk: boolean;
+  upperOk: boolean;
+}
+
+/** Validates user exit range against estimated liquidation bounds. */
+export const exitRangeValidationAtom = atom<ExitRangeValidation>((get) => {
+  const marginStr = get(marginAtom);
+  const leverage = get(leverageAtom);
+  const exitRange = get(hedgeExitRangeAtom);
+  const asset = get(marketSelectedAssetAtom);
+  const spreadAprData = get(spreadAprDataAtom);
+  const overrides = get(bestPairOverrideAtom);
+  const override = asset ? overrides[asset.asset] ?? null : null;
+  const selectedList = selectedVenuesList(get(selectedExchangesAtom));
+  const metric = get(bestPairMetricAtom);
+  const { long, short } = getBestPair(asset, spreadAprData, override, {
+    selectedExchanges: selectedList,
+    metric,
+  });
+
+  const marginValue = parseFloat(marginStr);
+  if (!marginStr || !Number.isFinite(marginValue) || marginValue <= 0) {
+    return { isValid: false, error: null, lowerOk: false, upperOk: false };
+  }
+
+  const mark =
+    asset?.markPx ||
+    asset?.protocols?.[long]?.markPx ||
+    asset?.hyperliquidMarkPx ||
+    0;
+
+  if (mark <= 0) {
+    return { isValid: false, error: 'Mark price unavailable.', lowerOk: false, upperOk: false };
+  }
+
+  const ctx = computeHedgeExitRangeContext({
+    markPrice: mark,
+    totalMarginUsd: marginValue,
+    leverage,
+    longExchange: long,
+    shortExchange: short,
+    longMaxLeverage: asset?.protocols?.[long]?.maxLeverage ?? 20,
+    shortMaxLeverage: asset?.protocols?.[short]?.maxLeverage ?? 20,
+  });
+
+  if (!ctx) {
+    return { isValid: false, error: 'Could not compute exit range.', lowerOk: false, upperOk: false };
+  }
+
+  if (!exitRange) {
+    return { isValid: false, error: 'Configure exit range.', lowerOk: false, upperOk: false };
+  }
+
+  return validateExitRangeStops(exitRange, ctx);
 });

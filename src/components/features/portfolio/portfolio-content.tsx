@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
+import { useAtomValue } from 'jotai';
 import { cn } from '@/lib/utils';
 import { useTurnkey, getEVMAddress, getSolanaAddress } from '@/lib/turnkey';
 import {
@@ -8,16 +9,24 @@ import {
   usePortfolioPnlChart,
   usePortfolioExchanges,
 } from '@/hooks';
+import { useExchangeBalances } from '@/hooks/use-exchange-balances';
+import { useFundExchange, type FundExchange } from '@/hooks/use-fund-exchange';
 import type { ExchangeRow, PerformanceBucket, VenueKey } from '@/lib/api/services';
 import {
   tabToApiTimeframe,
   timeframeTabs,
   venueDisplayOrder,
   venueMarks,
+  venueToFundExchange,
   type TimeframeTab,
 } from './data';
 import { ExchangeCard, InfoCard, PerformanceChart, SectionTitle } from './components';
 import { formatCount, formatSignedUsd, formatUsd, pnlColorClass } from './format';
+import { AddMarginModal } from '@/components/ui/add-margin-modal';
+import { isLoggedInAtom } from '@/lib/turnkey/store';
+import { baseBalanceAtom } from '@/components/features/position-controls/store';
+import { isPhoenixTradingEnabled } from '@/lib/phoenix/env';
+import { toast } from 'sonner';
 
 const EMPTY_BUCKET: PerformanceBucket = { volumeUsd: 0, strategiesOpened: 0, pnlUsd: 0 };
 
@@ -37,14 +46,38 @@ function orderExchanges(rows: ExchangeRow[]): ExchangeRow[] {
     .filter((row): row is ExchangeRow => Boolean(row));
 }
 
+function sumVolumeUsd(rows: ExchangeRow[]): number | null {
+  const values = rows
+    .map((r) => r.volumeUsd)
+    .filter((v): v is number => v != null && Number.isFinite(v));
+  if (values.length === 0) return null;
+  return values.reduce((a, b) => a + b, 0);
+}
+
+function existingMarginForVenue(row: ExchangeRow): number {
+  const v = row.availableBalanceUsd;
+  return v != null && Number.isFinite(v) ? v : 0;
+}
+
 export function PortfolioContent() {
   const [activeTab, setActiveTab] = useState<TimeframeTab>('Day');
   const apiTimeframe = tabToApiTimeframe[activeTab];
 
   const { state } = useTurnkey();
+  const isLoggedIn = useAtomValue(isLoggedInAtom);
+  const baseBalance = useAtomValue(baseBalanceAtom);
   const evmAddress = getEVMAddress(state.userWallets) || '';
   const solanaAddress = getSolanaAddress(state.userWallets) || '';
   const enabled = state.isLoggedIn && !!evmAddress && !!solanaAddress;
+
+  useExchangeBalances();
+
+  const [addMarginOpen, setAddMarginOpen] = useState(false);
+  const [addMarginExchange, setAddMarginExchange] = useState<FundExchange>('hyperliquid');
+  const [addMarginExisting, setAddMarginExisting] = useState(0);
+  const [addMarginVenueName, setAddMarginVenueName] = useState('');
+
+  const { fund, reset, step, isExecuting, statusMessage, error } = useFundExchange();
 
   const { data: performance } = usePortfolioPerformance({
     evmAddress: evmAddress || undefined,
@@ -69,6 +102,43 @@ export function PortfolioContent() {
   const orderedExchanges = useMemo(
     () => (exchanges ? orderExchanges(exchanges.exchanges) : []),
     [exchanges]
+  );
+
+  const totalVolumeUsd = useMemo(() => {
+    const fromTotals = exchanges?.totals.volumeUsd;
+    if (fromTotals != null && Number.isFinite(fromTotals)) return fromTotals;
+    return sumVolumeUsd(orderedExchanges);
+  }, [exchanges?.totals.volumeUsd, orderedExchanges]);
+
+  const handleOpenAddMargin = useCallback((row: ExchangeRow) => {
+    const target = venueToFundExchange(row.venue);
+    if (!target) return;
+
+    if (target === 'phoenix' && !isPhoenixTradingEnabled()) {
+      toast.error('Phoenix trading is disabled', {
+        description:
+          'Set NEXT_PUBLIC_PHOENIX_TRADING_ENABLED=true in .env and restart the dev server.',
+        duration: 6000,
+      });
+      return;
+    }
+
+    setAddMarginExchange(target);
+    setAddMarginExisting(existingMarginForVenue(row));
+    setAddMarginVenueName(row.displayName);
+    setAddMarginOpen(true);
+  }, []);
+
+  const handleCloseAddMargin = useCallback(() => {
+    if (isExecuting) return;
+    setAddMarginOpen(false);
+  }, [isExecuting]);
+
+  const handleSubmitAddMargin = useCallback(
+    (amountUsd: number) => {
+      fund(addMarginExchange, amountUsd);
+    },
+    [fund, addMarginExchange]
   );
 
   return (
@@ -127,25 +197,49 @@ export function PortfolioContent() {
         <section className="space-y-5">
           <SectionTitle>Exchanges</SectionTitle>
           <div className="grid gap-0 md:grid-cols-2 xl:grid-cols-5">
-            {orderedExchanges.map((row) => (
-              <ExchangeCard
-                key={row.venue}
-                name={row.displayName}
-                mark={venueMarks[row.venue]}
-                availableBalance={formatUsd(row.availableBalanceUsd)}
-                accountValue={formatUsd(row.totalEquityUsd)}
-              />
-            ))}
+            {orderedExchanges.map((row) => {
+              const fundTarget = venueToFundExchange(row.venue);
+              return (
+                <ExchangeCard
+                  key={row.venue}
+                  name={row.displayName}
+                  mark={venueMarks[row.venue]}
+                  availableBalance={formatUsd(row.availableBalanceUsd)}
+                  volume={formatUsd(row.volumeUsd)}
+                  showAddMargin={isLoggedIn && baseBalance > 0}
+                  addMarginDisabled={fundTarget === null}
+                  onAddMargin={
+                    fundTarget ? () => handleOpenAddMargin(row) : undefined
+                  }
+                />
+              );
+            })}
             <ExchangeCard
               name="All Exchanges"
               mark={null}
               availableBalance={formatUsd(exchanges?.totals.availableBalanceUsd ?? null)}
-              accountValue={formatUsd(exchanges?.totals.totalEquityUsd ?? null)}
+              volume={formatUsd(totalVolumeUsd)}
               highlighted
             />
           </div>
         </section>
       </div>
+
+      <AddMarginModal
+        isOpen={addMarginOpen}
+        onClose={handleCloseAddMargin}
+        exchange={addMarginExchange}
+        baseBalance={baseBalance}
+        existingMargin={addMarginExisting}
+        otherExchangeMargin={0}
+        otherExchangeName={addMarginVenueName}
+        fundStep={step}
+        isExecuting={isExecuting}
+        statusMessage={statusMessage}
+        error={error}
+        onSubmit={handleSubmitAddMargin}
+        onReset={reset}
+      />
     </div>
   );
 }
