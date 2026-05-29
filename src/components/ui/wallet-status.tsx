@@ -350,25 +350,13 @@ export function WalletStatus() {
           </DropdownMenuItem>
 
           {/* Withdraw */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <DropdownMenuItem
-                    // onClick={() => setIsWithdrawModalOpen(true)}
-                    disabled
-                    className="flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-white/5 cursor-pointer"
-                  >
-                    <ArrowDownToLine className="w-4 h-4 text-text-muted-60" />
-                    Withdraw
-                  </DropdownMenuItem>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="left" sideOffset={8}>
-                Coming soon
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <DropdownMenuItem
+            onClick={() => setIsWithdrawModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-white/5 cursor-pointer"
+          >
+            <ArrowDownToLine className="w-4 h-4 text-text-muted-60" />
+            Withdraw
+          </DropdownMenuItem>
 
           <DropdownMenuSeparator className="bg-border-white-10/50" />
 

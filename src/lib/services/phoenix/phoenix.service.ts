@@ -477,6 +477,61 @@ export class PhoenixService {
   }
 
   /**
+   * Withdraw USDC from Phoenix cross margin to the user's Solana wallet (Rise `buildWithdrawIxs`).
+   * Mirror of `depositUsdc` — funds land as Solana USDC; no EVM bridge step.
+   */
+  async withdrawUsdc(
+    solanaAuthority: string,
+    organizationId: string,
+    amountMicros: bigint
+  ): Promise<string> {
+    if (!this.isTradingEnabled()) {
+      throw new PhoenixServiceError('Phoenix trading is disabled.');
+    }
+    if (amountMicros <= BigInt(0)) {
+      throw new PhoenixServiceError('Withdrawal amount must be positive.');
+    }
+
+    const free = await this.fetchFreeCollateralUsd(solanaAuthority);
+    if (!free.success) {
+      throw new PhoenixServiceError(free.error || 'Could not read Phoenix balance.');
+    }
+    const needUsd = Number(amountMicros) / Number(USDC_MICROS_PER_USD);
+    if (free.usd + 0.01 < needUsd) {
+      throw new PhoenixServiceError(
+        `Insufficient Phoenix margin (have $${free.usd.toFixed(2)}, need $${needUsd.toFixed(2)}).`,
+        'INSUFFICIENT_COLLATERAL'
+      );
+    }
+
+    const client = getPhoenixRiseClient();
+    await ensurePhoenixExchangeReady();
+    await this.ensureActivatedAndRegistered(solanaAuthority, organizationId);
+
+    const feePayerAddress = getPhoenixFeePayerAddress();
+
+    const flow = await client.ixs.buildWithdrawIxs({
+      authority: solanaAuthority as Authority,
+      amount: amountMicros,
+      traderPdaIndex: DEFAULT_TRADER_PDA_INDEX,
+      traderSubaccountIndex: DEFAULT_TRADER_SUBACCOUNT_INDEX,
+      ...(feePayerAddress ? { feePayer: feePayerAddress as Authority } : {}),
+    });
+
+    const ixs = flow.instructions.map((ix) => normalizeRiseInstruction(ix));
+
+    try {
+      return await submitRiseInstructions(ixs, solanaAuthority, organizationId, {
+        feePayerAddress,
+      });
+    } catch (err) {
+      if (err instanceof PhoenixSubmitError) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new PhoenixServiceError(`Phoenix withdrawal failed: ${msg}`, 'WITHDRAW');
+    }
+  }
+
+  /**
    * Place a market-style IOC order.
    * Opens with isolated margin + `transferAmount` when `marginUsd` is set and isolated hedges are enabled.
    */

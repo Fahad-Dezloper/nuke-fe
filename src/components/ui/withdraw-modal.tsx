@@ -12,7 +12,7 @@ import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { Modal } from './modal';
 import { useWithdrawal } from '@/lib/withdrawal';
-import type { WithdrawalExchange, WithdrawalPhase } from '@/lib/withdrawal';
+import type { WithdrawalExchange, WithdrawPhase } from '@/lib/withdrawal';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getSolanaAddress } from '@/lib/turnkey/wallet-utils';
 import { useExchangeBalances } from '@/hooks/use-exchange-balances';
@@ -24,9 +24,12 @@ interface WithdrawModalProps {
   onClose: () => void;
 }
 
-const EXCHANGES: { id: WithdrawalExchange; label: string }[] = [
+const MIN_WITHDRAW_USD = 1;
+
+const EXCHANGES: { id: WithdrawalExchange; label: string; hint?: string }[] = [
   { id: 'hyperliquid', label: 'Hyperliquid' },
   { id: 'pacifica', label: 'Pacifica' },
+  { id: 'phoenix', label: 'Phoenix' },
 ];
 
 const STEP_LABELS: { key: string; label: string }[] = [
@@ -36,24 +39,35 @@ const STEP_LABELS: { key: string; label: string }[] = [
 ];
 
 function getStepState(
-  phase: WithdrawalPhase,
-  stepKey: string
+  phase: WithdrawPhase,
+  stepKey: string,
+  includeBridge: boolean
 ): 'pending' | 'active' | 'done' | 'error' {
-  const phaseOrder: Record<string, number> = {
-    idle: -1,
-    creating: 0,
-    withdrawing: 0,
-    waiting: 1,
-    bridging: 1,
-    completed: 2,
-    failed: -2,
-  };
+  const phaseOrder: Record<string, number> = includeBridge
+    ? {
+        idle: -1,
+        withdrawing: 0,
+        'getting-quote': 0,
+        signing: 1,
+        bridging: 1,
+        'waiting-bridge': 1,
+        completed: 2,
+        failed: -2,
+      }
+    : {
+        idle: -1,
+        withdrawing: 0,
+        'getting-quote': 0,
+        signing: 0,
+        bridging: 0,
+        'waiting-bridge': 0,
+        completed: 1,
+        failed: -2,
+      };
 
-  const stepOrder: Record<string, number> = {
-    withdraw: 0,
-    bridge: 1,
-    done: 2,
-  };
+  const stepOrder: Record<string, number> = includeBridge
+    ? { withdraw: 0, bridge: 1, done: 2 }
+    : { withdraw: 0, done: 1 };
 
   if (phase === 'failed') return 'error';
 
@@ -67,13 +81,14 @@ function getStepState(
 
 export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   const { state: turnkeyState } = useTurnkey();
-  const { hlBalance, pacBalance } = useExchangeBalances();
+  const { hlBalance, pacBalance, phoenixBalance } = useExchangeBalances();
   const {
     startWithdrawal,
     phase,
     statusMessage,
     error,
     isExecuting,
+    activeExchange: activeWithdrawExchange,
   } = useWithdrawal();
 
   const [selectedExchange, setSelectedExchange] = useState<WithdrawalExchange>('hyperliquid');
@@ -85,8 +100,24 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   }, [onClose]);
 
   const availableBalance = useMemo(() => {
-    return selectedExchange === 'hyperliquid' ? hlBalance : pacBalance;
-  }, [selectedExchange, hlBalance, pacBalance]);
+    if (selectedExchange === 'hyperliquid') return hlBalance;
+    if (selectedExchange === 'phoenix') return phoenixBalance;
+    return pacBalance;
+  }, [selectedExchange, hlBalance, pacBalance, phoenixBalance]);
+
+  const activeExchange = activeWithdrawExchange ?? selectedExchange;
+  const showBridgeStep = activeExchange === 'hyperliquid';
+
+  const progressSteps = useMemo(
+    () =>
+      showBridgeStep
+        ? STEP_LABELS
+        : [
+            { key: 'withdraw', label: 'Withdraw from exchange' },
+            { key: 'done', label: 'Complete' },
+          ],
+    [showBridgeStep]
+  );
 
   const handleMax = () => {
     if (availableBalance > 0) {
@@ -108,9 +139,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   };
 
   const isValidAmount =
-    amount &&
-    parseFloat(amount) > 0 &&
-    parseFloat(amount) <= availableBalance;
+    amount && parseFloat(amount) >= MIN_WITHDRAW_USD && parseFloat(amount) <= availableBalance;
 
   const isInProgress = phase !== 'idle' && phase !== 'failed' && phase !== 'completed';
   const showForm = phase === 'idle' || phase === 'failed';
@@ -174,9 +203,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
               transition={{ delay: 0.15 }}
               className="mb-4"
             >
-              <label className="text-xs text-text-muted-60 font-medium mb-2 block">
-                EXCHANGE
-              </label>
+              <label className="text-xs text-text-muted-60 font-medium mb-2 block">EXCHANGE</label>
               <div className="flex gap-2.5">
                 {EXCHANGES.map((ex) => {
                   const config = getProtocolConfig(ex.id);
@@ -209,14 +236,16 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                             className="rounded-full"
                           />
                         )}
-                        <span
-                          className={cn(
-                            'text-xs font-medium',
-                            isSelected ? 'text-text-primary' : 'text-text-muted-60'
-                          )}
-                        >
-                          {ex.label}
-                        </span>
+                        <div className="flex flex-col items-start">
+                          <span
+                            className={cn(
+                              'text-xs font-medium',
+                              isSelected ? 'text-text-primary' : 'text-text-muted-60'
+                            )}
+                          >
+                            {ex.label}
+                          </span>
+                        </div>
                       </div>
                     </motion.button>
                   );
@@ -350,8 +379,8 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
               transition={{ delay: 0.15 }}
               className="flex flex-col gap-2.5 mb-5"
             >
-              {STEP_LABELS.map((step) => {
-                const state = getStepState(phase, step.key);
+              {progressSteps.map((step) => {
+                const state = getStepState(phase, step.key, showBridgeStep);
                 return (
                   <div
                     key={step.key}
@@ -386,9 +415,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                         {state === 'pending' && (
                           <div className="w-1.5 h-1.5 rounded-full bg-text-muted-40/50" />
                         )}
-                        {state === 'error' && (
-                          <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                        )}
+                        {state === 'error' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
                       </div>
                       <span
                         className={cn(
@@ -469,8 +496,9 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
         className="p-3 rounded-lg bg-yellow-700/10 border border-accent/20"
       >
         <p className="text-xs text-text-muted-60 leading-relaxed">
-          Withdrawals move USDC from the exchange to your Solana wallet.
-          The process involves a withdrawal step and a bridge step.
+          {showBridgeStep
+            ? 'Hyperliquid USDC is bridged directly to your Solana wallet via Relay (typically under a minute).'
+            : 'Pacifica and Phoenix withdraw USDC directly to your Solana wallet. Minimum $1; exchange fees may apply.'}
         </p>
       </motion.div>
     </Modal>

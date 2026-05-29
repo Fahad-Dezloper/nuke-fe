@@ -1,16 +1,8 @@
 /**
- * useWithdrawal — React Hook
+ * useWithdrawal — client-orchestrated withdrawals (same model as useFundExchange).
  *
- * The main integration point for components.
- * Wraps the WithdrawalEngine with React state management
- * and provides resumability via localStorage.
- *
- * Usage:
- *   const { startWithdrawal, phase, detail, ... } = useWithdrawal();
- *
- *   await startWithdrawal({ exchange: 'hyperliquid', amountUsd: 100 });
- *
- *   // On page reload: hook auto-resumes if there's an active intent
+ * Hyperliquid: Relay bridge perps USDC → Solana (chain 1337 → 792703809)
+ * Pacifica / Phoenix: direct to Solana USDC
  */
 
 'use client';
@@ -20,342 +12,227 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTurnkey } from '@/lib/turnkey/hooks';
 import { getWalletContext } from '@/lib/wallet-context';
-import { queryKeys } from '@/lib/query-keys';
-import { withdrawalApi } from './api';
-import { WithdrawalEngine, type EngineCallbacks } from './engine';
-import type { ExecutorContext } from './action-executor';
-import type {
-  WithdrawalAction,
-  WithdrawalStatus,
-  WithdrawalIntentDetail,
-  WithdrawalExchange,
-  WithdrawalPhase,
-} from './types';
-import { ACTIVE_WITHDRAWAL_INTENT_KEY, toExchangeName } from './types';
+import { invalidateTradingBalances } from '@/lib/trading/invalidate-trading-balances';
+import {
+  bridgeHyperliquidToSolana,
+  withdrawFromPacifica,
+  withdrawFromPhoenix,
+  loadWithdrawResumeState,
+  storeWithdrawResumeState,
+  clearWithdrawResumeState,
+  type WithdrawWalletContext,
+} from './client-withdraw';
+import type { WithdrawalExchange, WithdrawPhase, StartWithdrawalParams } from './types';
 
-// ─── LocalStorage helpers ────────────────────────────────────────────────────
-
-const LS_KEY = ACTIVE_WITHDRAWAL_INTENT_KEY;
-
-function storeActiveIntentId(id: string): void {
-  try {
-    localStorage.setItem(LS_KEY, id);
-  } catch { /* noop */ }
-}
-
-function loadActiveIntentId(): string | null {
-  try {
-    return localStorage.getItem(LS_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function clearActiveIntentId(): void {
-  try {
-    localStorage.removeItem(LS_KEY);
-  } catch { /* noop */ }
-}
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export interface StartWithdrawalParams {
-  exchange: WithdrawalExchange;
-  amountUsd: number;
-  /** Destination address on Solana. Defaults to user's Solana address. */
-  recipient?: string;
-}
+const MIN_WITHDRAW_USD = 1;
 
 export interface UseWithdrawalReturn {
   startWithdrawal: (params: StartWithdrawalParams) => Promise<void>;
-  resume: (intentId: string) => Promise<void>;
-  abort: () => void;
+  reset: () => void;
   isExecuting: boolean;
-  phase: WithdrawalPhase;
+  phase: WithdrawPhase;
   statusMessage: string;
-  currentAction: WithdrawalAction | null;
-  detail: WithdrawalIntentDetail | null;
-  intentId: string | null;
+  activeExchange: WithdrawalExchange | null;
   error: string | null;
-  refreshDetail: () => Promise<void>;
 }
 
-// ─── Terminal statuses (don't resume these) ──────────────────────────────────
+export type { StartWithdrawalParams };
 
-const TERMINAL_STATUSES: WithdrawalStatus[] = ['COMPLETED', 'FAILED'];
-
-const IN_PROGRESS_STATUSES: WithdrawalStatus[] = [
-  'CREATED', 'WITHDRAWING', 'WITHDRAWN', 'BRIDGING',
-];
-
-// ─── Hook ────────────────────────────────────────────────────────────────────
+function getExchangeLabel(exchange: WithdrawalExchange): string {
+  if (exchange === 'hyperliquid') return 'Hyperliquid';
+  if (exchange === 'phoenix') return 'Phoenix';
+  if (exchange === 'lighter') return 'Lighter';
+  return 'Pacifica';
+}
 
 export function useWithdrawal(): UseWithdrawalReturn {
   const { state: turnkeyState } = useTurnkey();
   const queryClient = useQueryClient();
-
-  // ── State ───────────────────────────────────────────────────
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [phase, setPhase] = useState<WithdrawalPhase>('idle');
-  const [statusMessage, setStatusMessage] = useState('');
-  const [currentAction, setCurrentAction] = useState<WithdrawalAction | null>(null);
-  const [detail, setDetail] = useState<WithdrawalIntentDetail | null>(null);
-  const [intentId, setIntentId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // ── Refs ────────────────────────────────────────────────────
-  const engineRef = useRef<WithdrawalEngine | null>(null);
   const isRunningRef = useRef(false);
   const resumeAttemptedRef = useRef(false);
-  // Store exchange for resumability (engine needs it)
-  const exchangeRef = useRef<WithdrawalExchange>('hyperliquid');
 
-  // ── Build executor context from Turnkey state ──────────────
-  const buildContext = useCallback((): ExecutorContext => {
-    const wallet = getWalletContext(turnkeyState);
-    return {
-      evmAddress: wallet.evmAddress,
-      solanaAddress: wallet.solanaAddress,
-      organizationId: wallet.organizationId,
-    };
-  }, [turnkeyState]);
+  const [phase, setPhase] = useState<WithdrawPhase>('idle');
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [activeExchange, setActiveExchange] = useState<WithdrawalExchange | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // ── Build engine callbacks ─────────────────────────────────
-  const buildCallbacks = useCallback(
-    (withdrawalIntentId: string): EngineCallbacks => ({
-      onActionStart: (action) => {
-        setCurrentAction(action);
-      },
+  const reset = useCallback(() => {
+    setPhase('idle');
+    setIsExecuting(false);
+    setStatusMessage('');
+    setActiveExchange(null);
+    setError(null);
+    isRunningRef.current = false;
+  }, []);
 
-      onActionComplete: (_action, success) => {
-        if (!success) {
-          console.warn(`[useWithdrawal] Action ${_action} failed — engine will stop and show error`);
-        }
-        withdrawalApi.getDetail(withdrawalIntentId)
-          .then(setDetail)
-          .catch(() => { /* non-critical */ });
-      },
+  const runHyperliquidWithdraw = useCallback(
+    async (
+      ctx: WithdrawWalletContext,
+      amountUsd: number,
+      bridgeRequestId?: string
+    ) => {
+      const label = getExchangeLabel('hyperliquid');
 
-      onStatusChange: (phaseStr, detailMsg) => {
-        setPhase(phaseStr as WithdrawalPhase);
-        if (detailMsg) setStatusMessage(detailMsg);
-      },
+      if (!bridgeRequestId) {
+        setPhase('getting-quote');
+        setStatusMessage(`Getting Relay quote (${label} → Solana)...`);
+        setPhase('signing');
+        setStatusMessage('Sign to move USDC from Hyperliquid to your Solana wallet...');
+      }
 
-      onError: (errorMsg) => {
-        setError(errorMsg);
-        setPhase('failed');
-        setIsExecuting(false);
-        isRunningRef.current = false;
-        setCurrentAction(null);
-        clearActiveIntentId();
-        toast.error('Withdrawal Failed', {
-          description: errorMsg || 'An unexpected error occurred.',
-          duration: 8000,
-        });
-      },
+      setPhase('bridging');
+      setStatusMessage('Bridging USDC to Solana via Relay...');
 
-      onComplete: (_id, finalStatus) => {
-        if (finalStatus === 'COMPLETED') {
-          setPhase('completed');
-          setStatusMessage('Withdrawal complete!');
-          const wallet = getWalletContext(turnkeyState);
-          void queryClient.invalidateQueries({
-            queryKey: queryKeys.balance.exchangeHlPac(wallet.evmAddress, wallet.solanaAddress),
-          });
+      const requestId = await bridgeHyperliquidToSolana(ctx, amountUsd, bridgeRequestId);
 
-          toast.success('Withdrawal Complete', {
-            description: 'Funds have been withdrawn to your Solana wallet.',
-            closeButton: true,
-            duration: 6000,
-          });
+      storeWithdrawResumeState({
+        exchange: 'hyperliquid',
+        step: 'bridging',
+        amountUsd,
+        bridgeRequestId: requestId,
+      });
 
-          setTimeout(() => {
-            setPhase('idle');
-            setStatusMessage('');
-            setDetail(null);
-            setIntentId(null);
-          }, 5_000);
-        } else {
-          setPhase('failed');
-          setStatusMessage(`Withdrawal ${finalStatus.toLowerCase()}`);
-          toast.error('Withdrawal Failed', {
-            description: `Withdrawal intent ${finalStatus.toLowerCase()}.`,
-            duration: 8000,
-          });
-        }
-        setIsExecuting(false);
-        isRunningRef.current = false;
-        setCurrentAction(null);
-        clearActiveIntentId();
+      setPhase('waiting-bridge');
+      setStatusMessage('Confirming transfer to Solana...');
 
-        withdrawalApi.getDetail(_id)
-          .then(setDetail)
-          .catch(() => { /* non-critical */ });
-      },
-    }),
-    [queryClient, turnkeyState]
+      clearWithdrawResumeState();
+    },
+    []
   );
 
-  // ── Run the engine ─────────────────────────────────────────
-  const runEngine = useCallback(
-    async (withdrawalIntentId: string) => {
-      if (isRunningRef.current) {
-        console.warn('[useWithdrawal] Engine already running');
+  const completeSuccess = useCallback(
+    async (ctx: WithdrawWalletContext, exchange: WithdrawalExchange, amountUsd: number) => {
+      const label = getExchangeLabel(exchange);
+      setPhase('completed');
+      setStatusMessage('Withdrawal complete!');
+      setIsExecuting(false);
+      isRunningRef.current = false;
+      clearWithdrawResumeState();
+
+      await invalidateTradingBalances(queryClient, ctx);
+
+      toast.success('Withdrawal Complete', {
+        description: `$${amountUsd.toFixed(2)} USDC sent to your Solana wallet from ${label}.`,
+        duration: 6000,
+      });
+
+      setTimeout(() => {
+        setPhase('idle');
+        setStatusMessage('');
+        setActiveExchange(null);
+      }, 4_000);
+    },
+    [queryClient]
+  );
+
+  const fail = useCallback((errMsg: string) => {
+    setError(errMsg);
+    setPhase('failed');
+    setIsExecuting(false);
+    isRunningRef.current = false;
+    clearWithdrawResumeState();
+    toast.error('Withdrawal Failed', { description: errMsg, duration: 8000 });
+  }, []);
+
+  const startWithdrawal = useCallback(
+    async (params: StartWithdrawalParams) => {
+      if (isRunningRef.current) return;
+      if (params.exchange === 'lighter') {
+        fail('Lighter withdrawal is not supported yet.');
         return;
       }
 
-      try {
-        const context = buildContext();
-
-        setIntentId(withdrawalIntentId);
-        setIsExecuting(true);
-        setError(null);
-        setPhase('creating');
-        isRunningRef.current = true;
-
-        try {
-          const initialDetail = await withdrawalApi.getDetail(withdrawalIntentId);
-          setDetail(initialDetail);
-          exchangeRef.current = initialDetail.intent.exchange;
-        } catch {
-          /* continue without detail — engine will handle it */
-        }
-
-        const engine = new WithdrawalEngine();
-        engineRef.current = engine;
-
-        const callbacks = buildCallbacks(withdrawalIntentId);
-        await engine.run(withdrawalIntentId, context, exchangeRef.current, callbacks);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        setError(errorMessage);
-        setPhase('failed');
-        setIsExecuting(false);
-        isRunningRef.current = false;
-        toast.error('Withdrawal Error', {
-          description: errorMessage,
-          duration: 8000,
-        });
+      if (!Number.isFinite(params.amountUsd) || params.amountUsd < MIN_WITHDRAW_USD) {
+        fail(`Minimum withdrawal is $${MIN_WITHDRAW_USD} USDC.`);
+        return;
       }
-    },
-    [buildContext, buildCallbacks]
-  );
 
-  // ── Public: Start a new withdrawal ─────────────────────────
-  const startWithdrawal = useCallback(
-    async (params: StartWithdrawalParams) => {
+      isRunningRef.current = true;
       setError(null);
-      setPhase('creating');
-      setStatusMessage('Creating withdrawal intent...');
       setIsExecuting(true);
+      setActiveExchange(params.exchange);
+
+      const label = getExchangeLabel(params.exchange);
 
       try {
-        const context = buildContext();
-        exchangeRef.current = params.exchange;
+        const wallet = getWalletContext(turnkeyState);
+        const ctx: WithdrawWalletContext = {
+          evmAddress: wallet.evmAddress,
+          solanaAddress: params.recipient || wallet.solanaAddress,
+          organizationId: wallet.organizationId,
+        };
 
-        const newIntentId = await withdrawalApi.create({
-          exchange: toExchangeName(params.exchange),
-          amount_usd: params.amountUsd,
-          recipient: params.recipient || context.solanaAddress,
-          destination_chain_id: 792703809,
-        });
+        if (params.exchange === 'phoenix') {
+          setPhase('withdrawing');
+          setStatusMessage(`Withdrawing from ${label} to Solana...`);
+          await withdrawFromPhoenix(ctx, params.amountUsd);
+          await completeSuccess(ctx, params.exchange, params.amountUsd);
+          return;
+        }
 
-        storeActiveIntentId(newIntentId);
+        if (params.exchange === 'pacifica') {
+          setPhase('withdrawing');
+          setStatusMessage(`Withdrawing from ${label} to Solana...`);
+          await withdrawFromPacifica(ctx, params.amountUsd);
+          await completeSuccess(ctx, params.exchange, params.amountUsd);
+          return;
+        }
 
-        await runEngine(newIntentId);
+        await runHyperliquidWithdraw(ctx, params.amountUsd);
+        await completeSuccess(ctx, params.exchange, params.amountUsd);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        setError(errorMessage);
-        setPhase('failed');
-        setIsExecuting(false);
-        toast.error('Failed to Create Withdrawal', {
-          description: errorMessage,
-          duration: 8000,
-        });
+        const errMsg = err instanceof Error ? err.message : String(err);
+        fail(errMsg);
+        setStatusMessage(`Failed to withdraw from ${label}`);
       }
     },
-    [buildContext, runEngine]
+    [turnkeyState, runHyperliquidWithdraw, completeSuccess, fail]
   );
 
-  // ── Public: Resume an existing intent ──────────────────────
-  const resume = useCallback(
-    async (existingIntentId: string) => {
-      setError(null);
-      setStatusMessage('Resuming withdrawal...');
-      await runEngine(existingIntentId);
-    },
-    [runEngine]
-  );
+  const resumeIfNeeded = useCallback(async () => {
+    const stored = loadWithdrawResumeState();
+    if (!stored || stored.exchange !== 'hyperliquid') return;
 
-  // ── Public: Abort ──────────────────────────────────────────
-  const abort = useCallback(() => {
-    engineRef.current?.abort();
-    setIsExecuting(false);
-    isRunningRef.current = false;
-    setCurrentAction(null);
-    setStatusMessage('Withdrawal paused. You can safely close this window.');
-  }, []);
+    if (isRunningRef.current) return;
+    isRunningRef.current = true;
+    setIsExecuting(true);
+    setActiveExchange('hyperliquid');
+    setError(null);
 
-  // ── Public: Refresh detail ─────────────────────────────────
-  const refreshDetail = useCallback(async () => {
-    if (!intentId) return;
     try {
-      const freshDetail = await withdrawalApi.getDetail(intentId);
-      setDetail(freshDetail);
+      const wallet = getWalletContext(turnkeyState);
+      const ctx: WithdrawWalletContext = {
+        evmAddress: wallet.evmAddress,
+        solanaAddress: wallet.solanaAddress,
+        organizationId: wallet.organizationId,
+      };
+
+      setStatusMessage('Resuming Hyperliquid → Solana bridge...');
+      await runHyperliquidWithdraw(ctx, stored.amountUsd, stored.bridgeRequestId);
+      await completeSuccess(ctx, 'hyperliquid', stored.amountUsd);
     } catch (err) {
-      console.warn('[useWithdrawal] Failed to refresh detail:', err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      fail(errMsg);
     }
-  }, [intentId]);
+  }, [turnkeyState, runHyperliquidWithdraw, completeSuccess, fail]);
 
-  // ── Auto-resume on mount ───────────────────────────────────
   useEffect(() => {
-    if (resumeAttemptedRef.current || !turnkeyState.isLoggedIn || isRunningRef.current) {
-      return;
-    }
+    if (resumeAttemptedRef.current || !turnkeyState.isLoggedIn) return;
     resumeAttemptedRef.current = true;
-
-    const storedIntentId = loadActiveIntentId();
-    if (!storedIntentId) return;
-
-    withdrawalApi
-      .getDetail(storedIntentId)
-      .then((storedDetail) => {
-        const status = storedDetail.intent.status;
-        if (IN_PROGRESS_STATUSES.includes(status)) {
-          console.log(`[useWithdrawal] Resuming intent ${storedIntentId} (status: ${status})`);
-          setDetail(storedDetail);
-          exchangeRef.current = storedDetail.intent.exchange;
-          resume(storedIntentId);
-        } else if (TERMINAL_STATUSES.includes(status)) {
-          setDetail(storedDetail);
-          setIntentId(storedIntentId);
-          setPhase(status === 'COMPLETED' ? 'completed' : 'failed');
-          clearActiveIntentId();
-        }
-      })
-      .catch(() => {
-        clearActiveIntentId();
-      });
-  }, [turnkeyState.isLoggedIn, resume]);
-
-  // ── Cleanup on unmount ─────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      engineRef.current?.abort();
-    };
-  }, []);
+    const stored = loadWithdrawResumeState();
+    if (stored) {
+      void resumeIfNeeded();
+    }
+  }, [turnkeyState.isLoggedIn, resumeIfNeeded]);
 
   return {
     startWithdrawal,
-    resume,
-    abort,
+    reset,
     isExecuting,
     phase,
     statusMessage,
-    currentAction,
-    detail,
-    intentId,
+    activeExchange,
     error,
-    refreshDetail,
   };
 }

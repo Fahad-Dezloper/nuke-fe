@@ -1147,6 +1147,54 @@ export class PacificaService {
       };
     }
   }
+
+  /**
+   * Request USDC withdrawal to the user's Solana wallet.
+   * POST /account/withdraw — signed `type: withdraw`, flattened body.
+   */
+  async requestWithdrawal(
+    amount: string,
+    walletAddress: string,
+    organizationId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { timestamp, signature } = await this.signOrderRequest(
+        'withdraw',
+        { amount },
+        walletAddress,
+        organizationId,
+        5000
+      );
+
+      const finalRequest: Record<string, unknown> = {
+        account: walletAddress,
+        signature,
+        timestamp,
+        expiry_window: 5000,
+        amount,
+      };
+
+      const apiResponse = await this.submitToPacifica('/account/withdraw', finalRequest);
+
+      if (apiResponse.error) {
+        return {
+          success: false,
+          error:
+            typeof apiResponse.error === 'string'
+              ? apiResponse.error
+              : 'Pacifica withdrawal rejected',
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      const appError = toAppError(error, ErrorCode.API_BAD_REQUEST);
+      return {
+        success: false,
+        error: getUserMessage(appError),
+      };
+    }
+  }
 }
 
 export const pacificaService = new PacificaService();

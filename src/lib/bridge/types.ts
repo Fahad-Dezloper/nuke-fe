@@ -11,6 +11,8 @@ export const CHAIN_IDS = {
   /** Ethereum mainnet — used for `POST /lighter/deposit` (see LIGHTER_DEPOSIT_FE_INTEGRATION.md). */
   ETHEREUM: 1,
   ARBITRUM: 42161,
+  /** Hyperliquid perps on Relay (hypevm). */
+  HYPERLIQUID: 1337,
   SOLANA: 792703809,
 } as const;
 
@@ -29,7 +31,8 @@ export const TOKEN_ADDRESSES = {
  * Quote Request
  */
 export interface QuoteRequest {
-  // originChainId: number; // 8453 for Base
+  /** Source chain (e.g. 42161 Arbitrum for HL withdraw → Solana). Omit for Solana-origin deposits. */
+  originChainId?: number;
   destinationChainId: number; // 42161 for Arbitrum
   // originCurrency: string; // Token address on Base
   // destinationCurrency: string; // Token address on Arbitrum
