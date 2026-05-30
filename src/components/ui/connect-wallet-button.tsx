@@ -64,12 +64,14 @@ export function ConnectWalletButton({
       <button
         onClick={handleClick}
         className={cn(
-          'rounded-sm cursor-pointer font-medium transition-colors',
+          'rounded-sm cursor-pointer font-medium transition-all duration-200 border border-transparent',
           sizeClasses[size],
           fullWidth
-            ? 'w-full bg-green text-black font-bold hover:bg-green/90'
-            : 'bg-card border border-border-white-10 text-text-primary hover:border-border-white-20',
-          disabled && 'opacity-50 cursor-not-allowed',
+            ? (disabled
+                ? 'w-full bg-white/5 border-white/10 text-white/30 cursor-not-allowed'
+                : 'w-full bg-green text-black font-bold hover:bg-green/90 shadow-[0_0_20px_rgba(16,185,129,0.15)]')
+            : 'bg-card border-border-white-10 text-text-primary hover:border-border-white-20',
+          disabled && !fullWidth && 'opacity-50 cursor-not-allowed',
           className
         )}
       >

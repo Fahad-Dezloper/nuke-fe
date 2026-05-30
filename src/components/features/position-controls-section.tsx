@@ -23,11 +23,13 @@ import { TradeDetailsSection } from './position-controls/trade-details-section';
 import { AssetPriceHeader } from './position-controls/asset-price-header';
 import { HedgeExecutionProgress } from './position-controls/hedge-execution-progress';
 import { isLoggedInAtom } from '@/lib/turnkey/store';
+import { ChevronDown, Copy } from 'lucide-react';
 import {
   marginAtom,
   leverageAtom,
   selectedAssetAtom,
   marginValidationAtom,
+  baseBalanceAtom,
 } from './position-controls/store';
 import { useHedgeIntent } from '@/lib/hedge-intent';
 import { useBestPair } from '@/hooks/use-best-pair';
@@ -68,6 +70,7 @@ export function PositionControlsSectionContent({
   const [leverage] = useAtom(leverageAtom);
   const [selectedAsset] = useAtom(selectedAssetAtom);
   const marginValidation = useAtomValue(marginValidationAtom);
+  const baseBalance = useAtomValue(baseBalanceAtom);
   const { state: turnkeyState } = useTurnkey();
   const queryClient = useQueryClient();
 
@@ -216,29 +219,110 @@ export function PositionControlsSectionContent({
   const showProgress = (isExecuting || isComplete || isFailed) && !progressDismissed;
 
   const getButtonText = (): string => {
-    if (!isExecuting) {
-      if (isComplete) return 'Hedge live ✓';
-      if (phase === 'safety_failed') return 'Open Hedged Position';
-      if (isFailed) return 'Open Hedged Position';
-      return 'Open Hedged Position';
+    if (isExecuting) {
+      switch (phase) {
+        case 'creating':
+          return 'Creating intent...';
+        case 'bridging':
+          return 'Bridging funds...';
+        case 'depositing':
+          return 'Depositing...';
+        case 'pacifica_access':
+          return 'Pacifica access...';
+        case 'opening':
+          return 'Opening positions...';
+        case 'closing':
+          return 'Safety mode...';
+        default:
+          return 'Executing...';
+      }
     }
-    switch (phase) {
-      case 'creating':
-        return 'Creating intent...';
-      case 'bridging':
-        return 'Bridging funds...';
-      case 'depositing':
-        return 'Depositing...';
-      case 'pacifica_access':
-        return 'Pacifica access...';
-      case 'opening':
-        return 'Opening positions...';
-      case 'closing':
-        return 'Safety mode...';
-      default:
-        return 'Executing...';
+
+    if (isComplete) return 'Hedge live ✓';
+
+    const marginNum = parseFloat(margin) || 0;
+    if (marginNum <= 0) {
+      return 'Enter Margin Amount';
     }
+
+    if (!isMinVenueNotionalMet(marginNum, leverage)) {
+      return 'Min. Size Not Met';
+    }
+
+    if (!marginValidation.isValid) {
+      if (marginValidation.error?.toLowerCase().includes('balance')) {
+        return 'Insufficient Balance';
+      }
+      return marginValidation.error || 'Invalid Margin';
+    }
+
+    if (hasExistingPosition) {
+      return 'Hedge Already Open';
+    }
+
+    return 'Open Hedged Position';
   };
+
+  const [isInfoExpanded, setIsInfoExpanded] = useState(false);
+
+  const assetItem = useMemo(
+    () => (selectedAsset ? (marketFeedData.find((a) => a.asset === selectedAsset) ?? null) : null),
+    [selectedAsset, marketFeedData]
+  );
+
+  const bestPair = useMemo(() => getBestPairForAsset(assetItem), [assetItem, getBestPairForAsset]);
+
+  const price = useMemo(() => assetItem?.markPx || assetItem?.hyperliquidMarkPx || 0, [assetItem]);
+
+  const longProtocol = useMemo(
+    () => assetItem?.protocols?.[bestPair.long] ?? null,
+    [assetItem, bestPair.long]
+  );
+
+  const shortProtocol = useMemo(
+    () => assetItem?.protocols?.[bestPair.short] ?? null,
+    [assetItem, bestPair.short]
+  );
+
+  const fundingLong = useMemo(
+    () => longProtocol?.fundingRateYearly || assetItem?.hyperliquidFundingRate || 0,
+    [longProtocol, assetItem]
+  );
+
+  const fundingShort = useMemo(
+    () => shortProtocol?.fundingRateYearly || assetItem?.pacificaFundingRate || 0,
+    [shortProtocol, assetItem]
+  );
+
+  const spreadAPR = fundingShort - fundingLong;
+
+  const gridItems = useMemo(
+    () => [
+      { label: 'Long Venue', value: bestPair.long.toUpperCase(), color: 'text-emerald-400' },
+      { label: 'Short Venue', value: bestPair.short.toUpperCase(), color: 'text-rose-400' },
+      {
+        label: 'Long Funding',
+        value: `${fundingLong > 0 ? '+' : ''}${fundingLong.toFixed(2)}%`,
+        color: fundingLong >= 0 ? 'text-emerald-400' : 'text-rose-400',
+      },
+      {
+        label: 'Short Funding',
+        value: `${fundingShort > 0 ? '+' : ''}${fundingShort.toFixed(2)}%`,
+        color: fundingShort >= 0 ? 'text-emerald-400' : 'text-rose-400',
+      },
+      {
+        label: 'Spread APR',
+        value: `${spreadAPR > 0 ? '+' : ''}${spreadAPR.toFixed(2)}%`,
+        color: spreadAPR >= 0 ? 'text-emerald-400' : 'text-rose-400',
+      },
+      {
+        label: 'Max Leverage',
+        value: `${Math.min(longProtocol?.maxLeverage ?? 20, shortProtocol?.maxLeverage ?? 20)}x`,
+        color: 'text-white',
+      },
+    ],
+    [bestPair, fundingLong, fundingShort, spreadAPR, longProtocol, shortProtocol]
+  );
 
   if (marketFeedData.length === 0) {
     return <PositionControlsSkeleton className={className} />;
@@ -248,14 +332,119 @@ export function PositionControlsSectionContent({
     <PositionControlsSection
       embedded={embedded}
       className={cn(
-        embedded ? 'h-auto min-h-full' : 'h-full overflow-hidden lg:w-[400px] xl:w-[450px] lg:shrink-0',
+        embedded
+          ? 'h-auto min-h-full'
+          : 'h-full overflow-hidden bg-[#1B1B1B] lg:w-[350px] xl:w-[400px] lg:shrink-0',
         className
       )}
     >
       <div className={cn('flex flex-col', embedded ? 'min-h-full' : 'h-full')}>
-        {!embedded && <AssetPriceHeader />}
+        {/* ── Top Stats Bar ───────────────────────────────────── */}
+        {!embedded && selectedAsset && (
+          <div className="px-4 pt-3 pb-2.5 space-y-2.5 border-b border-white/[0.06] bg-[#121315]/40 shrink-0">
+            <div className="grid grid-cols-4 gap-2">
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] text-text-muted-60 font-bold uppercase tracking-wider leading-none">
+                  Price
+                </span>
+                <span className="text-[11px] font-bold text-text-primary font-mono mt-1 truncate">
+                  $
+                  {price.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] text-text-muted-60 font-bold uppercase tracking-wider leading-none">
+                  Long Fund
+                </span>
+                <span
+                  className={cn(
+                    'text-[11px] font-bold font-mono mt-1 truncate',
+                    fundingLong >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  )}
+                >
+                  {fundingLong > 0 ? '+' : ''}
+                  {fundingLong.toFixed(2)}%
+                </span>
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] text-text-muted-60 font-bold uppercase tracking-wider leading-none">
+                  Short Fund
+                </span>
+                <span
+                  className={cn(
+                    'text-[11px] font-bold font-mono mt-1 truncate',
+                    fundingShort >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  )}
+                >
+                  {fundingShort > 0 ? '+' : ''}
+                  {fundingShort.toFixed(2)}%
+                </span>
+              </div>
+              <div className="flex flex-col items-end min-w-0">
+                <span className="text-[10px] text-text-muted-60 font-bold uppercase tracking-wider leading-none">
+                  Spread APR
+                </span>
+                <span
+                  className={cn(
+                    'text-[11px] font-bold font-mono mt-1 truncate',
+                    spreadAPR >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  )}
+                >
+                  {spreadAPR > 0 ? '+' : ''}
+                  {spreadAPR.toFixed(2)}%
+                </span>
+              </div>
+            </div>
 
-        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6">
+            {/* Funding Ratio Bar */}
+            <div className="w-full h-1 bg-white/[0.06] rounded-full overflow-hidden flex">
+              {(() => {
+                const absL = Math.abs(fundingLong);
+                const absS = Math.abs(fundingShort);
+                const total = absL + absS || 1;
+                return (
+                  <>
+                    <div
+                      className="h-full bg-rose-500 transition-all duration-300"
+                      style={{ width: `${(absL / total) * 100}%` }}
+                    />
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-300"
+                      style={{ width: `${(absS / total) * 100}%` }}
+                    />
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* ── USDC Balance Bar ─────────────────────────────────── */}
+        {!embedded && isLoggedIn && (
+          <div className="px-4 py-2 border-b border-white/[0.06] shrink-0 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-[#2775CA] flex items-center justify-center">
+                <span className="text-[8px] font-black text-white leading-none">$</span>
+              </div>
+              <span className="text-[11px] font-bold text-text-muted-60 uppercase tracking-wider">
+                USDC Balance
+              </span>
+            </div>
+            <span className="text-[13px] font-bold text-text-primary font-mono tabular-nums">
+              $
+              {baseBalance.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+        )}
+
+        {/* ── Scrollable Content ──────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-5">
           <PositionSizeSection />
 
           <LeverageSection />
@@ -270,6 +459,96 @@ export function PositionControlsSectionContent({
 
           <PositionDetailsSection />
 
+          {/* ── Hedge Info & Specs Accordion ──────────────────── */}
+          <div className="border-t border-white/[0.06] pt-4">
+            <button
+              type="button"
+              onClick={() => setIsInfoExpanded(!isInfoExpanded)}
+              className="w-full flex items-center justify-between text-xs font-bold text-text-primary hover:text-white cursor-pointer transition-colors"
+            >
+              <span>Hedge Info</span>
+              <ChevronDown
+                className={cn(
+                  'h-4 w-4 transition-transform duration-200',
+                  isInfoExpanded && 'rotate-180'
+                )}
+              />
+            </button>
+
+            {isInfoExpanded && (
+              <div className="mt-3 space-y-3">
+                {/* Specs Grid */}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {gridItems.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-[#121315] border border-white/[0.04] p-2.5 rounded-lg text-center flex flex-col items-center justify-center gap-0.5"
+                    >
+                      <span className={cn('text-xs font-bold tabular-nums', item.color)}>
+                        {item.value}
+                      </span>
+                      <span className="text-[9px] text-text-muted-60 font-semibold tracking-wide uppercase">
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Wallet Addresses */}
+                <div className="space-y-1.5 pt-1 border-t border-white/[0.04]">
+                  <div className="flex items-center justify-between bg-[#121315] border border-white/[0.04] rounded-lg px-3 py-2">
+                    <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider">
+                      EVM
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono text-text-primary truncate max-w-[120px]">
+                        {evmAddress
+                          ? `${evmAddress.slice(0, 6)}...${evmAddress.slice(-4)}`
+                          : 'Not Connected'}
+                      </span>
+                      {evmAddress && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(evmAddress);
+                            toast.success('EVM Address copied!');
+                          }}
+                          className="text-white/30 hover:text-white cursor-pointer transition-colors"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between bg-[#121315] border border-white/[0.04] rounded-lg px-3 py-2">
+                    <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider">
+                      SOL
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono text-text-primary truncate max-w-[120px]">
+                        {solanaAddress
+                          ? `${solanaAddress.slice(0, 6)}...${solanaAddress.slice(-4)}`
+                          : 'Not Connected'}
+                      </span>
+                      {solanaAddress && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(solanaAddress);
+                            toast.success('Solana Address copied!');
+                          }}
+                          className="text-white/30 hover:text-white cursor-pointer transition-colors"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <TradeDetailsSection />
         </div>
 
@@ -283,7 +562,7 @@ export function PositionControlsSectionContent({
           />
         )}
 
-        <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-card">
+        <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-card shrink-0">
           {isLoggedIn ? (
             <ConnectWalletButton
               onClick={handleOpenPosition}

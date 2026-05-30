@@ -6,6 +6,8 @@
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PositionDetailsCard as PositionDetailsCardType } from '@/types/positions';
+import { getProtocolConfig } from '@/lib/protocols/config';
+import Image from 'next/image';
 
 export interface PositionDetailsCardProps extends PositionDetailsCardType {
   className?: string;
@@ -31,22 +33,46 @@ export function PositionDetailsCard({
   onAddMargin,
   className,
 }: PositionDetailsCardProps) {
-  const borderClass =
+  const config = getProtocolConfig(platform.toLowerCase());
+
+  const cardStyles =
     gradientColor === 'long'
-      ? 'border-l-2 border-l-[var(--green)]'
-      : 'border-l-2 border-l-[var(--red)]';
+      ? {
+          border: 'border-l-2 border-l-emerald-500/80 hover:border-emerald-500/20',
+          bg: 'bg-gradient-to-br from-emerald-500/[0.03] via-card/50 to-card/30',
+          labelColor: 'text-emerald-400 font-bold',
+        }
+      : {
+          border: 'border-l-2 border-l-rose-500/80 hover:border-rose-500/20',
+          bg: 'bg-gradient-to-br from-rose-500/[0.03] via-card/50 to-card/30',
+          labelColor: 'text-rose-400 font-bold',
+        };
 
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 p-4 rounded-sm border border-border-white-10 bg-card',
-        borderClass,
+        'flex flex-col gap-3 p-4 rounded-sm border border-border-white-10 transition-all duration-300',
+        cardStyles.bg,
+        cardStyles.border,
         className
       )}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-text-primary">{label}</span>
-        <span className="text-xs text-text-muted-60">{platform}</span>
+        <span className={cn('text-xs tracking-wider', cardStyles.labelColor)}>{label}</span>
+        <div className="flex items-center gap-1.5 transition-all duration-200">
+          {config?.logo && (
+            <Image
+              src={config.logo}
+              alt={platform}
+              width={14}
+              height={14}
+              className="shrink-0 rounded-xs"
+            />
+          )}
+          <span className="text-[10px] font-bold text-text-muted-60 tracking-tight uppercase whitespace-nowrap">
+            {config?.displayName || platform}
+          </span>
+        </div>
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">

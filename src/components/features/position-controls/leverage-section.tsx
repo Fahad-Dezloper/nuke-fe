@@ -6,7 +6,7 @@
  */
 
 import { useAtom, useAtomValue } from 'jotai';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
@@ -75,9 +75,16 @@ export function LeverageSection({ className }: LeverageSectionProps) {
     setLeverage(clampedValue);
   };
 
+  const presets = useMemo(() => {
+    if (maxLeverage <= 5) return [2, 3, 5].filter((p) => p <= maxLeverage);
+    if (maxLeverage <= 10) return [2, 5, 10];
+    if (maxLeverage <= 20) return [2, 5, 10, 20];
+    return [2, 10, 25, maxLeverage];
+  }, [maxLeverage]);
+
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      <label className="text-xs text-text-muted-60">Leverage</label>
+      <label className="text-xs text-text-muted-60 font-medium">Leverage</label>
       <div className="flex items-center gap-4">
         <div className="flex-1">
           <Slider
@@ -101,6 +108,24 @@ export function LeverageSection({ className }: LeverageSectionProps) {
           />
           <span className="text-sm text-text-muted-60">x</span>
         </div>
+      </div>
+
+      <div className="flex gap-1.5 mt-0.5">
+        {presets.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => setLeverage(preset)}
+            className={cn(
+              'flex-1 py-1 rounded-sm text-[10px] font-bold transition-all duration-150 cursor-pointer text-center border',
+              leverage === preset
+                ? 'bg-white/[0.12] border-white/20 text-white'
+                : 'bg-white/[0.03] border-white/[0.05] text-text-muted-60 hover:bg-white/[0.08] hover:text-text-primary'
+            )}
+          >
+            {preset}x
+          </button>
+        ))}
       </div>
 
       <AnimatePresence>
