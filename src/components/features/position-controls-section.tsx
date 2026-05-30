@@ -217,26 +217,26 @@ export function PositionControlsSectionContent({
 
   const getButtonText = (): string => {
     if (!isExecuting) {
-      if (isComplete) return 'HEDGE LIVE ✓';
-      if (phase === 'safety_failed') return 'OPEN HEDGED POSITION';
-      if (isFailed) return 'OPEN HEDGED POSITION';
-      return 'OPEN HEDGED POSITION';
+      if (isComplete) return 'Hedge live ✓';
+      if (phase === 'safety_failed') return 'Open Hedged Position';
+      if (isFailed) return 'Open Hedged Position';
+      return 'Open Hedged Position';
     }
     switch (phase) {
       case 'creating':
-        return 'CREATING INTENT...';
+        return 'Creating intent...';
       case 'bridging':
-        return 'BRIDGING FUNDS...';
+        return 'Bridging funds...';
       case 'depositing':
-        return 'DEPOSITING...';
+        return 'Depositing...';
       case 'pacifica_access':
-        return 'PACIFICA ACCESS...';
+        return 'Pacifica access...';
       case 'opening':
-        return 'OPENING POSITIONS...';
+        return 'Opening positions...';
       case 'closing':
-        return 'SAFETY MODE...';
+        return 'Safety mode...';
       default:
-        return 'EXECUTING...';
+        return 'Executing...';
     }
   };
 
@@ -253,10 +253,6 @@ export function PositionControlsSectionContent({
       )}
     >
       <div className={cn('flex flex-col', embedded ? 'min-h-full' : 'h-full')}>
-        <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border-white-10/70 bg-card/25 rounded-t-lg">
-          <h2 className="text-sm font-medium text-text-primary">POSITION PANEL</h2>
-        </div>
-
         {!embedded && <AssetPriceHeader />}
 
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-6">
@@ -287,7 +283,7 @@ export function PositionControlsSectionContent({
           />
         )}
 
-        <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-gradient-to-t from-card/40 to-transparent backdrop-blur-sm rounded-b-md">
+        <div className="px-4 md:px-6 pb-4 pt-3 border-t border-border-white-10/50 space-y-3 bg-card">
           {isLoggedIn ? (
             <ConnectWalletButton
               onClick={handleOpenPosition}

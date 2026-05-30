@@ -112,9 +112,9 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
                     : 'text-text-muted-60 hover:text-text-primary'
                 )}
               >
-                POSITIONS ({positions.length})
+                Positions ({positions.length})
                 {activeTab === 'positions' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-accent to-transparent" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
                 )}
               </button>
               <button
@@ -126,9 +126,9 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
                     : 'text-text-muted-60 hover:text-text-primary'
                 )}
               >
-                CLOSED
+                Closed
                 {activeTab === 'closed' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-accent to-transparent" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
                 )}
               </button>
             </div>

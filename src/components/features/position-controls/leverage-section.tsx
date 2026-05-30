@@ -77,7 +77,7 @@ export function LeverageSection({ className }: LeverageSectionProps) {
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      <label className="text-xs text-text-muted-60 uppercase tracking-wide">LEVERAGE</label>
+      <label className="text-xs text-text-muted-60">Leverage</label>
       <div className="flex items-center gap-4">
         <div className="flex-1">
           <Slider

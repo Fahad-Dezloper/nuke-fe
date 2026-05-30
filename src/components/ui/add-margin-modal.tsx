@@ -327,7 +327,7 @@ export function AddMarginModal({
             className="mb-4"
           >
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-text-muted-60 font-medium uppercase">Amount</label>
+              <label className="text-xs text-text-muted-60 font-medium">Amount</label>
               <span className="text-[10px] text-text-muted-60 tabular-nums">
                 Solana Balance: ${baseBalance.toFixed(2)}
               </span>

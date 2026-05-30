@@ -7,12 +7,16 @@
   --bottom-nav-height: 4rem;
   --app-header-height: 3.25rem;
 
+  --green: #02c076;
+  --red: #f6465d;
+  --navbar: #1b1b1b;
+
   /* Primary Colors */
   --card-surface: #111;
   /** Raised panels on the funding arb page (between page bg and card). */
   --section-surface: #0a0a0a;
   --text-primary: #ffffff;
-  --accent: oklch(0.967 0.003 264.542);
+  --accent: #02c076;
   --accent-secondary: #3a5866;
 
   /* Chart Colors */
@@ -32,7 +36,7 @@
   --text-muted-100: rgba(255, 255, 255, 1);
 
   /* Accent with Opacity */
-  --accent-80: rgba(137, 207, 240, 0.8);
+  --accent-80: rgba(2, 192, 118, 0.8);
 
   /* Borders */
   --border-white-5: rgba(255, 255, 255, 0.05);
@@ -54,7 +58,7 @@
   --secondary-foreground: oklch(0.985 0.002 247.839);
   --muted: oklch(0.278 0.033 256.848);
   --muted-foreground: oklch(0.707 0.022 261.325);
-  --accent: #89cff0;
+  --accent: #02c076;
   --accent-foreground: oklch(0.21 0.034 264.665);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
@@ -76,6 +80,10 @@
 }
 
 @theme inline {
+  --color-green: var(--green);
+  --color-red: var(--red);
+  --color-navbar: var(--navbar);
+
   /* Background Colors */
   --color-background: var(--background);
   --color-card: var(--card-surface);
@@ -117,6 +125,7 @@
   --color-chart-backpack: var(--chart-backpack);
 
   /* Font */
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-roboto-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -163,7 +172,7 @@ html {
 body {
   background: #020202;
   color: var(--text-primary);
-  font-family: var(--font-roboto-mono), monospace;
+  font-family: var(--font-inter), sans-serif;
   overscroll-behavior: none;
   touch-action: manipulation;
 }
@@ -183,7 +192,7 @@ body {
   --secondary-foreground: oklch(0.985 0.002 247.839);
   --muted: oklch(0.278 0.033 256.848);
   --muted-foreground: oklch(0.707 0.022 261.325);
-  --accent: oklch(0.278 0.033 256.848);
+  --accent: #02c076;
   --accent-foreground: oklch(0.985 0.002 247.839);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);

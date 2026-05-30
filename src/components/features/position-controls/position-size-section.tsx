@@ -37,7 +37,7 @@ export function PositionSizeSection({ className }: PositionSizeSectionProps) {
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <label className="text-xs text-text-muted-60 uppercase tracking-wide">MARGIN</label>
+      <label className="text-xs text-text-muted-60">Margin</label>
       <div className="flex gap-2">
         <div className="flex-1 relative">
           <Input

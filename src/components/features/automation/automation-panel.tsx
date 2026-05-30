@@ -269,7 +269,7 @@ function RuleTooltip({ children, text }: { children: React.ReactNode; text: stri
           {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs font-mono text-[11px] leading-snug">
+      <TooltipContent side="top" className="max-w-xs text-[11px] leading-snug">
         {text}
       </TooltipContent>
     </Tooltip>
@@ -829,7 +829,7 @@ export function AutomationPanel() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center font-mono text-text-muted-60">
+      <div className="flex h-full items-center justify-center text-text-muted-60">
         <Loader2 className="size-6 animate-spin mr-2" />
         Loading automation…
       </div>
@@ -839,7 +839,7 @@ export function AutomationPanel() {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="scroll-touch h-full overflow-x-hidden overflow-y-auto">
-        <div className="mx-auto max-w-6xl px-3 py-5 font-mono text-sm sm:px-4 md:px-5 md:py-8">
+        <div className="mx-auto max-w-6xl px-3 py-5 text-sm sm:px-4 md:px-5 md:py-8">
           <header className="mb-8 border-b border-border-white-10 pb-4">
             <h1 className="text-lg md:text-xl font-semibold tracking-tight text-text-primary">
               AUTOMATION
@@ -963,7 +963,7 @@ export function AutomationPanel() {
                         disabled={configLocked}
                         value={minAPR}
                         onChange={(e) => setMinAPR(parseFloat(e.target.value) || 0)}
-                        className="pr-8 font-mono tabular-nums"
+                        className="pr-8 tabular-nums"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted-40 text-xs">
                         %
@@ -985,7 +985,7 @@ export function AutomationPanel() {
                         disabled={configLocked}
                         value={exitAPR}
                         onChange={(e) => setExitAPR(parseFloat(e.target.value) || 0)}
-                        className="pr-8 font-mono tabular-nums"
+                        className="pr-8 tabular-nums"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted-40 text-xs">
                         %
@@ -1042,7 +1042,7 @@ export function AutomationPanel() {
                       disabled={configLocked}
                       value={maxSize}
                       onChange={(e) => setMaxSize(parseFloat(e.target.value) || 0)}
-                      className="pr-12 font-mono tabular-nums"
+                      className="pr-12 tabular-nums"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted-40 text-xs">
                       USD
@@ -1065,7 +1065,7 @@ export function AutomationPanel() {
                       disabled={configLocked}
                       value={maxLeverage}
                       onChange={(e) => setMaxLeverage(parseInt(e.target.value, 10) || 1)}
-                      className="font-mono tabular-nums"
+                      className="tabular-nums"
                     />
                   </div>
                   <div>
@@ -1082,7 +1082,7 @@ export function AutomationPanel() {
                       disabled={configLocked}
                       value={maxActionsPerDay}
                       onChange={(e) => setMaxActionsPerDay(parseInt(e.target.value, 10) || 1)}
-                      className="font-mono tabular-nums"
+                      className="tabular-nums"
                     />
                   </div>
                 </div>
@@ -1128,7 +1128,7 @@ export function AutomationPanel() {
                       setBlocklist((b) => [...b, t]);
                       setBlockInput('');
                     }}
-                    className="font-mono text-xs h-8"
+                    className="text-xs h-8"
                   />
                 </div>
               </details>
@@ -1149,7 +1149,7 @@ export function AutomationPanel() {
                 {!running && (
                   <Button
                     type="button"
-                    className="w-full h-12 font-mono text-sm bg-green-600 hover:bg-green-600/90 text-white"
+                    className="w-full h-12 text-sm bg-green-600 hover:bg-green-600/90 text-white"
                     disabled={
                       actionLoading ||
                       !isWalletReady ||
@@ -1166,7 +1166,7 @@ export function AutomationPanel() {
                 {running ? (
                   <Button
                     type="button"
-                    className="w-full h-12 font-mono text-sm bg-red-600 hover:bg-red-600/90 text-white"
+                    className="w-full h-12 text-sm bg-red-600 hover:bg-red-600/90 text-white"
                     disabled={actionLoading}
                     onClick={() => setStopConfirmOpen(true)}
                   >
@@ -1244,7 +1244,7 @@ export function AutomationPanel() {
                     {rustRecommendation.referencePrice?.px ? (
                       <span>
                         Ref:{' '}
-                        <span className="text-text-primary font-mono">
+                        <span className="text-text-primary tabular-nums">
                           {rustRecommendation.referencePrice.px}
                         </span>
                       </span>
@@ -1394,10 +1394,10 @@ export function AutomationPanel() {
                                 ) : (
                                   <ChevronRight className="size-4 shrink-0 mt-0.5 text-text-muted-40" />
                                 )}
-                                <span className="shrink-0 font-mono text-[10px] text-text-muted-40">
+                                <span className="shrink-0 text-[10px] text-text-muted-40">
                                   #{idx + 1}
                                 </span>
-                                <div className="min-w-0 flex-1 font-mono">
+                                <div className="min-w-0 flex-1">
                                   <div className="text-text-primary mt-0.5 truncate">
                                     {(typeof r.state === 'string' && r.state) ||
                                       (typeof r.action === 'string' && r.action) ||
@@ -1447,10 +1447,10 @@ export function AutomationPanel() {
                                 ) : (
                                   <ChevronRight className="size-4 shrink-0 mt-0.5 text-text-muted-40" />
                                 )}
-                                <span className="shrink-0 font-mono text-[10px] text-text-muted-40">
+                                <span className="shrink-0 text-[10px] text-text-muted-40">
                                   {state}
                                 </span>
-                                <div className="min-w-0 flex-1 font-mono">
+                                <div className="min-w-0 flex-1">
                                   <div className="text-text-primary mt-0.5 truncate">{rid}</div>
                                 </div>
                               </button>
@@ -1490,7 +1490,7 @@ export function AutomationPanel() {
         onClose={() => setConfirmOpen(false)}
         title="Start automation?"
         maxWidth="md"
-        contentClassName="font-mono text-sm"
+        contentClassName="text-sm"
       >
         <div className="px-8 md:px-10 pb-8 md:pb-10 -mt-2">
           <p className="text-text-muted-60 text-xs leading-relaxed mb-4">
@@ -1539,7 +1539,7 @@ export function AutomationPanel() {
         onClose={() => setStopConfirmOpen(false)}
         title="Stop automation?"
         maxWidth="md"
-        contentClassName="font-mono text-sm"
+        contentClassName="text-sm"
       >
         <div className="px-8 md:px-10 pb-8 md:pb-10 -mt-2 space-y-4">
           <p className="text-text-muted-60 text-xs leading-relaxed">

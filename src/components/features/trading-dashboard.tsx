@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 
 /** Subtle panel chrome shared by chart, positions table, and position panel. */
 export const DASHBOARD_SECTION_SHELL =
-  'bg-section-surface border border-border-white-10/70 rounded-lg shadow-[0_4px_24px_rgba(0,0,0,0.35)]';
+  'bg-section-surface border border-border-white-10 rounded-sm';
 
 interface TradingDashboardProps {
   className?: string;
@@ -85,7 +85,7 @@ export function PositionControlsSection({
     <div
       className={cn(
         !embedded && DASHBOARD_SECTION_SHELL,
-        'flex w-full flex-col backdrop-blur-sm lg:w-[400px] xl:w-[450px]',
+        'flex w-full flex-col lg:w-[400px] xl:w-[450px]',
         embedded && 'bg-section-surface',
         className
       )}

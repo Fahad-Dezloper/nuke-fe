@@ -31,18 +31,16 @@ export function PositionDetailsCard({
   onAddMargin,
   className,
 }: PositionDetailsCardProps) {
-  const gradientClass =
+  const borderClass =
     gradientColor === 'long'
-      ? 'bg-gradient-to-br from-[var(--chart-hyperliquid)]/15 via-[var(--chart-hyperliquid)]/8 to-[var(--chart-hyperliquid)]/5'
-      : 'bg-gradient-to-br from-[var(--chart-pink)]/15 via-[var(--chart-pink)]/8 to-[var(--chart-pink)]/5';
+      ? 'border-l-2 border-l-[var(--green)]'
+      : 'border-l-2 border-l-[var(--red)]';
 
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 p-4 rounded-md border border-border-white-10/50',
-        'backdrop-blur-md bg-gradient-to-br',
-        'shadow-lg shadow-black/20',
-        gradientClass,
+        'flex flex-col gap-3 p-4 rounded-sm border border-border-white-10 bg-card',
+        borderClass,
         className
       )}
     >

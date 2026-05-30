@@ -12,18 +12,24 @@ export interface NavItem {
 /** Shared navigation config for navbar (desktop) and bottom nav (mobile). */
 export const NAV_ITEMS: NavItem[] = [
   {
-    label: 'FUNDING ARBITRAGE',
+    label: 'Funding Arbitrage',
     shortLabel: 'Arbitrage',
     href: '/',
     icon: TrendingUp,
   },
   {
-    label: 'AUTOMATION',
-    shortLabel: 'Automation',
-    href: '/automation',
-    icon: Bot,
-    soon: true
+    label: 'Portfolio',
+    shortLabel: 'Portfolio',
+    href: '/portfolio',
+    icon: Wallet,
   },
+  // {
+  //   label: 'AUTOMATION',
+  //   shortLabel: 'Automation',
+  //   href: '/automation',
+  //   icon: Bot,
+  //   soon: true,
+  // },
   // {
   //   label: 'TRADE',
   //   shortLabel: 'Trade',
@@ -31,12 +37,6 @@ export const NAV_ITEMS: NavItem[] = [
   //   soon: true,
   //   icon: LineChart,
   // },
-  {
-    label: 'PORTFOLIO',
-    shortLabel: 'Portfolio',
-    href: '/portfolio',
-    icon: Wallet,
-  },
 ];
 
 export function isNavActive(pathname: string, href: string): boolean {

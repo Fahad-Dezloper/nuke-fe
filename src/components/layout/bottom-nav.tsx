@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS, isNavActive } from '@/lib/navigation';
 
@@ -13,8 +12,7 @@ export function BottomNav() {
     <nav
       className={cn(
         'fixed inset-x-0 bottom-0 z-50 md:hidden',
-        'border-t border-border-white-10',
-        'bg-background/90 backdrop-blur-xl supports-backdrop-filter:bg-background/80',
+        'bg-background border-t border-border-white-10',
         'pb-[env(safe-area-inset-bottom,0px)]'
       )}
       aria-label="Main navigation"
@@ -54,14 +52,10 @@ export function BottomNav() {
               aria-current={active ? 'page' : undefined}
             >
               {active && (
-                <motion.span
-                  layoutId="bottomNavIndicator"
-                  className="absolute -top-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-accent"
-                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-                />
+                <span className="absolute -top-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-accent" />
               )}
               <Icon
-                className={cn('size-5', active && 'drop-shadow-[0_0_8px_rgba(137,207,240,0.45)]')}
+                className={cn('size-5')}
                 strokeWidth={active ? 2.25 : 1.75}
                 aria-hidden
               />

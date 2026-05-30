@@ -5,7 +5,6 @@
  * Main navigation bar with logo, tabs (desktop), and user actions
  */
 
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -23,65 +22,32 @@ interface NavbarProps {
   className?: string;
 }
 
-export function Navbar({
-  logo,
-  navItems = NAV_ITEMS,
-  onConnectWallet,
-  className,
-}: NavbarProps) {
+export function Navbar({ logo, navItems = NAV_ITEMS, onConnectWallet, className }: NavbarProps) {
   const { state } = useTurnkey();
 
   return (
-    <motion.header
-      initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={cn(
-        'sticky top-0 z-50 w-full shrink-0 border-b border-border-white-10',
-        'bg-linear-to-r from-background via-background to-background/95',
-        'backdrop-blur-md supports-backdrop-filter:bg-background/80',
-        'pt-[env(safe-area-inset-top,0px)]',
-        className
-      )}
-    >
-      <div className="mx-auto flex items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-2 lg:px-5">
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="flex min-w-0 shrink items-center"
-        >
+    <header className="bg-[#1B1B1B] px-12">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-8">
+          {/* LOGO */}
           {logo || (
             <Link href="/" className="group flex items-center gap-1.5 md:gap-2">
-              <motion.span
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1 font-bold tracking-tight text-primary"
-              >
+              <span className="flex items-center gap-1 font-bold tracking-tight text-primary">
                 <Image
                   src="/logo.png"
                   alt="Nuke"
                   width={36}
                   height={36}
-                  className="size-8 md:size-10"
+                  className="size-8 md:size-14"
                   priority
                 />
-                <span className="hidden text-sm sm:inline md:text-base">Nuke</span>
-              </motion.span>
+              </span>
             </Link>
           )}
-        </motion.div>
+          <NavbarTabs items={navItems} />
+        </div>
 
-        <NavbarTabs items={navItems} />
-
-        {/* User Actions */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="flex shrink-0 items-center gap-1.5 md:gap-2.5"
-        >
+        <div className="flex shrink-0 items-center gap-1.5 md:gap-2.5">
           {state.isLoggedIn ? (
             <>
               <DepositButton size="sm" walletAddress={getEVMAddress(state.userWallets)} />
@@ -90,8 +56,8 @@ export function Navbar({
           ) : (
             <ConnectWalletButton onClick={onConnectWallet} size="sm" />
           )}
-        </motion.div>
+        </div>
       </div>
-    </motion.header>
+    </header>
   );
 }

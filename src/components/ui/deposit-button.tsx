@@ -48,8 +48,6 @@ export function DepositButton({
     <>
       <motion.button
         onClick={handleClick}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
         className={cn(
           'relative overflow-hidden rounded-md',
           'bg-gradient-to-br from-card/60 via-card/50 to-card/40',
@@ -67,11 +65,9 @@ export function DepositButton({
         )}
       >
         {/* Glassmorphism overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-md" />
-
-        {/* Button content */}
-        <Wallet className="w-4 h-4" />
-        <span className="relative z-10 text-xs">DEPOSIT</span>
+        <div className="absolute inset-0 bg-[#008753] rounded-md" />
+        {/* Button content */}{' '}
+        <span className="relative z-10 text-xs text-white font-bold">DEPOSIT</span>
       </motion.button>
 
       <DepositModal

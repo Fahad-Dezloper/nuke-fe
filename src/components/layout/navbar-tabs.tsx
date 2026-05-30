@@ -1,11 +1,10 @@
 /**
  * Navbar Tabs Component
- * Navigation tabs with active state and animations
+ * Navigation tabs with active state
  */
 
 'use client';
 
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -39,44 +38,26 @@ interface NavTabProps {
   index: number;
 }
 
-function NavTab({ item, isActive, index }: NavTabProps) {
+function NavTab({ item, isActive, index: _index }: NavTabProps) {
   const content = (
     <>
-      <span className="relative z-10">{item.label}</span>
+      <span className={`relative z-10 ${isActive ? 'text-accent' : 'text-muted-40'}`}>
+        {item.label}
+      </span>
       {item.soon && <span className="ml-2 text-xs text-text-muted-40 relative z-10">SOON</span>}
-
-      {/* Active Indicator */}
-      {isActive && (
-        <motion.div
-          layoutId="activeTab"
-          className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"
-          initial={false}
-          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-        />
-      )}
     </>
   );
 
   if (item.disabled || item.soon) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.15 + index * 0.05 }}
-        className="relative px-4 py-2 text-sm font-medium cursor-not-allowed opacity-60"
-      >
+      <div className="relative px-4 py-2 text-sm font-medium cursor-not-allowed opacity-60">
         {content}
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.15 + index * 0.05 }}
-      className="relative"
-    >
+    <div className="relative">
       <Link
         href={item.href}
         className={cn(
@@ -86,14 +67,7 @@ function NavTab({ item, isActive, index }: NavTabProps) {
         )}
       >
         {content}
-
-        {/* Hover Effect */}
-        <motion.div
-          className="absolute inset-0 rounded-md bg-card/50 opacity-0"
-          whileHover={{ opacity: 1 }}
-          transition={{ duration: 0.2 }}
-        />
       </Link>
-    </motion.div>
+    </div>
   );
 }

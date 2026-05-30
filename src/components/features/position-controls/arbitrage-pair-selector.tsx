@@ -61,7 +61,7 @@ export function ArbitragePairSelector({ className }: ArbitragePairSelectorProps)
   if (availablePairs.length === 0) {
     return (
       <div className={cn('flex flex-col gap-2', className)}>
-        <label className="text-xs text-text-muted-60 uppercase tracking-wide">ARBITRAGE PAIR</label>
+        <label className="text-xs text-text-muted-60">Arbitrage pair</label>
         <div className="text-sm text-text-muted-60 p-3 rounded-md bg-card/40 border border-border-white-10/50">
           No arbitrage pairs available for {selectedAsset}
         </div>
@@ -71,7 +71,7 @@ export function ArbitragePairSelector({ className }: ArbitragePairSelectorProps)
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <label className="text-xs text-text-muted-60 uppercase tracking-wide">ARBITRAGE PAIR</label>
+      <label className="text-xs text-text-muted-60">Arbitrage pair</label>
       <div ref={dropdownRef} className="relative">
         <button
           type="button"

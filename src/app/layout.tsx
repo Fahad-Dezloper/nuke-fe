@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Roboto_Mono } from 'next/font/google';
+import { Inter, Roboto_Mono } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import { Navbar } from '@/components/layout/navbar';
@@ -15,9 +15,16 @@ import { GA_MEASUREMENT_ID } from '@/lib/analytics';
 import { Analytics } from '@vercel/analytics/next';
 import { PWAProvider } from '@/components/pwa/pwa-provider';
 
+const inter = Inter({
+  variable: '--font-inter',
+  subsets: ['latin'],
+  display: 'swap',
+});
+
 const robotoMono = Roboto_Mono({
   variable: '--font-roboto-mono',
   subsets: ['latin'],
+  display: 'swap',
 });
 
 const APP_NAME = 'Nuke';
@@ -45,9 +52,7 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
       { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    apple: [
-      { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
   other: {
     'mobile-web-app-capable': 'yes',
@@ -82,7 +87,7 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className={`${robotoMono.variable} antialiased`}>
+      <body className={`${inter.variable} ${robotoMono.variable} antialiased`}>
         <ErrorBoundary>
           <QueryProvider>
             <TurnkeyProvider>

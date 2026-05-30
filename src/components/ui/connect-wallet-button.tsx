@@ -2,11 +2,10 @@
 
 /**
  * Connect Wallet Button Component
- * Reusable button with glassmorphism styling for wallet connection
+ * Reusable button for wallet connection
  */
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { ConnectWalletModal } from './connect-wallet-modal';
 
@@ -62,32 +61,20 @@ export function ConnectWalletButton({
 
   return (
     <>
-      <motion.button
+      <button
         onClick={handleClick}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
         className={cn(
-          'relative overflow-hidden rounded-md cursor-pointer',
-          'bg-gradient-to-br from-card/60 via-card/50 to-card/40',
-          'backdrop-blur-xl border border-border-white-10/50',
-          'text-text-primary',
-          'hover:border-border-white-30',
-          'hover:from-card/70 hover:via-card/60 hover:to-card/50',
-          'hover:backdrop-blur-2xl',
-          'font-medium transition-all duration-300',
-          'shadow-lg shadow-black/30 hover:shadow-black/40',
+          'rounded-sm cursor-pointer font-medium transition-colors',
           sizeClasses[size],
-          fullWidth && 'w-full',
+          fullWidth
+            ? 'w-full bg-green text-black font-bold hover:bg-green/90'
+            : 'bg-card border border-border-white-10 text-text-primary hover:border-border-white-20',
           disabled && 'opacity-50 cursor-not-allowed',
           className
         )}
       >
-        {/* Glassmorphism overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none rounded-md" />
-
-        {/* Button text */}
-        <span className="relative z-10">{children || text || 'CONNECT WALLET'}</span>
-      </motion.button>
+        {children || text || 'Connect Wallet'}
+      </button>
 
       <ConnectWalletModal
         isOpen={isModalOpen}

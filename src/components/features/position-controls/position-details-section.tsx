@@ -163,7 +163,7 @@ export function PositionDetailsSection({ className }: PositionDetailsSectionProp
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      <label className="text-xs text-text-muted-60 uppercase tracking-wide">POSITION DETAILS</label>
+      <label className="text-xs text-text-muted-60">Position details</label>
       <div className="grid grid-cols-2 gap-3">
         {positionDetails.map((card) => (
           <div key={card.label} className="flex flex-col gap-2">

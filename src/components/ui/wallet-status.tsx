@@ -6,7 +6,6 @@
 'use client';
 
 import { useTurnkey, getEVMAddress, getSolanaAddress } from '@/lib/turnkey';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   LogOut,
   Wallet,
@@ -111,22 +110,15 @@ export function WalletStatus() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <motion.button
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+          <button
             className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-lg',
-              'bg-card/50 border border-border-white-10/50',
-              'hover:border-border-white-20 hover:bg-card/70',
-              'transition-colors duration-200 cursor-pointer',
-              'outline-none focus:outline-none'
+              'bg-card border border-border-white-10 rounded-sm px-3 py-1.5 flex items-center gap-2',
+              'hover:border-border-white-20 transition-colors cursor-pointer outline-none'
             )}
           >
             {/* USDC Balance with hover breakdown */}
             <div
-              className="relative flex items-center gap-2"
+              className="group relative flex items-center gap-2"
               onMouseEnter={handleBalanceEnter}
               onMouseLeave={handleBalanceLeave}
             >
@@ -146,155 +138,148 @@ export function WalletStatus() {
               )}
 
               {/* Margin Breakdown Hover Card */}
-              <AnimatePresence>
-                {balanceHover && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
-                    onMouseEnter={handleBalanceEnter}
-                    onMouseLeave={handleBalanceLeave}
-                    onClick={(e) => e.stopPropagation()}
-                    className={cn(
-                      'absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50',
-                      'w-56 rounded-md',
-                      'bg-card border border-border-white-10/50 backdrop-blur-xl',
-                      'shadow-xl shadow-black/60',
-                      'pointer-events-auto'
-                    )}
-                  >
-                    {/* Caret arrow */}
-                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-card border-l border-t border-border-white-10/50" />
+              {balanceHover && (
+                <div
+                  onMouseEnter={handleBalanceEnter}
+                  onMouseLeave={handleBalanceLeave}
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn(
+                    'absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50',
+                    'w-56 rounded-sm',
+                    'bg-card border border-border-white-10',
+                    'pointer-events-auto'
+                  )}
+                >
+                  {/* Caret arrow */}
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-card border-l border-t border-border-white-10/50" />
 
-                    <div className="relative z-10 p-3 space-y-3">
-                      {/* Hyperliquid row */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="relative">
-                            {hlConfig && (
-                              <Image
-                                src={hlConfig.logo}
-                                alt={hlConfig.displayName}
-                                width={20}
-                                height={20}
-                                className="rounded-full ring-1 ring-white/10"
-                              />
-                            )}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-medium text-text-primary leading-tight">
-                              {hlConfig?.displayName ?? 'Hyperliquid'}
-                            </span>
-                          </div>
-                        </div>
-                        {isExchangeLoading ? (
-                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
-                        ) : (
-                          <span className="text-xs font-semibold text-text-primary tabular-nums">
-                            ${hlBalance.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Pacifica row */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="relative">
-                            {pacConfig && (
-                              <Image
-                                src={pacConfig.logo}
-                                alt={pacConfig.displayName}
-                                width={20}
-                                height={20}
-                                className="rounded-full ring-1 ring-white/10"
-                              />
-                            )}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-medium text-text-primary leading-tight">
-                              {pacConfig?.displayName ?? 'Pacifica'}
-                            </span>
-                          </div>
-                        </div>
-                        {isExchangeLoading ? (
-                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
-                        ) : (
-                          <span className="text-xs font-semibold text-text-primary tabular-nums">
-                            ${pacBalance.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Phoenix row */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="relative">
-                            {phxConfig && (
-                              <Image
-                                src={phxConfig.logo}
-                                alt={phxConfig.displayName}
-                                width={20}
-                                height={20}
-                                className="rounded-full ring-1 ring-white/10"
-                              />
-                            )}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-medium text-text-primary leading-tight">
-                              {phxConfig?.displayName ?? 'Phoenix'}
-                            </span>
-                          </div>
-                        </div>
-                        {isExchangeLoading ? (
-                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
-                        ) : (
-                          <span className="text-xs font-semibold text-text-primary tabular-nums">
-                            ${phoenixBalance.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Separator */}
-                      <div className="border-t border-border-white-10/50" />
-
-                      {/* Solana wallet row */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="relative">
+                  <div className="relative z-10 p-3 space-y-3">
+                    {/* Hyperliquid row */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative">
+                          {hlConfig && (
                             <Image
-                              src="/tokens/solana.webp"
-                              alt="Solana"
-                              width={10}
-                              height={10}
-                              className="rounded-full ring-1 ring-white/10 absolute -top-[2px] -right-[2px]"
-                            />
-                            <Image
-                              src="/tokens/usdc.png"
-                              alt="USDC"
+                              src={hlConfig.logo}
+                              alt={hlConfig.displayName}
                               width={20}
                               height={20}
                               className="rounded-full ring-1 ring-white/10"
                             />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-medium text-text-primary leading-tight">
-                              SOLANA USDC
-                            </span>
-                          </div>
+                          )}
                         </div>
-                        {showSkeleton ? (
-                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
-                        ) : (
-                          <span className="text-xs font-semibold text-text-primary tabular-nums">
-                            ${Number(formattedBalance).toFixed(2)}
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-medium text-text-primary leading-tight">
+                            {hlConfig?.displayName ?? 'Hyperliquid'}
                           </span>
-                        )}
+                        </div>
                       </div>
+                      {isExchangeLoading ? (
+                        <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                      ) : (
+                        <span className="text-xs font-semibold text-text-primary tabular-nums">
+                          ${hlBalance.toFixed(2)}
+                        </span>
+                      )}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+
+                    {/* Pacifica row */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative">
+                          {pacConfig && (
+                            <Image
+                              src={pacConfig.logo}
+                              alt={pacConfig.displayName}
+                              width={20}
+                              height={20}
+                              className="rounded-full ring-1 ring-white/10"
+                            />
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-medium text-text-primary leading-tight">
+                            {pacConfig?.displayName ?? 'Pacifica'}
+                          </span>
+                        </div>
+                      </div>
+                      {isExchangeLoading ? (
+                        <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                      ) : (
+                        <span className="text-xs font-semibold text-text-primary tabular-nums">
+                          ${pacBalance.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Phoenix row */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative">
+                          {phxConfig && (
+                            <Image
+                              src={phxConfig.logo}
+                              alt={phxConfig.displayName}
+                              width={20}
+                              height={20}
+                              className="rounded-full ring-1 ring-white/10"
+                            />
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-medium text-text-primary leading-tight">
+                            {phxConfig?.displayName ?? 'Phoenix'}
+                          </span>
+                        </div>
+                      </div>
+                      {isExchangeLoading ? (
+                        <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                      ) : (
+                        <span className="text-xs font-semibold text-text-primary tabular-nums">
+                          ${phoenixBalance.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Separator */}
+                    <div className="border-t border-border-white-10/50" />
+
+                    {/* Solana wallet row */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative">
+                          <Image
+                            src="/tokens/solana.webp"
+                            alt="Solana"
+                            width={10}
+                            height={10}
+                            className="rounded-full ring-1 ring-white/10 absolute -top-[2px] -right-[2px]"
+                          />
+                          <Image
+                            src="/tokens/usdc.png"
+                            alt="USDC"
+                            width={20}
+                            height={20}
+                            className="rounded-full ring-1 ring-white/10"
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-medium text-text-primary leading-tight">
+                            Solana USDC
+                          </span>
+                        </div>
+                      </div>
+                      {showSkeleton ? (
+                        <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                      ) : (
+                        <span className="text-xs font-semibold text-text-primary tabular-nums">
+                          ${Number(formattedBalance).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Divider */}
@@ -306,7 +291,7 @@ export function WalletStatus() {
 
             {/* Chevron */}
             <ChevronDown className="w-3 h-3 text-text-muted-40" />
-          </motion.button>
+          </button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent
@@ -321,7 +306,7 @@ export function WalletStatus() {
             }}
             className="flex items-center justify-between px-3 py-2 text-xs text-text-muted-60 hover:bg-white/5 cursor-pointer"
           >
-            <span className="font-mono">{displayAddress}</span>
+            <span className="tabular-nums">{displayAddress}</span>
             {copied ? (
               <Check className="w-3.5 h-3.5 text-green-400" />
             ) : (

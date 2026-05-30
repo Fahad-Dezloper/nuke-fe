@@ -25,14 +25,14 @@ export function PositionsTable({ positions, onClosePosition }: PositionsTablePro
 
   const headers = [
     'ASSET',
-    'LONG / SHORT',
+    'Long / Short',
     'SIZE',
     'MARGIN',
-    'PRICE PNL',
-    'FUNDING PNL',
+    'Price PnL',
+    'Funding PnL',
     'APR',
-    'TOTAL PNL',
-    'LIQ PRICE',
+    'Total PnL',
+    'Liq. Price',
     '',
   ];
 
@@ -44,7 +44,7 @@ export function PositionsTable({ positions, onClosePosition }: PositionsTablePro
           {headers.map((header) => (
             <span
               key={header}
-              className="text-xs text-text-muted-60 uppercase tracking-wide font-medium truncate"
+              className="text-xs text-text-muted-60 font-medium truncate"
             >
               {header}
             </span>
