@@ -328,7 +328,7 @@ export async function signSolanaMessageWithTurnkey(
 
     const signer = new TurnkeySigner({
         organizationId: session.organizationId,
-        client: indexedDbClient,
+        client: indexedDbClient as any,
     });
 
     // Sign the message

@@ -65,9 +65,9 @@ export function DepositButton({
         )}
       >
         {/* Glassmorphism overlay */}
-        <div className="absolute inset-0 bg-[#008753] rounded-md" />
+        <div className="absolute inset-0 bg-[#2ECC71] rounded-md" />
         {/* Button content */}{' '}
-        <span className="relative z-10 text-xs text-white font-bold">DEPOSIT</span>
+        <span className="relative z-10 text-xs text-black font-bold">DEPOSIT</span>
       </motion.button>
 
       <DepositModal

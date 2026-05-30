@@ -48,7 +48,7 @@ export async function signBackpackMessageWithTurnkey(
 
     const signer = new TurnkeySigner({
       organizationId: session.organizationId,
-      client: indexedDbClient,
+      client: indexedDbClient as any,
     });
 
     const signatureBytes = await signer.signMessage(

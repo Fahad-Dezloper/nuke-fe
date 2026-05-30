@@ -85,7 +85,7 @@ async function getTurnkeyEvmSigner(evmAddress: string, organizationId: string) {
   await indexedDbClient.init();
 
   return new TurnkeySigner({
-    client: indexedDbClient,
+    client: indexedDbClient as any,
     organizationId,
     signWith: evmAddress,
   });

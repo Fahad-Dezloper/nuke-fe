@@ -57,7 +57,7 @@ export async function signTransferWithAuthorizationWithTurnkey(
     // Create TurnkeySigner
     try {
       signer = new TurnkeySigner({
-        client: indexedDbClient,
+        client: indexedDbClient as any,
         organizationId: organizationId,
         signWith: walletAddress,
       });

@@ -92,7 +92,7 @@ export class HyperLiquidService {
 
       try {
         signer = new TurnkeySigner({
-          client: indexedDbClient,
+          client: indexedDbClient as any,
           organizationId: organizationId,
           signWith: walletAddress,
         });

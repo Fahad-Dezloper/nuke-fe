@@ -132,7 +132,7 @@ export async function signMessageWithEVM(
   await indexedDbClient.init();
 
   const signer = new TurnkeySigner({
-    client: indexedDbClient,
+    client: indexedDbClient as any,
     organizationId,
     signWith: evmAddress,
   });

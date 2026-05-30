@@ -69,7 +69,7 @@ export async function signPacificaMessageWithTurnkey(
       // Create TurnkeySigner instance with the indexedDbClient
       signer = new TurnkeySigner({
         organizationId: session.organizationId,
-        client: indexedDbClient,
+        client: indexedDbClient as any,
       });
     } catch (error) {
       throw createError(

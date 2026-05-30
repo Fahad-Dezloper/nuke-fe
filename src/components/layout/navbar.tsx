@@ -50,7 +50,7 @@ export function Navbar({ logo, navItems = NAV_ITEMS, onConnectWallet, className 
         <div className="flex shrink-0 items-center gap-1.5 md:gap-2.5">
           {state.isLoggedIn ? (
             <>
-              <DepositButton size="sm" walletAddress={getEVMAddress(state.userWallets)} />
+              {/* <DepositButton size="sm" walletAddress={getEVMAddress(state.userWallets)} /> */}
               <WalletStatus />
             </>
           ) : (
