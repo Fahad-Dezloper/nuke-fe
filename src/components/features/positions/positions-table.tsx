@@ -33,35 +33,38 @@ export function PositionsTable({ positions, onClosePosition }: PositionsTablePro
     'APR',
     'Total PnL',
     'Liq. Price',
-    '',
+    'Close Position',
   ];
 
   return (
-    <div className="flex flex-col h-full min-h-0 border border-border-white-10/50 rounded-lg overflow-hidden">
-      {/* Table Header - Sticky */}
-      <div className="sticky top-0 z-[1] px-4 md:px-6 py-3 border-b border-border-white-10/50 bg-gradient-to-r from-card/50 via-card/40 to-card/50 backdrop-blur-md rounded-t-lg shadow-lg shadow-black/20 shrink-0">
-        <div className={`${POSITIONS_TABLE_GRID} max-w-full`}>
-          {headers.map((header) => (
-            <span
-              key={header}
-              className="text-xs text-text-muted-60 font-medium truncate"
-            >
-              {header}
-            </span>
-          ))}
-        </div>
-      </div>
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      {/* Scroll container for both horizontal and vertical scrolling */}
+      <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
+        <div className="w-full min-w-[1230px] flex flex-col min-h-full">
+          {/* Table Header - Sticky */}
+          <div className="sticky top-0 z-[1] px-5 py-3.5 border-b border-white/[0.06] bg-[#131417]/90 backdrop-blur-md shrink-0 shadow-sm">
+            <div className={`${POSITIONS_TABLE_GRID} max-w-full`}>
+              {headers.map((header) => (
+                <span
+                  key={header}
+                  className="text-[10px] text-white/40 font-bold uppercase tracking-wider truncate"
+                >
+                  {header}
+                </span>
+              ))}
+            </div>
+          </div>
 
-      {/* Table Rows - Scrollable */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div>
-          {positions.map((position) => (
-            <PositionRow
-              key={`${position.asset}-${position.leverage}`}
-              position={position}
-              onClose={onClosePosition}
-            />
-          ))}
+          {/* Table Rows */}
+          <div className="flex-1 divide-y divide-white/[0.04]">
+            {positions.map((position) => (
+              <PositionRow
+                key={`${position.asset}-${position.leverage}`}
+                position={position}
+                onClose={onClosePosition}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>

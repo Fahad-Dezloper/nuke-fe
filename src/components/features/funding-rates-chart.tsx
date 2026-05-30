@@ -33,8 +33,8 @@ interface FundingRatesChartProps {
   fluidHeight?: boolean;
 }
 
-const CHART_HEIGHT_FIXED = 'h-[340px]';
-const CHART_HEIGHT_FLUID = 'h-full min-h-[220px] flex-1';
+const CHART_HEIGHT_FIXED = 'h-[320px]';
+const CHART_HEIGHT_FLUID = 'h-full min-h-[200px] flex-1';
 
 export function FundingRatesChart({ className, fluidHeight }: FundingRatesChartProps) {
   const chartHeight = fluidHeight ? CHART_HEIGHT_FLUID : CHART_HEIGHT_FIXED;

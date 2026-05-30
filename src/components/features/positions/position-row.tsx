@@ -133,26 +133,26 @@ function ProtocolBadge({
   const getStyleClasses = (type: 'long' | 'short') => {
     if (type === 'long') {
       return {
-        bg: 'bg-green-600/20',
-        border: 'border-green-400/20',
-        hoverBg: 'hover:bg-green-400/15',
-        hoverBorder: 'hover:border-green-400/30',
+        bg: 'bg-emerald-500/10',
+        border: 'border-emerald-500/20',
+        hoverBg: 'hover:bg-emerald-500/20',
+        hoverBorder: 'hover:border-emerald-500/30',
       };
     }
     if (type === 'short') {
       return {
-        bg: 'bg-red-600/20',
-        border: 'border-red-400/20',
-        hoverBg: 'hover:bg-red-400/15',
-        hoverBorder: 'hover:border-red-400/30',
+        bg: 'bg-rose-500/10',
+        border: 'border-rose-500/20',
+        hoverBg: 'hover:bg-rose-500/20',
+        hoverBorder: 'hover:border-rose-500/30',
       };
     }
     // Default fallback for unknown protocols
     return {
-      bg: 'bg-gray-500/10',
-      border: 'border-gray-500/20',
-      hoverBg: 'hover:bg-gray-500/15',
-      hoverBorder: 'hover:border-gray-500/30',
+      bg: 'bg-white/5',
+      border: 'border-white/10',
+      hoverBg: 'hover:bg-white/10',
+      hoverBorder: 'hover:border-white/20',
     };
   };
 
@@ -160,30 +160,35 @@ function ProtocolBadge({
     type === 'long' ? 'long' : type === 'short' ? 'short' : (undefined as never)
   );
 
-  // Text color based on position type: green for LONG, red for SHORT
+  // Text color based on position type: emerald for LONG, rose for SHORT
   const textColorClass =
-    type === 'long' ? 'text-green-400' : type === 'short' ? 'text-red-400' : 'text-text-primary';
+    type === 'long' ? 'text-emerald-400' : type === 'short' ? 'text-rose-400' : 'text-text-primary';
 
   return (
     <div
       className={cn(
-        'flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-all duration-200 w-fit',
-        styleClasses.bg,
-        styleClasses.border,
-        styleClasses.hoverBg,
-        styleClasses.hoverBorder
+        'flex items-center gap-1 px-1.5 py-0.5 rounded-sm transition-all duration-200 w-fit'
+        // styleClasses.bg,
+        // styleClasses.border,
+        // styleClasses.hoverBg,
+        // styleClasses.hoverBorder
       )}
     >
       <Image
         src={config.logo}
         alt={config.displayName}
-        width={14}
-        height={14}
-        className="shrink-0 rounded-sm"
+        width={16}
+        height={16}
+        className="shrink-0 rounded-xs"
       />
-      <span className={cn('text-[10px] font-medium whitespace-nowrap', textColorClass)}>
+      {/* <span
+        className={cn(
+          'text-[9px] font-bold tracking-tight uppercase whitespace-nowrap',
+          textColorClass
+        )}
+      >
         {config.displayName}
-      </span>
+      </span> */}
     </div>
   );
 }
@@ -205,8 +210,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
     parseFloat(position.fundingPnl.current.replace(/[^0-9.-]/g, '')) > 0;
   const isFundingAprPositive =
     position.fundingApr.startsWith('+') ||
-    (position.fundingApr !== '—' &&
-      parseFloat(position.fundingApr.replace(/[^0-9.-]/g, '')) > 0);
+    (position.fundingApr !== '—' && parseFloat(position.fundingApr.replace(/[^0-9.-]/g, '')) > 0);
 
   const handleMouseEnter = (
     field: 'size' | 'margin' | 'pricePnl' | 'fundingPnl',
@@ -223,11 +227,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
   };
 
   const handleRowClick = () => {
-    navigateToAssetPair(
-      position.asset,
-      position.long.platform,
-      position.short.platform
-    );
+    navigateToAssetPair(position.asset, position.long.platform, position.short.platform);
   };
 
   const handleRowKeyDown = (e: React.KeyboardEvent) => {
@@ -245,42 +245,45 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
       onClick={handleRowClick}
       onKeyDown={handleRowKeyDown}
       className={cn(
-        'relative border-b border-white/[0.08] last:border-b-0',
+        'relative border-b border-white/[0.04] last:border-b-0',
         'border-l-2 border-l-transparent',
-        'cursor-pointer transition-colors duration-150',
-        'hover:border-l-accent/60 hover:bg-white/[0.04]',
-        'focus-visible:outline-none focus-visible:border-l-accent focus-visible:bg-white/[0.05]'
+        'cursor-pointer transition-all duration-200 ease-in-out',
+        ' hover:bg-[#1A1B1E]',
+        'focus-visible:outline-none focus-visible:border-l-emerald-500 focus-visible:bg-[#1A1B1E]/60',
+        'min-h-[68px] flex items-center w-full'
       )}
     >
-      <div className="px-4 md:px-6 py-3">
+      <div className="px-5 py-4 w-full">
         <div className={`${POSITIONS_TABLE_GRID} items-center max-w-full`}>
           {/* ASSET */}
-          <div className="flex items-center gap-2">
-            <Image
-              src={hyperliquidCoinIconUrl(position.asset)}
-              alt={position.asset}
-              width={20}
-              height={20}
-            />
-            <div className="flex flex-col gap-0">
-              <span className="text-xs font-semibold text-text-primary leading-tight">
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <Image
+                src={hyperliquidCoinIconUrl(position.asset)}
+                alt={position.asset}
+                width={26}
+                height={26}
+                className="rounded-full ring-1 ring-white/10"
+              />
+            </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-xs font-bold text-text-primary leading-none">
                 {position.asset}
               </span>
-              <span className="text-[10px] text-text-muted-60 leading-tight">
+              <span className="inline-flex items-center text-[9px] font-bold px-1 py-0.2 rounded-xs bg-white/5 text-white/50 w-fit">
                 {position.leverage}
               </span>
             </div>
           </div>
 
           {/* LONG / SHORT */}
-          <div className="flex flex-col gap-2 w-full">
-            {/* LONG */}
+          <div className="flex items-center gap-1.5 w-full">
             <ProtocolBadge
               protocolId={position.long.platform.toLowerCase()}
               label={position.long.platform}
               type="long"
             />
-            {/* SHORT */}
+            <span className="text-white text-base font-medium shrink-0">→</span>
             <ProtocolBadge
               protocolId={position.short.platform.toLowerCase()}
               label={position.short.platform}
@@ -294,7 +297,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
             onMouseEnter={(e) => handleMouseEnter('size', e)}
             onMouseLeave={handleMouseLeave}
           >
-            <span className="text-xs font-medium text-text-primary tabular-nums truncate block">
+            <span className="text-xs font-semibold text-white/90 tabular-nums font-mono truncate block">
               {position.size}
             </span>
           </div>
@@ -305,7 +308,7 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
             onMouseEnter={(e) => handleMouseEnter('margin', e)}
             onMouseLeave={handleMouseLeave}
           >
-            <span className="text-xs font-medium text-text-primary tabular-nums truncate block">
+            <span className="text-xs font-semibold text-white/90 tabular-nums font-mono truncate block">
               {position.margin}
             </span>
           </div>
@@ -318,8 +321,8 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           >
             <span
               className={cn(
-                'text-xs font-medium tabular-nums truncate block',
-                isPricePnlPositive ? 'text-green-400' : 'text-red-400'
+                'text-xs font-semibold tabular-nums font-mono truncate block',
+                isPricePnlPositive ? 'text-emerald-400' : 'text-rose-400'
               )}
             >
               {position.pricePnl}
@@ -334,13 +337,13 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           >
             <span
               className={cn(
-                'text-xs font-medium tabular-nums truncate block',
-                isFundingPnlPositive ? 'text-green-400' : 'text-red-400'
+                'text-xs font-semibold tabular-nums font-mono truncate block',
+                isFundingPnlPositive ? 'text-emerald-400' : 'text-rose-400'
               )}
             >
               {position.fundingPnl.current}
             </span>
-            <span className="text-[10px] text-text-muted-60 tabular-nums leading-tight truncate block">
+            <span className="text-[10px] text-white/40 tabular-nums font-mono leading-none mt-0.5 truncate block">
               {position.fundingPnl.estimated}
             </span>
           </div>
@@ -349,12 +352,12 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           <div className="min-w-0">
             <span
               className={cn(
-                'text-xs font-medium tabular-nums truncate block',
+                'text-xs font-semibold tabular-nums font-mono truncate block',
                 position.fundingApr === '—'
-                  ? 'text-text-muted-60'
+                  ? 'text-white/30'
                   : isFundingAprPositive
-                    ? 'text-green-400'
-                    : 'text-red-400'
+                    ? 'text-emerald-400'
+                    : 'text-rose-400'
               )}
             >
               {position.fundingApr}
@@ -365,8 +368,10 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
           <div className="min-w-0">
             <span
               className={cn(
-                'text-xs font-semibold tabular-nums truncate block',
-                isTotalPnlPositive ? 'text-green-400' : 'text-red-400'
+                'inline-flex items-center justify-center text-xs font-bold tabular-nums font-mono px-2 py-0.5 rounded-md border shadow-xs',
+                isTotalPnlPositive
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_2px_10px_rgba(16,185,129,0.06)]'
+                  : 'bg-rose-500/10 border-rose-500/20 text-rose-400 shadow-[0_2px_10px_rgba(244,63,94,0.06)]'
               )}
             >
               {position.totalPnl}
@@ -386,7 +391,6 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
               return ordered.map(({ protocolId, type }) => {
                 const data = position.protocolData?.[protocolId];
                 const config = getProtocolConfig(protocolId);
-                // liquidationPrice is already formatted as "$XX,XXX.XX" from the service
                 const liqPrice =
                   data?.liquidationPrice && data?.liquidationPrice !== ''
                     ? data?.liquidationPrice
@@ -394,18 +398,19 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
 
                 return (
                   <div key={type} className="flex items-center gap-1.5">
-                    {config && (
-                      <Image
-                        src={config.logo}
-                        alt={config.displayName}
-                        width={13}
-                        height={13}
-                        className="shrink-0 rounded-sm opacity-60"
-                      />
-                    )}
                     <span
                       className={cn(
-                        'text-[11px] tabular-nums whitespace-nowrap',
+                        'text-[9px] font-bold px-1 rounded-xs w-3.5 text-center',
+                        type === 'long'
+                          ? 'bg-emerald-500/10 text-emerald-400'
+                          : 'bg-rose-500/10 text-rose-400'
+                      )}
+                    >
+                      {type === 'long' ? 'L' : 'S'}
+                    </span>
+                    <span
+                      className={cn(
+                        'text-[11px] font-mono tabular-nums whitespace-nowrap',
                         type === 'long' ? 'text-text-primary' : 'text-text-muted-60'
                       )}
                     >
@@ -425,10 +430,10 @@ export function PositionRow({ position, onClose }: PositionRowProps) {
                 e.stopPropagation();
                 onClose?.(`${position.asset}-${position.leverage}`);
               }}
-              className="p-1 rounded-md cursor-pointer text-text-muted-60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200"
+              className="p-1.5 rounded-md cursor-pointer text-white bg-[#D55145] hover:bg-[#D55145]/80 border border-transparent shadow-xs transition-all duration-200 flex items-center justify-center w-7 h-7"
               aria-label={`Close ${position.asset} position`}
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>

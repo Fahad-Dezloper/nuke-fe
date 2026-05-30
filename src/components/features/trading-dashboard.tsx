@@ -56,7 +56,7 @@ export function PositionsTableSection({ className, children }: PositionsTableSec
     <div
       className={cn(
         DASHBOARD_SECTION_SHELL,
-        'h-full flex flex-col overflow-hidden min-h-0',
+        'h-full flex flex-col overflow-hidden bg-[#1B1B1B] min-h-0',
         className
       )}
     >
