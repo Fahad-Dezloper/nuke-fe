@@ -30,7 +30,7 @@ export const PROTOCOL_CONFIGS: Record<string, ProtocolConfig> = {
     id: 'hyperliquid',
     displayName: 'Hyperliquid',
     chipLabel: 'Hyperliquid',
-    logo: '/tokens/hype.png',
+    logo: '/tokens/Hype2.png',
     colorVar: '--chart-hyperliquid',
     bgOpacity: 0.1,
     borderOpacity: 0.2,

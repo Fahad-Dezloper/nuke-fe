@@ -20,12 +20,12 @@
   --accent-secondary: #3a5866;
 
   /* Chart Colors */
-  --chart-hyperliquid: #3b9797;
-  --chart-lighter: #16476a;
-  --chart-pink: #fdb5ce;
-  --chart-phoenix: #f97316;
+  --chart-hyperliquid: #70CFC1;
+  --chart-lighter: #637AE9;
+  --chart-pink: #61D7EF;
+  --chart-phoenix: #F3A153;
   --chart-dark-blue: #132440;
-  --chart-backpack: #fbbf24;
+  --chart-backpack: #D55145;
 
   /* Text Colors with Opacity */
   --text-muted-10: rgba(255, 255, 255, 0.1);

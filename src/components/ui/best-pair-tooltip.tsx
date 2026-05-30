@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import type { AssetDropdownItem } from '@/types/positions';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useBestPair } from '@/hooks/use-best-pair';
+import { getProtocolConfig } from '@/lib/protocols/config';
 
 interface BestPairTooltipProps {
   asset: AssetDropdownItem;
@@ -32,6 +33,8 @@ export function BestPairTooltip({ asset, isVisible, position }: BestPairTooltipP
   const bestPair = getBestPairForAsset(asset);
   const longProtocol = PROTOCOL_LABELS[bestPair.long] ?? bestPair.long;
   const shortProtocol = PROTOCOL_LABELS[bestPair.short] ?? bestPair.short;
+  const longCfg = getProtocolConfig(bestPair.long);
+  const shortCfg = getProtocolConfig(bestPair.short);
 
   return (
     <div
@@ -50,12 +53,18 @@ export function BestPairTooltip({ asset, isVisible, position }: BestPairTooltipP
       {/* Best Pair Info */}
       <div className="flex items-center gap-2 ">
         <div className="flex items-center gap-1.5">
-          <ArrowUpRight className="h-3.5 w-3.5 text-[var(--chart-hyperliquid)]" />
+          <ArrowUpRight
+            className="h-3.5 w-3.5 transition-colors duration-300"
+            style={{ color: longCfg ? `var(${longCfg.colorVar})` : undefined }}
+          />
           <span className="text-xs font-semibold text-text-primary">Long {longProtocol}</span>
         </div>
         <span className="text-text-muted-60">→</span>
         <div className="flex items-center gap-1.5">
-          <ArrowDownRight className="h-3.5 w-3.5 text-[var(--chart-pink)]" />
+          <ArrowDownRight
+            className="h-3.5 w-3.5 transition-colors duration-300"
+            style={{ color: shortCfg ? `var(${shortCfg.colorVar})` : undefined }}
+          />
           <span className="text-xs font-semibold text-text-primary">Short {shortProtocol}</span>
         </div>
       </div>

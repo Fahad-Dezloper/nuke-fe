@@ -11,6 +11,7 @@ import { useBestPair } from '@/hooks/use-best-pair';
 import { fundingSpreadAprYearly } from '@/lib/arbitrage/asset-table-pairs';
 import { MarketOverviewSkeleton } from '@/components/ui/skeletons';
 import type { AssetDropdownItem } from '@/types/positions';
+import { getProtocolConfig } from '@/lib/protocols/config';
 
 interface MobileMarketHeaderProps {
   className?: string;
@@ -30,6 +31,8 @@ export function MobileMarketHeader({ className, onAssetChange }: MobileMarketHea
   const bestPair = getBestPairForAsset(selectedAsset);
   const longFundingRate = selectedAsset?.protocols?.[bestPair.long]?.fundingRateYearly || 0;
   const shortFundingRate = selectedAsset?.protocols?.[bestPair.short]?.fundingRateYearly || 0;
+  const longProtocolConfig = getProtocolConfig(bestPair.long);
+  const shortProtocolConfig = getProtocolConfig(bestPair.short);
   const estimatedAPR = fundingSpreadAprYearly(longFundingRate, shortFundingRate);
   const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
 
@@ -64,14 +67,20 @@ export function MobileMarketHeader({ className, onAssetChange }: MobileMarketHea
             </span>
           </StatCell>
           <StatCell label="LONG FUNDING">
-            <span className="flex items-center gap-1 text-sm tabular-nums">
-              <ArrowUp className="size-3 text-[var(--chart-hyperliquid)]" aria-hidden />
+            <span
+              className="flex items-center gap-1 text-sm tabular-nums transition-colors duration-300"
+              style={{ color: longProtocolConfig ? `var(${longProtocolConfig.colorVar})` : undefined }}
+            >
+              <ArrowUp className="size-3" aria-hidden />
               {formatPercentWithSign(longFundingRate)}
             </span>
           </StatCell>
           <StatCell label="SHORT FUNDING">
-            <span className="flex items-center gap-1 text-sm tabular-nums">
-              <ArrowDown className="size-3 text-[var(--chart-pink)]" aria-hidden />
+            <span
+              className="flex items-center gap-1 text-sm tabular-nums transition-colors duration-300"
+              style={{ color: shortProtocolConfig ? `var(${shortProtocolConfig.colorVar})` : undefined }}
+            >
+              <ArrowDown className="size-3" aria-hidden />
               {formatPercentWithSign(shortFundingRate)}
             </span>
           </StatCell>

@@ -45,8 +45,11 @@ export function MobileInfoPanel() {
         </GridCell>
         <GridCell label="LONG FUNDING RATE">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums">
-              <ArrowUp className="size-3.5 text-[var(--chart-hyperliquid)]" />
+            <span
+              className="flex items-center gap-1.5 text-sm font-semibold tabular-nums transition-colors duration-300"
+              style={{ color: longCfg ? `var(${longCfg.colorVar})` : undefined }}
+            >
+              <ArrowUp className="size-3.5" />
               {formatPercentWithSign(longFundingRate)}
             </span>
             {longCfg?.logo ? (
@@ -62,8 +65,11 @@ export function MobileInfoPanel() {
         </GridCell>
         <GridCell label="SHORT FUNDING RATE">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums">
-              <ArrowDown className="size-3.5 text-[var(--chart-pink)]" />
+            <span
+              className="flex items-center gap-1.5 text-sm font-semibold tabular-nums transition-colors duration-300"
+              style={{ color: shortCfg ? `var(${shortCfg.colorVar})` : undefined }}
+            >
+              <ArrowDown className="size-3.5" />
               {formatPercentWithSign(shortFundingRate)}
             </span>
             {shortCfg?.logo ? (

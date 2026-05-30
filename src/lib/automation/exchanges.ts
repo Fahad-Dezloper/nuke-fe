@@ -10,7 +10,7 @@ export const AUTOMATION_EXCHANGES = [
   {
     id: 'hyperliquid',
     label: 'Hyperliquid',
-    logo: { src: '/tokens/hype.png', alt: 'Hyperliquid', className: 'rounded-full' },
+    logo: { src: '/tokens/Hype2.png', alt: 'Hyperliquid', className: 'rounded-full' },
   },
   {
     id: 'backpack',

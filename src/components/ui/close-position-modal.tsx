@@ -48,7 +48,7 @@ function LegStatusRow({
 }) {
   const config = getProtocolConfig(protocol);
   const displayName = config?.displayName || protocol;
-  const logo = config?.logo || '/tokens/hype.png';
+  const logo = config?.logo || '/tokens/Hype2.png';
 
   const isLong = side === 'Long';
 

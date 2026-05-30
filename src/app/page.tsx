@@ -52,7 +52,7 @@ export default function Home() {
       <MobileTradingView onAssetChange={handleAssetChange} />
 
       {/* Desktop: split trading terminal */}
-      <div className="hidden min-h-0 flex-1 flex-col overflow-hidden lg:flex">
+      <div className="hidden min-h-0 mt-2 mx-12 flex-1 flex-col overflow-hidden lg:flex">
         <div className="shrink-0">
           <SectionErrorBoundary name="Market Overview">
             <MarketOverview onAssetChange={handleAssetChange} />

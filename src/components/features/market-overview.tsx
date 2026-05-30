@@ -2,7 +2,7 @@
 
 /**
  * Market Overview Component
- * Displays asset name, current price, funding rates, and estimated APR
+ * Displays asset name, current index price, funding rates, and estimated APY in a compact ticker bar
  */
 
 import { ArrowUp, ArrowDown } from 'lucide-react';
@@ -10,7 +10,6 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useAtomValue } from 'jotai';
 import { AnimatedNumber } from '@/components/ui/animated-number';
-import { MetricItem } from '@/components/ui/metric-item';
 import { AssetDropdown } from '@/components/ui/asset-dropdown';
 import { formatPrice, formatPercentWithSign } from '@/lib/utils';
 import { selectedAssetAtom, marketFeedDataAtom } from '@/lib/stores/market-feed.store';
@@ -34,7 +33,7 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
     return <MarketOverviewSkeleton className={className} />;
   }
 
-  // Get price from selected asset (use hyperliquid mark price as primary)
+  // Get price from selected asset (use hyperliquid mark price as index price)
   const currentPrice = selectedAsset?.markPx || selectedAsset?.hyperliquidMarkPx || 0;
 
   // Get funding rates based on best pair direction
@@ -47,7 +46,7 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
   const longProtocolConfig = getProtocolConfig(bestPair.long);
   const shortProtocolConfig = getProtocolConfig(bestPair.short);
 
-  // Spread for the active long/short pair (not global min/max across all venues)
+  // Spread for the active long/short pair (NET APY)
   const estimatedAPR = fundingSpreadAprYearly(longFundingRate, shortFundingRate);
 
   // Handle asset selection (already handled by dropdown, but call callback if provided)
@@ -55,98 +54,118 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
     onAssetChange?.(asset);
   };
 
-  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', 4, 4);
+  const getDecimalCount = (val: number) => {
+    if (val < 1) return 4;
+    if (val < 10) return 3;
+    if (val < 100) return 2;
+    return 1;
+  };
+
+  const decimals = getDecimalCount(currentPrice);
+  const priceFormatter = (val: number) => formatPrice(val, 'USD', 'en-US', decimals, decimals);
 
   return (
-    <div
-      className={cn(
-        'bg-background',
-        'border-b-[0.5px] border-l-[0.5px] border-r-[0.5px] border-border-white-10',
-        className
-      )}
-    >
-      <div className="mx-auto px-3 md:px-4 lg:px-5 py-0">
-        <div className="flex flex-col gap-3 py-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:py-0 xl:gap-8">
+    <div className={cn('bg-[#1B1B1B] rounded-md  h-16 flex items-center select-none', className)}>
+      <div className="w-full px-4 overflow-visible">
+        <div className="flex items-center gap-8 md:gap-10">
           {/* Asset Selector Dropdown */}
-          <div className="relative z-[10000] w-full shrink-0 sm:w-auto">
+          <div className="relative z-[10000] shrink-0">
             <AssetDropdown
               selectedAsset={selectedAsset || undefined}
               onSelect={handleAssetSelect}
             />
           </div>
 
-          {/* Metrics Grid */}
           {selectedAsset ? (
-            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:flex-1 lg:flex-wrap lg:items-center lg:gap-6 xl:gap-8">
-              {/* Current Price */}
-              <MetricItem label="Price">
-                <AnimatedNumber
-                  value={currentPrice}
-                  formatter={priceFormatter}
-                  duration={300}
-                  className="text-base font-semibold"
-                />
-              </MetricItem>
+            <>
+              {/* Index Price */}
+              <div className="flex flex-col justify-center shrink-0">
+                <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider leading-none mb-1.5">
+                  Index Price
+                </span>
+                <span className="text-base font-bold text-white leading-none tabular-nums">
+                  <AnimatedNumber value={currentPrice} formatter={priceFormatter} duration={300} />
+                </span>
+              </div>
 
-              {/* Long Funding Rate (Hyperliquid) */}
-              <MetricItem label="Long funding rate">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className="p-1 rounded bg-[var(--chart-hyperliquid)]/20">
-                      <ArrowUp className="h-3 w-3 text-[var(--chart-hyperliquid)]" />
-                    </div>
-                    <span className={cn('text-sm tabular-nums ')}>
-                      {formatPercentWithSign(longFundingRate)}
-                    </span>
-                  </div>
+              <div className="h-6 w-px bg-white/[0.06] shrink-0" />
 
-                  {longProtocolConfig?.logo ? (
+              {/* Long Funding Rate */}
+              <div className="flex items-center gap-2">
+                {longProtocolConfig?.logo ? (
+                  <div className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-md overflow-hidden shadow-xs">
                     <Image
                       src={longProtocolConfig.logo}
                       alt={`${longProtocolConfig.displayName} logo`}
-                      width={16}
-                      height={16}
-                      className="h-4 w-4 rounded-full opacity-90"
+                      width={bestPair.long === 'backpack' ? 14 : 24}
+                      height={bestPair.long === 'backpack' ? 14 : 24}
+                      className="shrink-0 object-contain"
                     />
-                  ) : null}
-                </div>
-              </MetricItem>
-
-              {/* Short Funding Rate (Pacifica) */}
-              <MetricItem label="Short funding rate">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className="p-1 rounded bg-[var(--chart-pink)]/20">
-                      <ArrowDown className="h-3 w-3 text-[var(--chart-pink)]" />
-                    </div>
-                    <span className={cn('text-sm tabular-nums ')}>
-                      {formatPercentWithSign(shortFundingRate)}
-                    </span>
                   </div>
+                ) : null}
+                <div className="flex flex-col justify-center shrink-0">
+                  <div className="flex items-center gap-1.5 text-[10px] text-white/40 font-semibold uppercase tracking-wider leading-none mb-1.5">
+                    <span>Long Funding</span>
+                  </div>
+                  <span
+                    className="text-sm font-bold leading-none tabular-nums flex items-center gap-1 transition-colors duration-300"
+                    style={{
+                      color: longProtocolConfig ? `var(${longProtocolConfig.colorVar})` : undefined,
+                    }}
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                    {formatPercentWithSign(longFundingRate)}
+                  </span>
+                </div>
+              </div>
 
-                  {shortProtocolConfig?.logo ? (
+              <div className="h-6 w-px bg-white/[0.06] shrink-0" />
+
+              {/* Short Funding Rate */}
+              <div className="flex items-center gap-2">
+                {shortProtocolConfig?.logo ? (
+                  <div className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-md overflow-hidden shadow-xs">
                     <Image
                       src={shortProtocolConfig.logo}
                       alt={`${shortProtocolConfig.displayName} logo`}
-                      width={16}
-                      height={16}
-                      className="h-4 w-4 rounded-full opacity-90"
+                      width={bestPair.short === 'backpack' ? 14 : 24}
+                      height={bestPair.short === 'backpack' ? 14 : 24}
+                      className="shrink-0 object-contain"
                     />
-                  ) : null}
-                </div>
-              </MetricItem>
-
-              {/* Estimated APR (NET APR) */}
-              <MetricItem label="Est. APR">
-                <div className="flex items-center gap-1.5">
-                  <div className="px-2 py-0.5 rounded-md border bg-green/10 border-green/20">
-                    <span className="text-sm font-semibold tabular-nums text-green">
-                      {formatPercentWithSign(estimatedAPR)}
-                    </span>
                   </div>
+                ) : null}
+
+                <div className="flex flex-col justify-center shrink-0">
+                  <div className="flex items-center gap-1.5 text-[10px] text-white/40 font-semibold uppercase tracking-wider leading-none mb-1.5">
+                    <span>Short Funding</span>
+                  </div>
+                  <span
+                    className="text-sm font-bold leading-none tabular-nums flex items-center gap-1 transition-colors duration-300"
+                    style={{
+                      color: shortProtocolConfig
+                        ? `var(${shortProtocolConfig.colorVar})`
+                        : undefined,
+                    }}
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                    {formatPercentWithSign(shortFundingRate)}
+                  </span>
                 </div>
-              </MetricItem>
-            </div>
+              </div>
+
+              <div className="h-6 w-px bg-white/[0.06] shrink-0" />
+
+              {/* EST APY */}
+              <div className="flex flex-col justify-center shrink-0">
+                <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider leading-none mb-1.5">
+                  EST APY
+                </span>
+                <span className="text-sm text-[#00C076] font-bold leading-none tabular-nums flex items-center gap-0.5">
+                  {formatPercentWithSign(estimatedAPR)}
+                  <span className="text-amber-400">⚡</span>
+                </span>
+              </div>
+            </>
           ) : (
             <div className="flex items-center text-text-muted-60 text-sm">
               Select an asset to view metrics

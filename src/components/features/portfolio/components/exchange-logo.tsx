@@ -12,7 +12,7 @@ const exchangeLogoMap: Record<
   { src: string; alt: string; width: number; height: number; className?: string }
 > = {
   Hyperliquid: {
-    src: '/tokens/hype.png',
+    src: '/tokens/Hype2.png',
     alt: 'Hyperliquid logo',
     width: 18,
     height: 18,
