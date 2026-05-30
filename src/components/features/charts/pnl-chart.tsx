@@ -7,13 +7,17 @@
  */
 
 import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, Cell, Customized } from 'recharts';
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartLegend,
-  type ChartConfig,
-} from '@/components/ui/chart';
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ReferenceLine,
+  Cell,
+  Customized,
+} from 'recharts';
+import { ChartContainer, ChartTooltip, ChartLegend, type ChartConfig } from '@/components/ui/chart';
 import type { ChartDataPoint } from '@/hooks/use-funding-rate-chart';
 import type { Protocol } from '@/hooks/use-best-pair';
 import { cn } from '@/lib/utils';
@@ -23,11 +27,11 @@ const NOTIONAL_SIZE = 10000; // $10,000 assumed position size
 const chartConfig = {
   pnl: {
     label: 'PnL',
-    color: '#22c55e',
+    color: 'var(--green)',
   },
   projected: {
     label: 'PROJECTED FUNDING',
-    color: '#22c55e',
+    color: 'var(--green)',
   },
 } satisfies ChartConfig;
 
@@ -104,10 +108,7 @@ const NUM_PROJECTED = 5;
  * Formula: PnL = (short_rate - long_rate) * notional
  * Long/Short determined from the latest data point's assignment (consistent across all bars).
  */
-function computePnLBars(
-  data: ChartDataPoint[],
-  duration: PnLDuration
-): PnLBarData[] {
+function computePnLBars(data: ChartDataPoint[], duration: PnLDuration): PnLBarData[] {
   if (!data.length) return [];
 
   // Determine Long/Short from the latest data point (fixed across all bars)
@@ -198,7 +199,13 @@ function compute1WBars(data: ChartDataPoint[], longProtocol: Protocol): PnLBarDa
 
 // --- Tooltip ---
 
-function PnLTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: PnLBarData; value?: number; name?: string }> }) {
+function PnLTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: PnLBarData; value?: number; name?: string }>;
+}) {
   if (!active || !payload || payload.length === 0) return null;
 
   const data = payload[0].payload as PnLBarData;
@@ -209,31 +216,27 @@ function PnLTooltip({ active, payload }: { active?: boolean; payload?: Array<{ p
   const isProjected = data.projected !== null;
 
   return (
-    <div className="rounded-lg border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md">
-      <div className="mb-1 text-text-muted-60">
+    <div className="rounded-md border border-border-white-10/80 bg-background/95 backdrop-blur-md px-3.5 py-2.5 text-xs shadow-[0_8px_30px_rgb(0,0,0,0.5)]">
+      <div className="mb-1.5 font-medium text-text-muted-60">
         {isProjected ? 'Projected' : data.fullTimestamp || data.time}
       </div>
-      <span
-        className="font-semibold"
-        style={{ color: isPositive ? '#22c55e' : '#ef4444' }}
-      >
-        {isPositive ? '+' : '-'}${Math.abs(value).toFixed(4)}
-      </span>
+      <div className="flex items-center justify-between gap-6">
+        <span className="text-text-muted-60 font-medium">PnL:</span>
+        <span
+          className="font-bold tabular-nums"
+          style={{ color: isPositive ? 'var(--green)' : 'var(--red)' }}
+        >
+          {isPositive ? '+' : '-'}${Math.abs(value).toFixed(4)}
+        </span>
+      </div>
     </div>
   );
 }
 
 // --- Chart Component ---
 
-export function PnLChart({
-  fundingData,
-  duration,
-  chartClassName = 'h-[260px]',
-}: PnLChartProps) {
-  const data = useMemo(
-    () => computePnLBars(fundingData, duration),
-    [fundingData, duration]
-  );
+export function PnLChart({ fundingData, duration, chartClassName = 'h-[260px]' }: PnLChartProps) {
+  const data = useMemo(() => computePnLBars(fundingData, duration), [fundingData, duration]);
 
   // Compute Y-axis domain
   const allValues = data.map((d) => d.value);
@@ -249,7 +252,10 @@ export function PnLChart({
   if (!data.length) {
     return (
       <div
-        className={cn(chartClassName, 'flex items-center justify-center text-text-muted-60 text-xs')}
+        className={cn(
+          chartClassName,
+          'flex items-center justify-center text-text-muted-60 text-xs'
+        )}
       >
         No data available for PnL chart
       </div>
@@ -267,16 +273,16 @@ export function PnLChart({
       >
         <BarChart
           data={data}
-          margin={{ top: 8, right: 4, left: -12, bottom: 0 }}
+          margin={{ top: 16, right: 16, left: 10, bottom: 8 }}
           barCategoryGap="20%"
           style={{ outline: 'none' }}
         >
           <CartesianGrid
             strokeDasharray="3 3"
-            stroke="rgba(255, 255, 255, 0.06)"
+            stroke="rgba(255, 255, 255, 0.04)"
             vertical={false}
           />
-          <ReferenceLine y={0} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} />
+          <ReferenceLine y={0} stroke="rgba(255, 255, 255, 0.1)" strokeWidth={1} />
           {firstProjectedIdx > 0 && (
             <Customized
               component={({ xAxisMap, yAxisMap }: any) => {
@@ -295,7 +301,7 @@ export function PnLChart({
                     x2={lineX}
                     y1={yAxis.y}
                     y2={yAxis.y + yAxis.height}
-                    stroke="rgba(255, 255, 255, 0.4)"
+                    stroke="rgba(255, 255, 255, 0.3)"
                     strokeWidth={1}
                     strokeDasharray="4 3"
                   />
@@ -315,12 +321,10 @@ export function PnLChart({
             tick={{ fill: 'rgba(255, 255, 255, 0.5)', fontSize: 10 }}
             tickLine={false}
             axisLine={false}
-            width={44}
+            width={62}
             tickFormatter={(value) => {
               if (value === 0) return '$0';
-              return value > 0
-                ? `+$${value.toFixed(2)}`
-                : `-$${Math.abs(value).toFixed(2)}`;
+              return value > 0 ? `+$${value.toFixed(2)}` : `-$${Math.abs(value).toFixed(2)}`;
             }}
             domain={[yMin, yMax]}
           />
@@ -342,13 +346,13 @@ export function PnLChart({
                   fill={
                     isProjected
                       ? isPositive
-                        ? 'rgba(34, 197, 94, 0.35)'
-                        : 'rgba(239, 68, 68, 0.35)'
+                        ? 'rgba(2, 192, 118, 0.25)'
+                        : 'rgba(246, 70, 93, 0.25)'
                       : isPositive
-                        ? '#22c55e'
-                        : '#ef4444'
+                        ? 'var(--green)'
+                        : 'var(--red)'
                   }
-                  stroke={isProjected ? (isPositive ? '#22c55e' : '#ef4444') : undefined}
+                  stroke={isProjected ? (isPositive ? 'var(--green)' : 'var(--red)') : undefined}
                   strokeWidth={isProjected ? 1.5 : 0}
                   strokeDasharray={isProjected ? '4 3' : undefined}
                 />
@@ -360,17 +364,31 @@ export function PnLChart({
             verticalAlign="bottom"
             content={() => (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-2 sm:gap-x-5 sm:pt-3">
-                <div className="flex items-center gap-1">
-                  <div className="size-1.5 rounded-full bg-green-500 sm:size-2" />
-                  <span className="text-[9px] text-text-muted-60 sm:text-[11px]">PROFIT</span>
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className="size-1.5 rounded-full sm:size-2"
+                    style={{ backgroundColor: 'var(--green)' }}
+                  />
+                  <span className="text-[10px] text-text-muted-60 sm:text-xs">PROFIT</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="size-1.5 rounded-full bg-red-500 sm:size-2" />
-                  <span className="text-[9px] text-text-muted-60 sm:text-[11px]">LOSS</span>
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className="size-1.5 rounded-full sm:size-2"
+                    style={{ backgroundColor: 'var(--red)' }}
+                  />
+                  <span className="text-[10px] text-text-muted-60 sm:text-xs">LOSS</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="size-1.5 rounded-sm border border-dashed border-green-500 bg-green-500/30 sm:size-2" />
-                  <span className="text-[9px] text-text-muted-60 sm:text-[11px]">PROJECTED</span>
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className="size-1.5 rounded-sm border border-dashed sm:size-2"
+                    style={{
+                      borderColor: 'var(--green)',
+                      backgroundColor: 'rgba(2, 192, 118, 0.25)',
+                    }}
+                  />
+                  <span className="text-[10px] text-text-muted-60 sm:text-xs font-semibold">
+                    PROJECTED
+                  </span>
                 </div>
               </div>
             )}

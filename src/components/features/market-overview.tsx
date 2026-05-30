@@ -107,13 +107,19 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
                   <div className="flex items-center gap-1.5 text-[10px] text-white/40 font-semibold uppercase tracking-wider leading-none mb-1.5">
                     <span>Long Funding</span>
                   </div>
-                  <span
-                    className="text-sm font-bold leading-none tabular-nums flex items-center gap-1 transition-colors duration-300"
-                    style={{
-                      color: longProtocolConfig ? `var(${longProtocolConfig.colorVar})` : undefined,
-                    }}
-                  >
-                    <ArrowUp className="h-3.5 w-3.5" />
+                  <span className="text-sm font-bold leading-none tabular-nums flex items-center gap-1 transition-colors duration-300">
+                    <span
+                      className="text-[var(--long-color)] p-0.5 rounded-md bg-[var(--long-color)]/20"
+                      style={
+                        {
+                          '--long-color': longProtocolConfig
+                            ? `var(${longProtocolConfig.colorVar})`
+                            : undefined,
+                        } as React.CSSProperties
+                      }
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </span>
                     {formatPercentWithSign(longFundingRate)}
                   </span>
                 </div>
@@ -139,15 +145,19 @@ export function MarketOverview({ className, onAssetChange }: MarketOverviewProps
                   <div className="flex items-center gap-1.5 text-[10px] text-white/40 font-semibold uppercase tracking-wider leading-none mb-1.5">
                     <span>Short Funding</span>
                   </div>
-                  <span
-                    className="text-sm font-bold leading-none tabular-nums flex items-center gap-1 transition-colors duration-300"
-                    style={{
-                      color: shortProtocolConfig
-                        ? `var(${shortProtocolConfig.colorVar})`
-                        : undefined,
-                    }}
-                  >
-                    <ArrowDown className="h-3.5 w-3.5" />
+                  <span className="text-sm font-bold leading-none tabular-nums flex items-center gap-1 transition-colors duration-300">
+                    <span
+                      className="text-[var(--short-color)] p-0.5 rounded-md bg-[var(--short-color)]/20"
+                      style={
+                        {
+                          '--short-color': shortProtocolConfig
+                            ? `var(${shortProtocolConfig.colorVar})`
+                            : undefined,
+                        } as React.CSSProperties
+                      }
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </span>
                     {formatPercentWithSign(shortFundingRate)}
                   </span>
                 </div>

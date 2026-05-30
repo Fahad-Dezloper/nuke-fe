@@ -33,7 +33,7 @@ interface FundingRatesChartProps {
   fluidHeight?: boolean;
 }
 
-const CHART_HEIGHT_FIXED = 'h-[260px]';
+const CHART_HEIGHT_FIXED = 'h-[340px]';
 const CHART_HEIGHT_FLUID = 'h-full min-h-[220px] flex-1';
 
 export function FundingRatesChart({ className, fluidHeight }: FundingRatesChartProps) {
@@ -61,19 +61,14 @@ export function FundingRatesChart({ className, fluidHeight }: FundingRatesChartP
     <div
       className={cn(
         DASHBOARD_SECTION_SHELL,
-        'flex h-full min-h-0 w-full max-w-full min-w-0 flex-col overflow-hidden py-1 sm:py-3',
+        'flex h-full min-h-0 w-full max-w-full min-w-0 flex-col overflow-hidden py-4',
         fluidHeight && 'flex-1',
         className
       )}
     >
       {/* Tabs + Controls */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-white-10 px-2 sm:px-3 md:px-4 lg:px-5">
-        <ChartTabs
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          className="min-w-0 flex-1 border-b-0 px-0"
-          compact
-        />
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-white-10 px-3 pb-3.5 sm:px-4 md:px-5">
+        <ChartTabs activeTab={activeTab} onTabChange={setActiveTab} className="shrink-0" compact />
 
         <div className="shrink-0">
           {activeTab === 'funding' && (
@@ -88,7 +83,7 @@ export function FundingRatesChart({ className, fluidHeight }: FundingRatesChartP
       {/* Chart Content */}
       <div
         className={cn(
-          'flex w-full min-w-0 flex-col overflow-hidden px-2 pb-2 sm:px-3 md:px-4 lg:px-5 sm:pb-4',
+          'flex w-full min-w-0 flex-col overflow-hidden px-3 pt-5 pb-1 sm:px-4 md:px-5',
           fluidHeight && 'min-h-0 flex-1'
         )}
       >
@@ -104,7 +99,11 @@ export function FundingRatesChart({ className, fluidHeight }: FundingRatesChartP
                 Loading PnL data...
               </div>
             ) : (
-              <PnLChart fundingData={pnlFundingData} duration={pnlDuration} chartClassName={chartHeight} />
+              <PnLChart
+                fundingData={pnlFundingData}
+                duration={pnlDuration}
+                chartClassName={chartHeight}
+              />
             )}
           </>
         )}

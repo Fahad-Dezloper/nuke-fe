@@ -82,12 +82,6 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   const data = payload[0].payload as ChartDataPoint;
   if (!data) return null;
 
-  // Get protocol display names from config
-  const longProtocolConfig = getProtocolConfig(data.longProtocol);
-  const shortProtocolConfig = getProtocolConfig(data.shortProtocol);
-  const longProtocolName = longProtocolConfig?.displayName || data.longProtocol;
-  const shortProtocolName = shortProtocolConfig?.displayName || data.shortProtocol;
-
   // Format percentage with sign
   const formatPercent = (value: number): string => {
     const sign = value >= 0 ? '+' : '';
@@ -131,29 +125,31 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   const hasBothData = longVal !== null && shortVal !== null;
 
   return (
-    <div className="rounded-lg border border-border-white-10 bg-card px-3 py-2 text-xs shadow-md">
-      <div className="mb-2 text-text-muted-60">{data.fullTimestamp}</div>
-      <div className="space-y-1">
+    <div className="rounded-md border border-border-white-10/80 bg-background/95 backdrop-blur-md px-3.5 py-2.5 text-xs shadow-[0_8px_30px_rgb(0,0,0,0.5)]">
+      <div className="mb-2 font-medium text-text-muted-60">{data.fullTimestamp}</div>
+      <div className="space-y-1.5">
         {protocolsWithData.map((protocol) => (
-          <div key={protocol.protocolId} className="flex items-center gap-2">
-            <div
-              className="h-2 w-2 rounded-full"
-              style={{
-                backgroundColor: protocol.color,
-              }}
-            />
-            <span className="text-text-muted-60">{protocol.label}:</span>
-            <span className="font-medium" style={{ color: protocol.color }}>
+          <div key={protocol.protocolId} className="flex items-center justify-between gap-6">
+            <div className="flex items-center gap-2">
+              <div
+                className="h-2 w-2 rounded-full"
+                style={{
+                  backgroundColor: protocol.color,
+                }}
+              />
+              <span className="text-text-muted-60">{protocol.label}</span>
+            </div>
+            <span className="font-semibold tabular-nums" style={{ color: protocol.color }}>
               {formatPercent(protocol.value)}
             </span>
           </div>
         ))}
         {hasBothData && (
-          <div className="flex items-center gap-2 pt-1 border-t border-border-white-10">
-            <span className="text-text-muted-60">Net:</span>
+          <div className="flex items-center justify-between gap-6 pt-1.5 border-t border-border-white-10">
+            <span className="text-text-muted-60 font-medium">Net:</span>
             <span
               className={cn(
-                'font-medium',
+                'font-bold tabular-nums',
                 data.netRate >= 0 ? 'text-green-400' : 'text-red-400'
               )}
             >
@@ -232,28 +228,22 @@ export function FundingRateChart({
       config={chartConfig}
       className={cn(chartClassName, 'w-full max-w-full min-w-0 [&_.recharts-responsive-container]:!w-full')}
     >
-      <LineChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 4 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" vertical={false} />
+      <LineChart data={data} margin={{ top: 16, right: 16, left: 10, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
         <XAxis
-          dataKey="dataIndex"
-          type="number"
-          domain={['dataMin', 'dataMax']}
-          hide={timeframe !== '24h'}
-          tick={{ fill: 'rgba(255, 255, 255, 0.6)', fontSize: 11 }}
+          dataKey="time"
+          tick={{ fill: 'rgba(255, 255, 255, 0.5)', fontSize: 10 }}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(value) => {
-            // For 24h, show the date label from the data point
-            const point = data[value];
-            return point?.time ?? '';
-          }}
+          interval="preserveStartEnd"
+          minTickGap={60}
         />
         <YAxis
-          width={36}
-          tick={{ fill: 'rgba(255, 255, 255, 0.6)', fontSize: 9 }}
+          width={52}
+          tick={{ fill: 'rgba(255, 255, 255, 0.5)', fontSize: 10 }}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(value) => `${value.toFixed(0)}%`}
+          tickFormatter={(value) => `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`}
           domain={domain}
         />
         <ChartTooltip content={<CustomTooltip />} />
@@ -271,7 +261,7 @@ export function FundingRateChart({
               type="monotone"
               dataKey={dataKey}
               stroke={`var(${protocolConfig.colorVar})`}
-              strokeWidth={1.5}
+              strokeWidth={2}
               dot={false}
               activeDot={{ r: 4 }}
               connectNulls={false}
@@ -282,7 +272,7 @@ export function FundingRateChart({
               dataKey={projectedDataKey}
               stroke={`var(${protocolConfig.colorVar})`}
               strokeWidth={1.5}
-              strokeDasharray="5 5"
+              strokeDasharray="4 4"
               dot={false}
               connectNulls={false}
             />,
@@ -298,27 +288,27 @@ export function FundingRateChart({
                 {longConfig && (
                   <div className="flex items-center gap-1.5">
                     <div
-                      className="h-1.5 w-4 sm:h-2 sm:w-6"
+                      className="h-1.5 w-4 sm:h-2 sm:w-6 rounded-sm"
                       style={{ backgroundColor: `var(${longConfig.colorVar})` }}
                     />
-                    <span className="text-[9px] text-text-muted-60 sm:text-xs">{longProtocolName}</span>
+                    <span className="text-[10px] text-text-muted-60 sm:text-xs">{longProtocolName}</span>
                   </div>
                 )}
                 {shortConfig && (
                   <div className="flex items-center gap-1.5">
                     <div
-                      className="h-1.5 w-4 sm:h-2 sm:w-6"
+                      className="h-1.5 w-4 sm:h-2 sm:w-6 rounded-sm"
                       style={{ backgroundColor: `var(${shortConfig.colorVar})` }}
                     />
-                    <span className="text-[9px] text-text-muted-60 sm:text-xs">{shortProtocolName}</span>
+                    <span className="text-[10px] text-text-muted-60 sm:text-xs">{shortProtocolName}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-1.5">
                   <div
                     className="h-0.5 w-4 border-t border-dashed sm:w-6 sm:border-t-2"
-                    style={{ borderColor: '#ffffff' }}
+                    style={{ borderColor: 'rgba(255, 255, 255, 0.4)' }}
                   />
-                  <span className="text-[9px] text-text-muted-60 sm:text-xs">PROJECTED</span>
+                  <span className="text-[10px] text-text-muted-60 sm:text-xs">PROJECTED</span>
                 </div>
               </div>
             );
