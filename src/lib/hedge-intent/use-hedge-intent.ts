@@ -38,6 +38,7 @@ import { isPhoenixTradingEnabled } from '@/lib/phoenix/env';
 import { hedgeIntentApi } from './api';
 import { HedgeIntentEngine, type EngineCallbacks } from './engine';
 import type { ExecutorContext } from './action-executor';
+import type { HedgeExitRangeStops } from './hedge-exit-range';
 import type {
   HedgeAction,
   HedgeIntentStatus,
@@ -49,7 +50,7 @@ import type {
   SafetyExposureInfo,
 } from './types';
 import { invalidateTradingBalances } from '@/lib/trading/invalidate-trading-balances';
-import { ACTIVE_HEDGE_INTENT_KEY, ACTIVE_HEDGE_PAIR_KEY } from './types';
+import { ACTIVE_HEDGE_INTENT_KEY, ACTIVE_HEDGE_PAIR_KEY, ACTIVE_HEDGE_EXIT_RANGE_KEY } from './types';
 
 // ─── LocalStorage helpers ────────────────────────────────────────────────────
 
@@ -73,7 +74,33 @@ function clearActiveIntentId(): void {
   try {
     localStorage.removeItem(LS_KEY);
     localStorage.removeItem(ACTIVE_HEDGE_PAIR_KEY);
+    localStorage.removeItem(ACTIVE_HEDGE_EXIT_RANGE_KEY);
   } catch { /* noop */ }
+}
+
+function storeExitRange(stops: HedgeExitRangeStops): void {
+  try {
+    localStorage.setItem(ACTIVE_HEDGE_EXIT_RANGE_KEY, JSON.stringify(stops));
+  } catch { /* noop */ }
+}
+
+function loadExitRange(): HedgeExitRangeStops | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_HEDGE_EXIT_RANGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as HedgeExitRangeStops;
+    if (
+      Number.isFinite(parsed?.lowerPrice) &&
+      Number.isFinite(parsed?.upperPrice) &&
+      parsed.lowerPrice > 0 &&
+      parsed.upperPrice > 0
+    ) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function storeHedgePair(pair: HedgePair): void {
@@ -123,6 +150,8 @@ export interface OpenHedgeParams {
   longExchange: Exchange;
   /** Short venue — must match position panel / asset table best pair */
   shortExchange: Exchange;
+  /** Mirrored exit stops from position panel (auto band when omitted). */
+  exitRange?: HedgeExitRangeStops;
   /** Exchanges to use (default: derived from long/short) */
   exchanges?: [ExchangeName, ExchangeName];
 }
@@ -205,6 +234,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
   const isRunningRef = useRef(false);
   const resumeAttemptedRef = useRef(false);
   const hedgePairRef = useRef<HedgePair | null>(null);
+  const exitRangeRef = useRef<HedgeExitRangeStops | null>(null);
 
   const resolveHedgePairForAsset = useCallback(
     (asset: string, explicit?: HedgePair): HedgePair => {
@@ -235,6 +265,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
     return {
       ...wallet,
       hedgePair,
+      exitRange: exitRangeRef.current ?? undefined,
     };
   }, [turnkeyState]);
 
@@ -346,6 +377,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         setCurrentAction(null);
         setCurrentLeg(null);
         hedgePairRef.current = null;
+        exitRangeRef.current = null;
         clearActiveIntentId();
 
         // Final detail refresh
@@ -373,6 +405,9 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
             const detail = await hedgeIntentApi.getDetail(hedgeIntentId);
             hedgePairRef.current = resolveHedgePairForAsset(detail.intent.asset);
           }
+        }
+        if (!exitRangeRef.current) {
+          exitRangeRef.current = loadExitRange();
         }
 
         const context = buildContext();
@@ -432,6 +467,10 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
       };
       hedgePairRef.current = pair;
       storeHedgePair(pair);
+      exitRangeRef.current = params.exitRange ?? null;
+      if (params.exitRange) {
+        storeExitRange(params.exitRange);
+      }
 
       try {
         if (
@@ -463,6 +502,7 @@ export function useHedgeIntent(): UseHedgeIntentReturn {
         await runEngine(newIntentId, pair);
       } catch (err) {
         hedgePairRef.current = null;
+        exitRangeRef.current = null;
         const errorMessage = err instanceof Error ? err.message : String(err);
         setError(errorMessage);
         setPhase('failed');

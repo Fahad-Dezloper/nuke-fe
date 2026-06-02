@@ -47,6 +47,8 @@ export function WalletStatus() {
     hlBalance,
     pacBalance,
     phoenixBalance,
+    ltBalance,
+    solanaBalance,
     isLoading: isExchangeLoading,
   } = useExchangeBalances();
   const [balanceHover, setBalanceHover] = useState(false);
@@ -85,6 +87,11 @@ export function WalletStatus() {
   const hlConfig = getProtocolConfig('hyperliquid');
   const pacConfig = getProtocolConfig('pacifica');
   const phxConfig = getProtocolConfig('phoenix');
+  const ltConfig = getProtocolConfig('lighter');
+
+  const totalBalance =
+    hlBalance + pacBalance + phoenixBalance + ltBalance + solanaBalance;
+  const formattedTotalBalance = totalBalance.toFixed(2);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -105,7 +112,7 @@ export function WalletStatus() {
   // Balance has never been fetched yet (null initial state)
   const hasLoaded =
     formattedBalance !== '0.00' || (!isBalanceLoading && formattedBalance === '0.00');
-  const showSkeleton = isBalanceLoading && !hasLoaded;
+  const showSkeleton = (isBalanceLoading && !hasLoaded) || isExchangeLoading;
 
   return (
     <>
@@ -141,7 +148,7 @@ export function WalletStatus() {
                 <div className="w-12 h-3.5 rounded bg-white/10 animate-pulse" />
               ) : (
                 <span className="text-xs font-semibold text-white tabular-nums">
-                  ${formattedBalance}
+                  ${formattedTotalBalance}
                 </span>
               )}
 
@@ -255,6 +262,35 @@ export function WalletStatus() {
                         )}
                       </div>
 
+                      {/* Lighter row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            {ltConfig && (
+                              <Image
+                                src={ltConfig.logo}
+                                alt={ltConfig.displayName}
+                                width={20}
+                                height={20}
+                                className="rounded-full ring-1 ring-white/10"
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-text-primary leading-tight">
+                              {ltConfig?.displayName ?? 'Lighter'}
+                            </span>
+                          </div>
+                        </div>
+                        {isExchangeLoading ? (
+                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                        ) : (
+                          <span className="text-xs font-semibold text-text-primary tabular-nums">
+                            ${ltBalance.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+
                       {/* Separator */}
                       <div className="border-t border-border-white-10/50" />
 
@@ -287,7 +323,7 @@ export function WalletStatus() {
                           <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
                         ) : (
                           <span className="text-xs font-semibold text-text-primary tabular-nums">
-                            ${Number(formattedBalance).toFixed(2)}
+                            ${solanaBalance.toFixed(2)}
                           </span>
                         )}
                       </div>
