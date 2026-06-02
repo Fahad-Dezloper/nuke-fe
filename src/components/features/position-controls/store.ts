@@ -35,6 +35,9 @@ export const marginAtom = atom<string>('');
 /** User-selected mirrored exit stops (lower = long SL / short TP, upper = long TP / short SL). */
 export const hedgeExitRangeAtom = atom<HedgeExitRangeStops | null>(null);
 
+/** When true, user sets custom lower/upper limits before opening (recommended). */
+export const hedgeExitRangeEnabledAtom = atom<boolean>(false);
+
 /** When set, exit range was manually adjusted for this context key — skip auto-reset. */
 export const hedgeExitRangeTouchedAtom = atom<string | null>(null);
 
@@ -192,6 +195,10 @@ export interface ExitRangeValidation {
 
 /** Validates user exit range against estimated liquidation bounds. */
 export const exitRangeValidationAtom = atom<ExitRangeValidation>((get) => {
+  if (!get(hedgeExitRangeEnabledAtom)) {
+    return { isValid: true, error: null, lowerOk: true, upperOk: true };
+  }
+
   const marginStr = get(marginAtom);
   const leverage = get(leverageAtom);
   const exitRange = get(hedgeExitRangeAtom);

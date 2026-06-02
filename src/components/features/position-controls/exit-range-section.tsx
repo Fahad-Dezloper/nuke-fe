@@ -1,12 +1,13 @@
 'use client';
 
 /**
- * Mirrored exit range — dual-handle price bar with liquidation markers.
+ * Exit limits — optional dual-handle price band with liquidation markers.
  */
 
 import { useEffect, useMemo, useCallback, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { AlertTriangle } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { DualRangeSlider } from '@/components/ui/dual-range-slider';
@@ -14,6 +15,7 @@ import {
   marginAtom,
   leverageAtom,
   hedgeExitRangeAtom,
+  hedgeExitRangeEnabledAtom,
   hedgeExitRangeTouchedAtom,
   exitRangeValidationAtom,
 } from './store';
@@ -45,18 +47,49 @@ function priceToPct(price: number, barMin: number, barMax: number): number {
   return ((price - barMin) / (barMax - barMin)) * 100;
 }
 
-function protocolLabel(exchange: string): string {
-  const ex = exchange.toLowerCase();
-  if (ex === 'hyperliquid') return 'Hyperliquid';
-  if (ex === 'pacifica') return 'Pacifica';
-  if (ex === 'phoenix') return 'Phoenix';
-  if (ex === 'lighter') return 'Lighter';
-  return exchange;
+function clampPct(p: number) {
+  return Math.min(98, Math.max(2, p));
+}
+
+function LiqPriceMarker({
+  pct,
+  price,
+  mark,
+  align,
+  title,
+}: {
+  pct: number;
+  price: number;
+  mark: number;
+  align: 'left' | 'right';
+  title?: string;
+}) {
+  const left = clampPct(pct);
+  const label = `$${formatExitPrice(price, mark)}`;
+
+  return (
+    <div
+      className="absolute bottom-0 flex flex-col items-center pointer-events-none"
+      style={{ left: `${left}%`, transform: 'translateX(-50%)' }}
+      title={title}
+    >
+      <span
+        className={cn(
+          'mb-1 text-[9px] leading-none text-red-400/95 tabular-nums whitespace-nowrap',
+          align === 'left' ? '-translate-x-1' : 'translate-x-1'
+        )}
+      >
+        {label}
+      </span>
+      <div className="w-0.5 h-3 rounded-full bg-red-400/80" />
+    </div>
+  );
 }
 
 export function ExitRangeSection({ className }: ExitRangeSectionProps) {
   const [margin] = useAtom(marginAtom);
   const [leverage] = useAtom(leverageAtom);
+  const [enabled, setEnabled] = useAtom(hedgeExitRangeEnabledAtom);
   const [exitRange, setExitRange] = useAtom(hedgeExitRangeAtom);
   const [touched, setTouched] = useAtom(hedgeExitRangeTouchedAtom);
   const selectedAsset = useAtomValue(selectedAssetAtom);
@@ -72,7 +105,7 @@ export function ExitRangeSection({ className }: ExitRangeSectionProps) {
       getBestPair(
         selectedAsset,
         spreadAprData,
-        selectedAsset ? overrides[selectedAsset.asset] ?? null : null,
+        selectedAsset ? (overrides[selectedAsset.asset] ?? null) : null,
         { selectedExchanges: selectedList, metric }
       ),
     [selectedAsset, spreadAprData, overrides, selectedList, metric]
@@ -105,12 +138,11 @@ export function ExitRangeSection({ className }: ExitRangeSectionProps) {
     ? `${selectedAsset?.asset}-${marginValue}-${leverage}-${bestPair.long}-${bestPair.short}`
     : null;
 
-  // Reset defaults only when asset / margin / leverage / pair change — not when mark ticks.
   useEffect(() => {
-    if (!ctx || !settingsKey) return;
+    if (!enabled || !ctx || !settingsKey) return;
     if (touched === settingsKey) return;
     setExitRange(ctx.defaultStops);
-  }, [ctx, settingsKey, touched, setExitRange]);
+  }, [enabled, ctx, settingsKey, touched, setExitRange]);
 
   const sliderDomain = useMemo(() => {
     if (!ctx) return null;
@@ -128,16 +160,8 @@ export function ExitRangeSection({ className }: ExitRangeSectionProps) {
     if (!exitRange || !sliderDomain) return null;
     const { min, max } = sliderDomain;
     return [
-      sliderStepToPrice(
-        priceToSliderStep(exitRange.lowerPrice, min, max),
-        min,
-        max
-      ),
-      sliderStepToPrice(
-        priceToSliderStep(exitRange.upperPrice, min, max),
-        min,
-        max
-      ),
+      sliderStepToPrice(priceToSliderStep(exitRange.lowerPrice, min, max), min, max),
+      sliderStepToPrice(priceToSliderStep(exitRange.upperPrice, min, max), min, max),
     ];
   }, [exitRange, sliderDomain]);
 
@@ -158,7 +182,7 @@ export function ExitRangeSection({ className }: ExitRangeSectionProps) {
     (price: number) => {
       if (!exitRange || !ctx || !settingsKey) return;
       const maxLower = ctx.markPrice * (1 - HEDGE_EXIT_RANGE_MIN_DISTANCE_PERCENT / 100);
-      const minLower = ctx.longLiqValid ? ctx.minLowerStop : sliderDomain?.min ?? 0;
+      const minLower = ctx.longLiqValid ? ctx.minLowerStop : (sliderDomain?.min ?? 0);
       const lowerPrice = Math.min(maxLower, Math.max(minLower, price));
       let upperPrice = exitRange.upperPrice;
       const minGap = (sliderDomain?.step ?? 0.0001) * 2;
@@ -182,7 +206,7 @@ export function ExitRangeSection({ className }: ExitRangeSectionProps) {
       const maxLower = ctx.markPrice * (1 - HEDGE_EXIT_RANGE_MIN_DISTANCE_PERCENT / 100);
       if (lowerPrice >= upperPrice - minGap) {
         lowerPrice = Math.max(
-          ctx.longLiqValid ? ctx.minLowerStop : sliderDomain?.min ?? 0,
+          ctx.longLiqValid ? ctx.minLowerStop : (sliderDomain?.min ?? 0),
           Math.min(maxLower, upperPrice - minGap)
         );
       }
@@ -192,16 +216,17 @@ export function ExitRangeSection({ className }: ExitRangeSectionProps) {
     [exitRange, ctx, settingsKey, sliderDomain, setExitRange, markTouched]
   );
 
-  const disabled = !ctx || marginValue <= 0;
+  const controlsReady = enabled && marginValue > 0 && ctx;
 
-  const markPct = ctx && sliderDomain ? priceToPct(ctx.markPrice, sliderDomain.min, sliderDomain.max) : 50;
-  const longLiqPct =
-    ctx?.longLiqPrice != null && sliderDomain
-      ? priceToPct(ctx.longLiqPrice, sliderDomain.min, sliderDomain.max)
+  const markPct =
+    ctx && sliderDomain ? priceToPct(ctx.markPrice, sliderDomain.min, sliderDomain.max) : 50;
+  const minLowerPct =
+    ctx?.longLiqValid && sliderDomain
+      ? priceToPct(ctx.minLowerStop, sliderDomain.min, sliderDomain.max)
       : null;
-  const shortLiqPct =
-    ctx?.shortLiqPrice != null && sliderDomain
-      ? priceToPct(ctx.shortLiqPrice, sliderDomain.min, sliderDomain.max)
+  const maxUpperPct =
+    ctx?.shortLiqValid && sliderDomain
+      ? priceToPct(ctx.maxUpperStop, sliderDomain.min, sliderDomain.max)
       : null;
   const lowerPct =
     exitRange && sliderDomain
@@ -213,146 +238,138 @@ export function ExitRangeSection({ className }: ExitRangeSectionProps) {
       : null;
 
   return (
-    <div className={cn('flex flex-col gap-3', className)}>
-      <div className="flex items-center justify-between gap-2">
-        <label className="text-xs text-text-muted-60 uppercase tracking-wide">
-          Mirrored exit range
-        </label>
-        {ctx && (
-          <span className="text-[10px] text-text-muted-60 tabular-nums">
-            Mark ${formatExitPrice(ctx.markPrice, ctx.markPrice)}
-          </span>
-        )}
-      </div>
+    <div className={cn('flex flex-col gap-2.5', className)}>
+      <label className="text-xs text-text-muted-60 uppercase tracking-wide">
+        Exit limits <span className="text-yellow-600/90">(recommended)</span>
+      </label>
 
-      <div className="rounded-md border border-border-white-10/50 bg-gradient-to-br from-card/60 via-card/40 to-card/30 px-3 py-3 backdrop-blur-md shadow-lg shadow-black/10 space-y-3">
-        {disabled ? (
-          <p className="text-xs text-text-muted-60 py-2">
-            Enter margin to configure mirrored take-profit and stop-loss levels.
-          </p>
-        ) : (
-          <>
-            {/* Price bar with liq + mark markers */}
-            <div className="relative h-10 mx-1 mb-1">
-              <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-muted/60 border border-border-white-10" />
+      <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-border-white-10/40 bg-card/30 px-3 py-2.5 hover:bg-card/45 transition-colors">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-border-white-20 bg-card/60 accent-emerald-500"
+        />
+        <span className="text-xs text-text-muted-60 leading-relaxed">
+          Add a lower and upper limit to stop your position from liquidation
+        </span>
+      </label>
 
-              {lowerPct != null && upperPct != null && (
-                <div
-                  className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-emerald-500/40 border border-emerald-500/30"
-                  style={{
-                    left: `${lowerPct}%`,
-                    width: `${upperPct - lowerPct}%`,
-                  }}
-                />
-              )}
+      <AnimatePresence initial={false}>
+        {enabled && (
+          <motion.div
+            key="exit-range-controls"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-lg border border-border-white-10/50 bg-card/40 backdrop-blur-sm px-3 py-3 shadow-md shadow-black/10 space-y-3">
+              {!controlsReady ? (
+                <p className="text-xs text-text-muted-60 py-0.5">
+                  Enter margin above to set your limits.
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-end">
+                    <span className="text-[10px] text-text-muted-60 tabular-nums">
+                      Mark ${formatExitPrice(ctx.markPrice, ctx.markPrice)}
+                    </span>
+                  </div>
 
-              {longLiqPct != null && ctx.longLiqValid && (
-                <div
-                  className="absolute top-0 flex flex-col items-center -translate-x-1/2"
-                  style={{ left: `${clampPct(longLiqPct)}%` }}
-                  title={`Long liq (${protocolLabel(ctx.longExchange)})`}
-                >
-                  <span className="text-[9px] text-red-400/90 font-medium leading-none mb-0.5">
-                    L liq
-                  </span>
-                  <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-l-transparent border-r-transparent border-t-red-500/80" />
-                </div>
-              )}
+                  <div className="relative pt-4 pb-1 mx-0.5 min-h-[2.25rem]">
+                    <div className="absolute inset-x-0 bottom-1 h-1 rounded-full bg-white/8 border border-border-white-10/60" />
 
-              <div
-                className="absolute bottom-0 flex flex-col items-center -translate-x-1/2"
-                style={{ left: `${clampPct(markPct)}%` }}
-                title="Mark price"
-              >
-                <div className="w-px h-5 bg-text-muted-60/80" />
-                <span className="text-[9px] text-text-muted-60 mt-0.5">Mark</span>
-              </div>
+                    {lowerPct != null && upperPct != null && (
+                      <div
+                        className="absolute bottom-1 h-1 rounded-full bg-emerald-500/50"
+                        style={{ left: `${lowerPct}%`, width: `${upperPct - lowerPct}%` }}
+                      />
+                    )}
 
-              {shortLiqPct != null && ctx.shortLiqValid && (
-                <div
-                  className="absolute top-0 flex flex-col items-center -translate-x-1/2"
-                  style={{ left: `${clampPct(shortLiqPct)}%` }}
-                  title={`Short liq (${protocolLabel(ctx.shortExchange)})`}
-                >
-                  <span className="text-[9px] text-red-400/90 font-medium leading-none mb-0.5">
-                    S liq
-                  </span>
-                  <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-l-transparent border-r-transparent border-t-red-500/80" />
-                </div>
+                    {minLowerPct != null && ctx.longLiqValid && (
+                      <LiqPriceMarker
+                        pct={minLowerPct}
+                        price={ctx.minLowerStop}
+                        mark={ctx.markPrice}
+                        align="left"
+                        title={
+                          ctx.longLiqPrice != null
+                            ? `Long liq ~$${formatExitPrice(ctx.longLiqPrice, ctx.markPrice)} — lower stop must stay 2% above`
+                            : 'Minimum lower stop'
+                        }
+                      />
+                    )}
+
+                    <div
+                      className="absolute bottom-0 w-px h-4 -translate-x-1/2 bg-text-primary/50"
+                      style={{ left: `${clampPct(markPct)}%` }}
+                      title="Mark price"
+                    />
+
+                    {maxUpperPct != null && ctx.shortLiqValid && (
+                      <LiqPriceMarker
+                        pct={maxUpperPct}
+                        price={ctx.maxUpperStop}
+                        mark={ctx.markPrice}
+                        align="right"
+                        title={
+                          ctx.shortLiqPrice != null
+                            ? `Short liq ~$${formatExitPrice(ctx.shortLiqPrice, ctx.markPrice)} — upper stop must stay 2% below`
+                            : 'Maximum upper stop'
+                        }
+                      />
+                    )}
+                  </div>
+
+                  {sliderDomain && sliderValue && (
+                    <DualRangeSlider
+                      min={sliderDomain.min}
+                      max={sliderDomain.max}
+                      step={sliderDomain.step}
+                      value={sliderValue}
+                      onValueChange={handleSliderChange}
+                      aria-label="Exit limits"
+                    />
+                  )}
+
+                  {exitRange && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <ExitStopCard
+                        label="Lower"
+                        price={exitRange.lowerPrice}
+                        mark={ctx.markPrice}
+                        variant="lower"
+                        onPriceCommit={handleLowerPriceCommit}
+                      />
+                      <ExitStopCard
+                        label="Upper"
+                        price={exitRange.upperPrice}
+                        mark={ctx.markPrice}
+                        variant="upper"
+                        onPriceCommit={handleUpperPriceCommit}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
-
-            {sliderDomain && sliderValue && (
-              <DualRangeSlider
-                min={sliderDomain.min}
-                max={sliderDomain.max}
-                step={sliderDomain.step}
-                value={sliderValue}
-                onValueChange={handleSliderChange}
-                aria-label="Mirrored exit range"
-              />
-            )}
-
-            {exitRange && ctx && (
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <ExitStopCard
-                  label="Lower stop"
-                  sublabel="Long SL · Short TP"
-                  price={exitRange.lowerPrice}
-                  mark={ctx.markPrice}
-                  variant="lower"
-                  onPriceCommit={handleLowerPriceCommit}
-                />
-                <ExitStopCard
-                  label="Upper stop"
-                  sublabel="Long TP · Short SL"
-                  price={exitRange.upperPrice}
-                  mark={ctx.markPrice}
-                  variant="upper"
-                  onPriceCommit={handleUpperPriceCommit}
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-text-muted-60 border-t border-border-white-5 pt-2">
-              <span>
-                Long liq ({protocolLabel(ctx.longExchange)}):{' '}
-                <span className="text-red-400/90 tabular-nums">
-                  {ctx.longLiqValid && ctx.longLiqPrice != null
-                    ? `$${formatExitPrice(ctx.longLiqPrice, ctx.markPrice)}`
-                    : '— (wide at low lev.)'}
-                </span>
-              </span>
-              <span className="text-right">
-                Short liq ({protocolLabel(ctx.shortExchange)}):{' '}
-                <span className="text-red-400/90 tabular-nums">
-                  {ctx.shortLiqValid && ctx.shortLiqPrice != null
-                    ? `$${formatExitPrice(ctx.shortLiqPrice, ctx.markPrice)}`
-                    : '—'}
-                </span>
-              </span>
-            </div>
-          </>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
 
-function clampPct(p: number) {
-  return Math.min(98, Math.max(2, p));
-}
-
 function ExitStopCard({
   label,
-  sublabel,
   price,
   mark,
   variant,
   onPriceCommit,
 }: {
   label: string;
-  sublabel: string;
   price: number;
   mark: number;
   variant: 'lower' | 'upper';
@@ -378,17 +395,16 @@ function ExitStopCard({
   };
 
   return (
-    <div className="rounded border border-border-white-10/40 bg-card/30 px-2 py-1.5">
-      <p className="text-[10px] text-text-muted-60 uppercase tracking-wide">{label}</p>
-      <p className="text-[10px] text-text-muted-60">{sublabel}</p>
-      <div className="relative mt-1">
+    <div className="rounded-md border border-border-white-10/50 bg-white/[0.04] px-2.5 py-2">
+      <p className="text-[10px] text-text-muted-60 uppercase tracking-wide mb-1.5">{label}</p>
+      <div className="relative">
         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-text-muted-60 pointer-events-none">
           $
         </span>
         <Input
           type="text"
           inputMode="decimal"
-          aria-label={`${label} price`}
+          aria-label={`${label} limit price`}
           value={focused ? draft : formatted}
           onChange={(e) => setDraft(e.target.value)}
           onFocus={handleFocus}
@@ -398,7 +414,7 @@ function ExitStopCard({
               e.currentTarget.blur();
             }
           }}
-          className="h-8 pl-5 pr-2 text-sm font-medium tabular-nums bg-card/50 border-border-white-10/60"
+          className="h-8 pl-5 pr-2 text-sm font-medium tabular-nums bg-card/40 border-border-white-10/50 focus:bg-card/60 focus:border-border-white-20"
         />
       </div>
       <p
@@ -408,16 +424,17 @@ function ExitStopCard({
         )}
       >
         {pct >= 0 ? '+' : ''}
-        {pct.toFixed(1)}% from mark
+        {pct.toFixed(1)}%
       </p>
     </div>
   );
 }
 
 export function ExitRangeValidationBanner({ className }: { className?: string }) {
+  const enabled = useAtomValue(hedgeExitRangeEnabledAtom);
   const validation = useAtomValue(exitRangeValidationAtom);
 
-  if (!validation.error) return null;
+  if (!enabled || !validation.error) return null;
 
   return (
     <div

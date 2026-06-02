@@ -29,6 +29,7 @@ import {
   selectedAssetAtom,
   marginValidationAtom,
   hedgeExitRangeAtom,
+  hedgeExitRangeEnabledAtom,
   exitRangeValidationAtom,
 } from './position-controls/store';
 import {
@@ -76,6 +77,7 @@ export function PositionControlsSectionContent({
   const marginValidation = useAtomValue(marginValidationAtom);
   const exitRangeValidation = useAtomValue(exitRangeValidationAtom);
   const exitRange = useAtomValue(hedgeExitRangeAtom);
+  const exitRangeEnabled = useAtomValue(hedgeExitRangeEnabledAtom);
   const { state: turnkeyState } = useTurnkey();
   const queryClient = useQueryClient();
 
@@ -135,16 +137,16 @@ export function PositionControlsSectionContent({
       return;
     }
 
-    if (!exitRangeValidation.isValid) {
+    if (exitRangeEnabled && !exitRangeValidation.isValid) {
       toast.error('Cannot open hedge', {
-        description: exitRangeValidation.error ?? 'Adjust mirrored exit range.',
+        description: exitRangeValidation.error ?? 'Adjust exit limits.',
         duration: 8000,
       });
       return;
     }
 
-    if (!exitRange) {
-      toast.error('Configure exit range before opening.');
+    if (exitRangeEnabled && !exitRange) {
+      toast.error('Set exit limits before opening.');
       return;
     }
 
@@ -187,7 +189,7 @@ export function PositionControlsSectionContent({
       leverage,
       longExchange: bestPair.long,
       shortExchange: bestPair.short,
-      exitRange,
+      exitRange: exitRangeEnabled ? exitRange ?? undefined : undefined,
     });
 
     if (evmAddress && solanaAddress) {
@@ -200,6 +202,7 @@ export function PositionControlsSectionContent({
     margin,
     leverage,
     marginValidation,
+    exitRangeEnabled,
     exitRangeValidation,
     exitRange,
     isLoggedIn,
@@ -220,7 +223,7 @@ export function PositionControlsSectionContent({
     parseFloat(margin) > 0 &&
     marginValidation.isValid &&
     exitRangeValidation.isValid &&
-    !!exitRange &&
+    (!exitRangeEnabled || !!exitRange) &&
     !hasExistingPosition &&
     !isExecuting;
 

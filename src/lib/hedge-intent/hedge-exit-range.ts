@@ -270,7 +270,9 @@ export function validateExitRangeStops(
   if (!lowerOk) {
     return {
       isValid: false,
-      error: `Lower stop must stay above long liquidation (${ctx.longExchange}).`,
+      error: ctx.longLiqPrice != null
+        ? `Lower stop must be at least ${HEDGE_TPSL_LIQUIDATION_BUFFER_PERCENT}% above long liquidation (min $${formatExitPrice(minLowerStop, mark)}).`
+        : `Lower stop must stay above long liquidation (${ctx.longExchange}).`,
       lowerOk: false,
       upperOk,
     };
@@ -279,7 +281,9 @@ export function validateExitRangeStops(
   if (!upperOk) {
     return {
       isValid: false,
-      error: `Upper stop must stay below short liquidation (${ctx.shortExchange}).`,
+      error: ctx.shortLiqPrice != null
+        ? `Upper stop must be at least ${HEDGE_TPSL_LIQUIDATION_BUFFER_PERCENT}% below short liquidation (max $${formatExitPrice(maxUpperStop, mark)}).`
+        : `Upper stop must stay below short liquidation (${ctx.shortExchange}).`,
       lowerOk,
       upperOk: false,
     };

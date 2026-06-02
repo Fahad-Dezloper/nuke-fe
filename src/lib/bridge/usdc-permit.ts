@@ -147,19 +147,22 @@ export async function getEthereumMainnetUsdcNonce(userAddress: string): Promise<
 
 /**
  * EIP-2612 permit typed data for **native USDC on Ethereum mainnet** (Lighter `POST /lighter/deposit`).
- * @see LIGHTER_DEPOSIT_FE_INTEGRATION.md
+ * `spenderAddress` must be the backend EVM fee payer (`GET /lighter/fee-payer`).
  */
 export async function createEthereumMainnetUsdcPermit(
   amount: string,
   userAddress: string,
   spenderAddress: string,
-  deadlineMinutes: number = 30
+  deadlineMinutes: number = 30,
+  options?: { amountInBaseUnits?: boolean }
 ): Promise<PermitResult> {
   try {
     if (!userAddress) throw new Error('User address is required');
     if (!spenderAddress) throw new Error('Spender address is required');
 
-    const amountInSmallestUnit = BigInt(Math.floor(parseFloat(amount) * 1_000_000)).toString();
+    const amountInSmallestUnit = options?.amountInBaseUnits
+      ? amount
+      : BigInt(Math.floor(parseFloat(amount) * 1_000_000)).toString();
     const deadline = Math.floor(Date.now() / 1000) + deadlineMinutes * 60;
     const nonce = await getEthereumMainnetUsdcNonce(userAddress);
 
