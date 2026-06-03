@@ -32,6 +32,7 @@ import {
   hedgeExitRangeAtom,
   hedgeExitRangeEnabledAtom,
   exitRangeValidationAtom,
+  baseBalanceAtom,
 } from './position-controls/store';
 import {
   ExitRangeSection,
@@ -79,6 +80,7 @@ export function PositionControlsSectionContent({
   const exitRangeValidation = useAtomValue(exitRangeValidationAtom);
   const exitRange = useAtomValue(hedgeExitRangeAtom);
   const exitRangeEnabled = useAtomValue(hedgeExitRangeEnabledAtom);
+  const baseBalance = useAtomValue(baseBalanceAtom);
   const { state: turnkeyState } = useTurnkey();
   const queryClient = useQueryClient();
 
@@ -190,7 +192,7 @@ export function PositionControlsSectionContent({
       leverage,
       longExchange: bestPair.long,
       shortExchange: bestPair.short,
-      exitRange: exitRangeEnabled ? exitRange ?? undefined : undefined,
+      exitRange: exitRangeEnabled ? (exitRange ?? undefined) : undefined,
     });
 
     if (evmAddress && solanaAddress) {
