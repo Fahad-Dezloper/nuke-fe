@@ -19,6 +19,7 @@ import type {
   ProtocolMetadata,
 } from '../types';
 import { BUILDER_CODE } from '@/constants';
+import { roundAmount } from '@/dex/pacifica/utils/rounding';
 import { mapHedgeTpslToPacificaCreateOrder } from '@/lib/hedge-intent/hedge-tpsl';
 import { hedgeUsesIsolatedMargin } from '@/lib/trading/margin-mode';
 
@@ -94,7 +95,7 @@ export class PacificaAdapter implements ProtocolAdapter {
       // Calculate position amount in asset units
       // Formula: (margin * leverage) / price = amount in asset units
       // Example: ($500 * 3) / $45000 = 0.0333 BTC
-      const amount =
+      const rawAmount =
         params.baseSize ??
         (() => {
           const usdSize = parseFloat(params.margin) * params.leverage;
@@ -102,10 +103,15 @@ export class PacificaAdapter implements ProtocolAdapter {
           return amountInAsset.toString();
         })();
 
+      const amount = await roundAmount(
+        rawAmount,
+        this.normalizeAssetName(params.asset)
+      );
+
       // Convert unified params to Pacifica request
       const pacificaRequest: CreateMarketOrderRequest = {
         symbol: this.normalizeAssetName(params.asset),
-        amount: amount,
+        amount,
         side: side,
         slippage_percent: slippagePercent,
         reduce_only: false,

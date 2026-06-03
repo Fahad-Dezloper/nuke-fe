@@ -1,14 +1,19 @@
 /**
  * Align hedge leg size to the strictest venue precision so delta-neutral opens match.
- * e.g. HL szDecimals 0 → 11, Phoenix accepts 11.9 → both open at 11.
+ * Uses each venue's real rounding (Phoenix lot packets, Pacifica lot_size, HL szDecimals).
  */
 
+import { Side } from '@ellipsis-labs/rise';
+import { MarketPriceHelper } from '@/dex/hyperliquid/utils/market-price';
 import { getPerpMeta } from '@/dex/hyperliquid/utils/get-meta';
 import { getAssetMeta as getPacificaAssetMeta } from '@/dex/pacifica/utils/get-meta';
+import { roundAmount, roundToStep } from '@/dex/pacifica/utils/rounding';
+import { ensurePhoenixExchangeReady, getPhoenixRiseClient, toPhoenixSymbol } from '@/lib/services/phoenix/phoenix-client';
 import { fetchLighterPerpRow } from '@/lib/services/lighter/lighter-reads';
 import type { Exchange } from './types';
 
-const PHOENIX_BASE_SIZE_DECIMALS = 6;
+const PHOENIX_FALLBACK_DECIMALS = 6;
+const PACIFICA_FALLBACK_LOT_SIZE = '0.0001';
 
 /** Floor base-asset size down to venue lot / sz decimals. */
 export function floorBaseSizeToDecimals(size: number, decimalPlaces: number): number {
@@ -33,28 +38,86 @@ export function formatAlignedBaseSize(size: number, decimalPlaces: number): stri
   return formatted || '0';
 }
 
-async function baseSizeDecimalsForExchange(
+function baseLotsToHumanUnits(numBaseLots: bigint, baseLotsDecimals: number): number {
+  const lots = numBaseLots;
+  const scale = 10 ** Math.abs(baseLotsDecimals);
+  if (baseLotsDecimals >= 0) {
+    return Number(lots) / scale;
+  }
+  return Number(lots) * scale;
+}
+
+/** Phoenix effective fill size after Rise market-order lot quantization. */
+async function phoenixFlooredBaseSize(asset: string, rawBaseSize: number): Promise<number | null> {
+  if (!Number.isFinite(rawBaseSize) || rawBaseSize <= 0) return null;
+  try {
+    await ensurePhoenixExchangeReady();
+    const client = getPhoenixRiseClient();
+    const symbol = toPhoenixSymbol(asset);
+    const packet = await client.orderPackets.buildMarketOrderPacket({
+      symbol,
+      side: Side.Bid,
+      baseUnits: String(rawBaseSize),
+    });
+    const market = client.exchange.market(symbol);
+    const baseLotsDecimals = market?.baseLotsDecimals ?? PHOENIX_FALLBACK_DECIMALS;
+    const lots =
+      typeof packet.numBaseLots === 'bigint' ? packet.numBaseLots : BigInt(packet.numBaseLots);
+    const human = baseLotsToHumanUnits(lots, baseLotsDecimals);
+    return Number.isFinite(human) && human > 0 ? human : null;
+  } catch (err) {
+    console.warn('[hedge-base-size] Phoenix lot preview failed, using decimal floor:', err);
+    return floorBaseSizeToDecimals(rawBaseSize, PHOENIX_FALLBACK_DECIMALS);
+  }
+}
+
+async function pacificaFlooredBaseSize(asset: string, rawBaseSize: number): Promise<number | null> {
+  if (!Number.isFinite(rawBaseSize) || rawBaseSize <= 0) return null;
+  const symbol = asset.toUpperCase();
+  try {
+    const rounded = await roundAmount(rawBaseSize, symbol);
+    const n = Number.parseFloat(rounded);
+    if (Number.isFinite(n) && n > 0) return n;
+  } catch (err) {
+    console.warn('[hedge-base-size] Pacifica roundAmount failed:', err);
+  }
+  const meta = await getPacificaAssetMeta(symbol);
+  const lotSize = meta?.lot_size ?? PACIFICA_FALLBACK_LOT_SIZE;
+  const rounded = roundToStep(rawBaseSize, lotSize);
+  const n = Number.parseFloat(rounded);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+async function hyperliquidFlooredBaseSize(asset: string, rawBaseSize: number): Promise<number | null> {
+  if (!Number.isFinite(rawBaseSize) || rawBaseSize <= 0) return null;
+  const helper = new MarketPriceHelper();
+  const tickInfo = await helper.getTickAndLotSize(asset.toUpperCase(), 'perps');
+  if (!tickInfo) {
+    const perpMeta = await getPerpMeta();
+    const row = perpMeta.find((t) => t.name === asset.toUpperCase());
+    if (row?.szDecimals == null) return null;
+    return floorBaseSizeToDecimals(rawBaseSize, row.szDecimals);
+  }
+  const rounded = Number.parseFloat(tickInfo.roundSize(rawBaseSize));
+  return Number.isFinite(rounded) && rounded > 0 ? rounded : null;
+}
+
+async function effectiveFlooredBaseSize(
+  rawBaseSize: number,
   asset: string,
   exchange: Exchange
 ): Promise<number | null> {
-  const symbol = asset.toUpperCase();
-
   switch (exchange) {
-    case 'hyperliquid': {
-      const perpMeta = await getPerpMeta();
-      const row = perpMeta.find((t) => t.name === symbol);
-      return row?.szDecimals ?? null;
-    }
     case 'phoenix':
-      return PHOENIX_BASE_SIZE_DECIMALS;
-    case 'pacifica': {
-      const meta = await getPacificaAssetMeta(symbol);
-      if (!meta?.lot_size) return null;
-      return decimalsFromStepString(meta.lot_size);
-    }
+      return phoenixFlooredBaseSize(asset, rawBaseSize);
+    case 'pacifica':
+      return pacificaFlooredBaseSize(asset, rawBaseSize);
+    case 'hyperliquid':
+      return hyperliquidFlooredBaseSize(asset, rawBaseSize);
     case 'lighter': {
-      const row = await fetchLighterPerpRow(symbol);
-      return row?.size_decimals ?? null;
+      const row = await fetchLighterPerpRow(asset.toUpperCase());
+      if (row?.size_decimals == null) return null;
+      return floorBaseSizeToDecimals(rawBaseSize, row.size_decimals);
     }
     case 'backpack':
       return null;
@@ -63,8 +126,40 @@ async function baseSizeDecimalsForExchange(
   }
 }
 
+async function formatFinalAlignedSize(
+  aligned: number,
+  asset: string,
+  exchanges: Exchange[]
+): Promise<string> {
+  if (exchanges.includes('pacifica')) {
+    return roundAmount(aligned, asset.toUpperCase());
+  }
+  if (exchanges.includes('phoenix')) {
+    const phx = await phoenixFlooredBaseSize(asset, aligned);
+    if (phx != null && phx > 0) {
+      const market = getPhoenixRiseClient().exchange.market(toPhoenixSymbol(asset));
+      const decimals = market?.baseLotsDecimals ?? PHOENIX_FALLBACK_DECIMALS;
+      return formatAlignedBaseSize(phx, Math.max(0, decimals));
+    }
+  }
+  const decimalLimits: number[] = [];
+  for (const exchange of exchanges) {
+    if (exchange === 'hyperliquid') {
+      const perpMeta = await getPerpMeta();
+      const row = perpMeta.find((t) => t.name === asset.toUpperCase());
+      if (row?.szDecimals != null) decimalLimits.push(row.szDecimals);
+    } else if (exchange === 'lighter') {
+      const row = await fetchLighterPerpRow(asset.toUpperCase());
+      if (row?.size_decimals != null) decimalLimits.push(row.size_decimals);
+    }
+  }
+  const formatDecimals =
+    decimalLimits.length > 0 ? Math.min(...decimalLimits) : PHOENIX_FALLBACK_DECIMALS;
+  return formatAlignedBaseSize(aligned, formatDecimals);
+}
+
 /**
- * Per-leg floor then min — shared base size every leg can fill at the same coin amount.
+ * Per-leg venue rounding then min — shared base size every leg can fill at the same coin amount.
  */
 export async function alignHedgeBaseSize(params: {
   rawBaseSize: number;
@@ -75,26 +170,22 @@ export async function alignHedgeBaseSize(params: {
   if (!Number.isFinite(rawBaseSize) || rawBaseSize <= 0) return undefined;
 
   const uniqueExchanges = [...new Set(exchanges)];
-  const perLegFloors: number[] = [];
-  const decimalLimits: number[] = [];
+  let candidate = rawBaseSize;
 
-  for (const exchange of uniqueExchanges) {
-    const decimals = await baseSizeDecimalsForExchange(asset, exchange);
-    if (decimals == null) continue;
-    decimalLimits.push(decimals);
-    perLegFloors.push(floorBaseSizeToDecimals(rawBaseSize, decimals));
-  }
-
-  if (perLegFloors.length === 0) {
-    return formatAlignedBaseSize(
-      floorBaseSizeToDecimals(rawBaseSize, PHOENIX_BASE_SIZE_DECIMALS),
-      PHOENIX_BASE_SIZE_DECIMALS
+  for (let pass = 0; pass < 3; pass++) {
+    const perLegFloors = await Promise.all(
+      uniqueExchanges.map((exchange) => effectiveFlooredBaseSize(candidate, asset, exchange))
     );
+    const valid = perLegFloors.filter((n): n is number => n != null && n > 0);
+    if (valid.length === 0) break;
+
+    const next = Math.min(...valid);
+    if (next <= 0) return undefined;
+    if (Math.abs(next - candidate) < 1e-12) break;
+    candidate = next;
   }
 
-  const aligned = Math.min(...perLegFloors);
-  if (aligned <= 0) return undefined;
+  if (candidate <= 0) return undefined;
 
-  const formatDecimals = Math.min(...decimalLimits);
-  return formatAlignedBaseSize(aligned, formatDecimals);
+  return formatFinalAlignedSize(candidate, asset, uniqueExchanges);
 }
