@@ -16,95 +16,9 @@ import { PositionsTableSkeleton } from '@/components/ui/skeletons';
 import { ClosePositionModal } from '@/components/ui/close-position-modal';
 import { useTurnkey, getEVMAddress, getSolanaAddress } from '@/lib/turnkey';
 import type { PositionApiResponse } from '@/lib/api/services/positions.service';
-import { transformPositionData } from '@/lib/api/services/positions.service';
-import { enrichPositionsWithFundingApr } from '@/lib/positions/enrich-positions';
 import type { ClosePositionResult } from '@/hooks/use-close-position';
 import { phoenixService } from '@/lib/services/phoenix';
 import React from 'react';
-
-const MOCK_RAW_POSITIONS: PositionApiResponse[] = [
-  {
-    symbol: 'SOL',
-    opened_at: Date.now() - 36 * 60 * 60 * 1000,
-    hyperliquid: {
-      symbol: 'SOL',
-      size: '12.5000',
-      side: 'Long',
-      pnl: '45.20',
-      funding: '7.10',
-      margin: '308.41',
-      leverage: 3,
-      liquidationPrice: '120.50',
-    },
-    backpack: {
-      symbol: 'SOL',
-      size: '12.5000',
-      side: 'Short',
-      pnl: '10.00',
-      funding: '5.35',
-      margin: '308.42',
-      leverage: 3,
-      liquidationPrice: '235.00',
-    },
-    pacifica: null,
-    lighter: null,
-    phoenix: null,
-  },
-  {
-    symbol: 'BTC',
-    opened_at: Date.now() - 12 * 60 * 60 * 1000,
-    hyperliquid: {
-      symbol: 'BTC',
-      size: '0.0500',
-      side: 'Short',
-      pnl: '-17.70',
-      funding: '13.65',
-      margin: '342.50',
-      leverage: 5,
-      liquidationPrice: '82000.00',
-    },
-    phoenix: {
-      symbol: 'BTC',
-      size: '0.0500',
-      side: 'Long',
-      pnl: '5.40',
-      funding: '10.50',
-      margin: '342.50',
-      leverage: 5,
-      liquidationPrice: '55000.00',
-    },
-    pacifica: null,
-    backpack: null,
-    lighter: null,
-  },
-  {
-    symbol: 'ETH',
-    opened_at: Date.now() - 72 * 60 * 60 * 1000,
-    pacifica: {
-      symbol: 'ETH',
-      size: '1.2000',
-      side: 'Short',
-      pnl: '-5.00',
-      funding: '-2.00',
-      margin: '824.00',
-      leverage: 2.5,
-      liquidationPrice: '58000.00',
-    },
-    lighter: {
-      symbol: 'ETH',
-      size: '1.2000',
-      side: 'Long',
-      pnl: '-3.50',
-      funding: '-1.20',
-      margin: '824.00',
-      leverage: 2.5,
-      liquidationPrice: '22000.00',
-    },
-    hyperliquid: null,
-    backpack: null,
-    phoenix: null,
-  },
-];
 
 interface PositionsTableSectionContentProps {
   className?: string;
@@ -132,16 +46,6 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
 
   const hasActivePositions = positions.length > 0;
 
-  // Fallback to mock data if no positions are fetched
-  const displayPositions = hasActivePositions
-    ? positions
-    : enrichPositionsWithFundingApr(
-        MOCK_RAW_POSITIONS,
-        MOCK_RAW_POSITIONS.map(transformPositionData)
-      );
-
-  const displayRawPositions = hasActivePositions ? rawPositions : MOCK_RAW_POSITIONS;
-
   // Close position hook
   const { closePosition } = useClosePosition({
     evmAddress,
@@ -156,7 +60,7 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
   const handleClosePosition = useCallback(
     async (asset: string) => {
       const assetSymbol = asset.split('-')[0];
-      const rawPosition = displayRawPositions.find((p) => p.symbol === assetSymbol);
+      const rawPosition = rawPositions.find((p) => p.symbol === assetSymbol);
       if (!rawPosition) {
         console.error(`[close-position] No raw position found for asset: ${assetSymbol}`);
         return;
@@ -175,23 +79,15 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
       setSelectedRawPosition(positionForClose);
       setIsCloseModalOpen(true);
     },
-    [displayRawPositions, hasActivePositions, solanaAddress]
+    [rawPositions, hasActivePositions, solanaAddress]
   );
 
   // Execute the close from the modal's confirm
   const handleConfirmClose = useCallback(
     async (position: PositionApiResponse): Promise<ClosePositionResult> => {
-      if (!hasActivePositions) {
-        // Mock successful close process with a delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        return {
-          status: 'success',
-          legs: [],
-        };
-      }
       return closePosition(position);
     },
-    [closePosition, hasActivePositions]
+    [closePosition]
   );
 
   const handleCloseModal = useCallback(() => {
@@ -220,7 +116,7 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
                     : 'text-white/40 hover:text-white/80'
                 )}
               >
-                Positions ({displayPositions.length})
+                Positions ({positions.length})
               </button>
               <button
                 onClick={() => setActiveTab('closed')}
@@ -246,10 +142,7 @@ export function PositionsTableSectionContent({ className }: PositionsTableSectio
                   </div>
                 )}
                 {!error && (
-                  <PositionsTable
-                    positions={displayPositions}
-                    onClosePosition={handleClosePosition}
-                  />
+                  <PositionsTable positions={positions} onClosePosition={handleClosePosition} />
                 )}
               </>
             ) : (
