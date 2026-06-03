@@ -1,0 +1,8 @@
+card gradient
+
+green
+
+class="flex flex-col gap-3 p-4 rounded-md border border-border-white-10/50 backdrop-blur-md shadow-lg shadow-black/20 bg-gradient-to-br from-[var(--chart-hyperliquid)]/15 via-[var(--chart-hyperliquid)]/8 to-[var(--chart-hyperliquid)]/5"
+
+pink
+class="flex flex-col gap-3 p-4 rounded-md border border-border-white-10/50 backdrop-blur-md shadow-lg shadow-black/20 bg-gradient-to-br from-[var(--chart-pink)]/15 via-[var(--chart-pink)]/8 to-[var(--chart-pink)]/5"
