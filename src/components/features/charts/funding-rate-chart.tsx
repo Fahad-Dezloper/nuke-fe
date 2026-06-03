@@ -74,7 +74,13 @@ interface FundingRateChartProps {
 /**
  * Custom Tooltip Component
  */
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartDataPoint; value?: number; name?: string }> }) {
+function CustomTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: ChartDataPoint; value?: number; name?: string }>;
+}) {
   if (!active || !payload || payload.length === 0) {
     return null;
   }
@@ -226,12 +232,19 @@ export function FundingRateChart({
   return (
     <ChartContainer
       config={chartConfig}
-      className={cn(chartClassName, 'w-full max-w-full min-w-0 [&_.recharts-responsive-container]:!w-full')}
+      className={cn(
+        chartClassName,
+        'w-full max-w-full min-w-0 [&_.recharts-responsive-container]:!w-full'
+      )}
     >
       <LineChart data={data} margin={{ top: 16, right: 16, left: 10, bottom: 8 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
         <XAxis
-          dataKey="time"
+          dataKey="fullTimestamp"
+          tickFormatter={(val) => {
+            const point = data.find((d) => d.fullTimestamp === val);
+            return point?.time || val;
+          }}
           tick={{ fill: 'rgba(255, 255, 255, 0.5)', fontSize: 10 }}
           tickLine={false}
           axisLine={false}
@@ -291,7 +304,9 @@ export function FundingRateChart({
                       className="h-1.5 w-4 sm:h-2 sm:w-6 rounded-sm"
                       style={{ backgroundColor: `var(${longConfig.colorVar})` }}
                     />
-                    <span className="text-[10px] text-text-muted-60 sm:text-xs">{longProtocolName}</span>
+                    <span className="text-[10px] text-text-muted-60 sm:text-xs">
+                      {longProtocolName}
+                    </span>
                   </div>
                 )}
                 {shortConfig && (
@@ -300,7 +315,9 @@ export function FundingRateChart({
                       className="h-1.5 w-4 sm:h-2 sm:w-6 rounded-sm"
                       style={{ backgroundColor: `var(${shortConfig.colorVar})` }}
                     />
-                    <span className="text-[10px] text-text-muted-60 sm:text-xs">{shortProtocolName}</span>
+                    <span className="text-[10px] text-text-muted-60 sm:text-xs">
+                      {shortProtocolName}
+                    </span>
                   </div>
                 )}
                 <div className="flex items-center gap-1.5">

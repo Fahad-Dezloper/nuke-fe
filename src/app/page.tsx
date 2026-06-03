@@ -59,13 +59,13 @@ export default function Home() {
           </SectionErrorBoundary>
         </div>
         <TradingDashboard className="min-h-0 flex-1">
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="mb-4 shrink-0">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden gap-4">
+            <div className="flex-1 min-h-0 flex flex-col">
               <SectionErrorBoundary name="Chart">
-                <ChartSectionContent />
+                <ChartSectionContent fluidHeight={true} />
               </SectionErrorBoundary>
             </div>
-            <div className="min-h-0 flex-1">
+            <div className="flex-1 min-h-0 flex flex-col">
               <SectionErrorBoundary name="Positions">
                 <PositionsTableSectionContent />
               </SectionErrorBoundary>

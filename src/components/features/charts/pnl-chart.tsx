@@ -38,6 +38,7 @@ const chartConfig = {
 // --- Types ---
 
 export interface PnLBarData {
+  id: string;
   time: string;
   fullTimestamp: string;
   value: number;
@@ -129,7 +130,8 @@ function computePnLBars(data: ChartDataPoint[], duration: PnLDuration): PnLBarDa
 function compute1DBars(data: ChartDataPoint[], longProtocol: Protocol): PnLBarData[] {
   const historicalPoints = data.slice(-23);
 
-  const bars: PnLBarData[] = historicalPoints.map((point) => ({
+  const bars: PnLBarData[] = historicalPoints.map((point, i) => ({
+    id: `hist-${i}`,
     time: point.time,
     fullTimestamp: point.fullTimestamp,
     value: Number(calcPointPnL(point, longProtocol).toFixed(4)),
@@ -147,6 +149,7 @@ function compute1DBars(data: ChartDataPoint[], longProtocol: Protocol): PnLBarDa
     for (let i = 0; i < NUM_PROJECTED; i++) {
       hour = (hour + 1) % 24;
       bars.push({
+        id: `proj-${i}`,
         time: `${String(hour).padStart(2, '0')}:${min}`,
         fullTimestamp: 'Projected',
         value: lastPnl,
@@ -173,6 +176,7 @@ function compute1WBars(data: ChartDataPoint[], longProtocol: Protocol): PnLBarDa
   for (let i = 0; i < sliced.length; i += SAMPLE_INTERVAL) {
     const point = sliced[i];
     bars.push({
+      id: `hist-${i}`,
       time: shortDateLabel(point.fullTimestamp),
       fullTimestamp: point.fullTimestamp,
       value: Number(calcPointPnL(point, longProtocol).toFixed(4)),
@@ -186,6 +190,7 @@ function compute1WBars(data: ChartDataPoint[], longProtocol: Protocol): PnLBarDa
 
     for (let i = 0; i < NUM_PROJECTED; i++) {
       bars.push({
+        id: `proj-${i}`,
         time: `+${(i + 1) * SAMPLE_INTERVAL}h`,
         fullTimestamp: 'Projected',
         value: lastPnl,
@@ -310,7 +315,11 @@ export function PnLChart({ fundingData, duration, chartClassName = 'h-[260px]' }
             />
           )}
           <XAxis
-            dataKey="time"
+            dataKey="id"
+            tickFormatter={(val) => {
+              const point = data.find((d) => d.id === val);
+              return point?.time || val;
+            }}
             tick={{ fill: 'rgba(255, 255, 255, 0.5)', fontSize: 10 }}
             tickLine={false}
             axisLine={false}
