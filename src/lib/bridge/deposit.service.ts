@@ -36,7 +36,19 @@ export const depositService = {
   },
 
   /**
-   * Deposit USDC to Lighter (same permit payload shape as Hyperliquid; backend must expose `/lighter/deposit`).
+   * EVM fee payer used as EIP-2612 `spender` for Lighter deposits (backend submits `USDC.permit`).
+   */
+  async getLighterFeePayerAddress(): Promise<`0x${string}`> {
+    const response = await apiClient.get<{ address: string }>('/lighter/fee-payer');
+    const address = response.address?.trim();
+    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      throw new Error('Invalid Lighter fee-payer address from backend');
+    }
+    return address as `0x${string}`;
+  },
+
+  /**
+   * Deposit USDC to Lighter (permit `spender` must be {@link getLighterFeePayerAddress}, not ZkLighter bridge).
    */
   async depositToLighter(request: DepositRequest): Promise<string> {
     try {

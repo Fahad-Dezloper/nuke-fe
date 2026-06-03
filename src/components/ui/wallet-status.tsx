@@ -47,6 +47,8 @@ export function WalletStatus() {
     hlBalance,
     pacBalance,
     phoenixBalance,
+    ltBalance,
+    solanaBalance,
     isLoading: isExchangeLoading,
   } = useExchangeBalances();
 
@@ -77,6 +79,11 @@ export function WalletStatus() {
   const hlConfig = getProtocolConfig('hyperliquid');
   const pacConfig = getProtocolConfig('pacifica');
   const phxConfig = getProtocolConfig('phoenix');
+  const ltConfig = getProtocolConfig('lighter');
+
+  const totalBalance =
+    hlBalance + pacBalance + phoenixBalance + ltBalance + solanaBalance;
+  const formattedTotalBalance = totalBalance.toFixed(2);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -106,9 +113,10 @@ export function WalletStatus() {
       ? `${solanaAddress.slice(0, 3)}...${solanaAddress.slice(-3)}`
       : solanaAddress;
 
-  // Calculate total USDC
-  const totalBalance = Number(formattedBalance) + hlBalance + pacBalance + phoenixBalance;
-  const isLoading = isBalanceLoading || isExchangeLoading;
+  // Balance has never been fetched yet (null initial state)
+  const hasLoaded =
+    formattedBalance !== '0.00' || (!isBalanceLoading && formattedBalance === '0.00');
+  const showSkeleton = (isBalanceLoading && !hasLoaded) || isExchangeLoading;
 
   return (
     <>
@@ -120,29 +128,24 @@ export function WalletStatus() {
               'hover:border-border-white-20 transition-colors cursor-pointer outline-none'
             )}
           >
-            <WalletIcon />
-            <span className="text-xs font-semibold text-black">{displayAddress}</span>
-          </button>
-        </SheetTrigger>
-
-        <SheetContent className="bg-[#18181A] border-l border-white/10 text-white w-full sm:max-w-md p-6 flex flex-col gap-6">
-          <SheetHeader className="p-0 space-y-1">
-            <SheetTitle className="text-lg font-bold text-white flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-[#2ECC71]" />
-              Wallet Overview
-            </SheetTitle>
-            <SheetDescription className="text-xs text-white/40">
-              Manage your balances, deposit, and withdraw funds
-            </SheetDescription>
-          </SheetHeader>
-
-          {/* Account Details Card */}
-          <div className="bg-[#202024] border border-white/5 rounded-xl p-4 space-y-3">
-            <div className="space-y-1">
-              <span className="text-[11px] text-white/40 font-semibold uppercase tracking-wider">Solana Address</span>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono text-white/80 select-all break-all pr-2">
-                  {solanaAddress}
+            {/* USDC Balance with hover breakdown */}
+            <div
+              className="relative flex items-center gap-2"
+              onMouseEnter={handleBalanceEnter}
+              onMouseLeave={handleBalanceLeave}
+            >
+              <Image
+                src="/tokens/usdc.png"
+                alt="USDC"
+                width={16}
+                height={16}
+                className="rounded-full"
+              />
+              {showSkeleton ? (
+                <div className="w-12 h-3.5 rounded bg-white/10 animate-pulse" />
+              ) : (
+                <span className="text-xs font-semibold text-white tabular-nums">
+                  ${formattedTotalBalance}
                 </span>
                 <button
                   onClick={handleCopyAddress}
@@ -170,104 +173,164 @@ export function WalletStatus() {
                     className="flex shrink-0 items-center justify-center w-7 h-7 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all rounded-md cursor-pointer"
                     title="Copy EVM Address"
                   >
-                    {copiedEvm ? (
-                      <Check className="w-3.5 h-3.5 text-[#2ECC71]" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5 text-white/70" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+                    {/* Caret arrow */}
+                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-card border-l border-t border-border-white-10/50" />
 
-          {/* Balances Card */}
-          <div className="bg-gradient-to-b from-[#202024] to-[#1C1C20] border border-white/5 rounded-xl p-5 space-y-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[11px] text-white/40 font-semibold uppercase tracking-wider">Total Balance</span>
-              {isLoading ? (
-                <div className="w-32 h-8 rounded bg-white/5 animate-pulse mt-1" />
-              ) : (
-                <span className="text-3xl font-extrabold text-white tabular-nums tracking-tight">
-                  ${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              )}
-            </div>
+                    <div className="relative z-10 p-3 space-y-3">
+                      {/* Hyperliquid row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            {hlConfig && (
+                              <Image
+                                src={hlConfig.logo}
+                                alt={hlConfig.displayName}
+                                width={20}
+                                height={20}
+                                className="rounded-full ring-1 ring-white/10"
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-text-primary leading-tight">
+                              {hlConfig?.displayName ?? 'Hyperliquid'}
+                            </span>
+                          </div>
+                        </div>
+                        {isExchangeLoading ? (
+                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                        ) : (
+                          <span className="text-xs font-semibold text-text-primary tabular-nums">
+                            ${hlBalance.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
 
-            <div className="border-t border-white/5 pt-3 space-y-3">
-              {/* Solana Wallet row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="relative">
-                    <Image
-                      src="/tokens/solana.webp"
-                      alt="Solana"
-                      width={10}
-                      height={10}
-                      className="rounded-full ring-1 ring-white/10 absolute -top-[2px] -right-[2px]"
-                    />
-                    <Image
-                      src="/tokens/usdc.png"
-                      alt="USDC"
-                      width={18}
-                      height={18}
-                      className="rounded-full ring-1 ring-white/10"
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-white/80">Solana Wallet USDC</span>
-                </div>
-                {isBalanceLoading ? (
-                  <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
-                ) : (
-                  <span className="text-xs font-bold text-white tabular-nums">
-                    ${Number(formattedBalance).toFixed(2)}
-                  </span>
-                )}
-              </div>
+                      {/* Pacifica row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            {pacConfig && (
+                              <Image
+                                src={pacConfig.logo}
+                                alt={pacConfig.displayName}
+                                width={20}
+                                height={20}
+                                className="rounded-full ring-1 ring-white/10"
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-text-primary leading-tight">
+                              {pacConfig?.displayName ?? 'Pacifica'}
+                            </span>
+                          </div>
+                        </div>
+                        {isExchangeLoading ? (
+                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                        ) : (
+                          <span className="text-xs font-semibold text-text-primary tabular-nums">
+                            ${pacBalance.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
 
-              {/* Hyperliquid row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  {hlConfig && (
-                    <Image
-                      src={hlConfig.logo}
-                      alt={hlConfig.displayName}
-                      width={18}
-                      height={18}
-                      className="rounded-full ring-1 ring-white/10"
-                    />
-                  )}
-                  <span className="text-xs font-medium text-white/80">{hlConfig?.displayName ?? 'Hyperliquid'}</span>
-                </div>
-                {isExchangeLoading ? (
-                  <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
-                ) : (
-                  <span className="text-xs font-bold text-white tabular-nums">
-                    ${hlBalance.toFixed(2)}
-                  </span>
-                )}
-              </div>
+                      {/* Phoenix row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            {phxConfig && (
+                              <Image
+                                src={phxConfig.logo}
+                                alt={phxConfig.displayName}
+                                width={20}
+                                height={20}
+                                className="rounded-full ring-1 ring-white/10"
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-text-primary leading-tight">
+                              {phxConfig?.displayName ?? 'Phoenix'}
+                            </span>
+                          </div>
+                        </div>
+                        {isExchangeLoading ? (
+                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                        ) : (
+                          <span className="text-xs font-semibold text-text-primary tabular-nums">
+                            ${phoenixBalance.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
 
-              {/* Pacifica row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  {pacConfig && (
-                    <Image
-                      src={pacConfig.logo}
-                      alt={pacConfig.displayName}
-                      width={18}
-                      height={18}
-                      className="rounded-full ring-1 ring-white/10"
-                    />
-                  )}
-                  <span className="text-xs font-medium text-white/80">{pacConfig?.displayName ?? 'Pacifica'}</span>
-                </div>
-                {isExchangeLoading ? (
-                  <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
-                ) : (
-                  <span className="text-xs font-bold text-white tabular-nums">
-                    ${pacBalance.toFixed(2)}
-                  </span>
+                      {/* Lighter row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            {ltConfig && (
+                              <Image
+                                src={ltConfig.logo}
+                                alt={ltConfig.displayName}
+                                width={20}
+                                height={20}
+                                className="rounded-full ring-1 ring-white/10"
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-text-primary leading-tight">
+                              {ltConfig?.displayName ?? 'Lighter'}
+                            </span>
+                          </div>
+                        </div>
+                        {isExchangeLoading ? (
+                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                        ) : (
+                          <span className="text-xs font-semibold text-text-primary tabular-nums">
+                            ${ltBalance.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Separator */}
+                      <div className="border-t border-border-white-10/50" />
+
+                      {/* Solana wallet row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            <Image
+                              src="/tokens/solana.webp"
+                              alt="Solana"
+                              width={10}
+                              height={10}
+                              className="rounded-full ring-1 ring-white/10 absolute -top-[2px] -right-[2px]"
+                            />
+                            <Image
+                              src="/tokens/usdc.png"
+                              alt="USDC"
+                              width={20}
+                              height={20}
+                              className="rounded-full ring-1 ring-white/10"
+                            />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-text-primary leading-tight">
+                              SOLANA USDC
+                            </span>
+                          </div>
+                        </div>
+                        {showSkeleton ? (
+                          <div className="w-14 h-4 rounded bg-white/5 animate-pulse" />
+                        ) : (
+                          <span className="text-xs font-semibold text-text-primary tabular-nums">
+                            ${solanaBalance.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
                 )}
               </div>
 

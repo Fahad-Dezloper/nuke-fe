@@ -225,6 +225,7 @@ export const ACTIVE_HEDGE_INTENT_KEY = 'active_hedge_intent_id';
 
 /** LocalStorage key for long/short venues used when opening the active intent */
 export const ACTIVE_HEDGE_PAIR_KEY = 'active_hedge_pair';
+export const ACTIVE_HEDGE_EXIT_RANGE_KEY = 'active_hedge_exit_range';
 
 /** Long and short venues for a delta-neutral hedge (matches position panel best pair) */
 export interface HedgePair {

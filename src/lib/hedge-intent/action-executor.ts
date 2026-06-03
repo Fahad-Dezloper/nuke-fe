@@ -67,7 +67,9 @@ import { getLighterL2Credentials } from '@/lib/services/lighter/lighter-credenti
 import { finalizeLighterL2KeysAfterDeposit } from '@/lib/services/lighter/lighter-onboarding';
 import { getSharedLighterAdapter, getSharedLighterService } from '@/lib/services/lighter/lighter-shared-adapter';
 import { LighterMarginMode } from '@/lib/services/lighter/utils/tx-constants';
-import { buildMirroredTpSlPlan } from './hedge-tpsl';
+import { alignHedgeBaseSize } from './hedge-base-size';
+import { buildMirroredTpSlPlan, buildMirroredTpSlPlanFromStops } from './hedge-tpsl';
+import type { HedgeExitRangeStops } from './hedge-exit-range';
 import { hedgeUsesIsolatedMargin } from '@/lib/trading/margin-mode';
 import { runWithRetries } from '@/lib/trading/close-leg-retries';
 
@@ -88,6 +90,8 @@ export interface ExecutorContext {
   userId: string;
   /** Long/short venues from UI best pair (position panel / table) */
   hedgePair: HedgePair;
+  /** User-selected mirrored exit stops from position panel (required for open). */
+  exitRange?: HedgeExitRangeStops;
 }
 
 // ─── Result ──────────────────────────────────────────────────────────────────
@@ -1038,29 +1042,49 @@ export class HedgeActionExecutor {
       marginForLegs = bufferedMarginForLegs;
     }
 
-    // Shared base size so HL (USD) and Phoenix (BTC lots) match for delta-neutral hedges.
+    // Shared base size — floor per venue precision, then min so HL (szDecimals 0) and Phoenix match.
     let hedgeBaseSize: string | undefined;
     if (marketPrice) {
       const px = Number.parseFloat(marketPrice);
       if (Number.isFinite(px) && px > 0) {
         const notionalUsd = marginForLegs * Number(leverage);
         const rawBase = notionalUsd / px;
-        hedgeBaseSize = rawBase.toFixed(6).replace(/\.?0+$/, '') || undefined;
+        hedgeBaseSize = await alignHedgeBaseSize({
+          rawBaseSize: rawBase,
+          asset,
+          exchanges: legs.map((l) => l.exchange),
+        });
+        if (hedgeBaseSize) {
+          console.log(
+            `[HedgeExecutor] Aligned base size ${asset}: raw=${rawBase.toFixed(6)} → ${hedgeBaseSize} ` +
+              `(${legs.map((l) => l.exchange).join(' + ')})`
+          );
+        }
       }
     }
 
     // ── Step 5: Open both legs in parallel ──
-    const tpSlPlan = await buildMirroredTpSlPlan(asset, leverage, {
-      longExchange,
-      shortExchange,
-      marginUsd: marginForLegs,
-    });
+    const userExit = context.exitRange;
+    const tpSlPlan = userExit
+      ? await buildMirroredTpSlPlanFromStops(asset, leverage, {
+          longExchange,
+          shortExchange,
+          marginUsd: marginForLegs,
+          lowerStopPrice: userExit.lowerPrice,
+          upperStopPrice: userExit.upperPrice,
+        })
+      : await buildMirroredTpSlPlan(asset, leverage, {
+          longExchange,
+          shortExchange,
+          marginUsd: marginForLegs,
+        });
     if (!tpSlPlan) {
       return {
         success: false,
         txHash: null,
-        error:
-          'Cannot open hedge: mirrored TP/SL band is too wide for estimated liquidation on one or both legs',
+        error: userExit
+          ? 'Cannot open hedge: exit range is invalid or could not be applied. Adjust stops in the position panel.'
+          : 'Cannot open hedge: mirrored TP/SL band is too wide for estimated liquidation on one or both legs',
         legResults: null,
       };
     }
@@ -1176,6 +1200,7 @@ export class HedgeActionExecutor {
               organizationId: context.organizationId,
               isMarket: true,
               price: marketPrice,
+              baseSize: hedgeBaseSize,
               hedgeTpsl: hedgeTpslForDirection(direction),
               useIsolatedMargin,
             });
@@ -1211,6 +1236,7 @@ export class HedgeActionExecutor {
               organizationId: context.organizationId,
               isMarket: true,
               price: marketPrice,
+              baseSize: hedgeBaseSize,
               slippagePercent: '0.5',
               hedgeTpsl: hedgeTpslForDirection(direction),
             });

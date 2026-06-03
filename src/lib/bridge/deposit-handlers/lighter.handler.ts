@@ -1,10 +1,7 @@
 /**
  * Lighter deposit handler — **Ethereum mainnet** USDC → `POST /lighter/deposit` (EIP-2612 permit + JWT).
  *
- * Aligns with backend contract: mainnet USDC, permit `spender` = Lighter deposit contract,
- * optional `asset_index` / `route_type` on the request body.
- *
- * @see LIGHTER_DEPOSIT_FE_INTEGRATION.md
+ * Permit `spender` = backend EVM fee payer (`GET /lighter/fee-payer`), not the ZkLighter bridge contract.
  */
 
 import { signPermitWithTurnkey } from '../signing';
@@ -13,7 +10,6 @@ import { getUSDCBalanceOnEthereum } from '../balance-api';
 import { formatUSDCBalanceArbitrum } from '../balance';
 import { createEthereumMainnetUsdcPermit, signUsdcPermit } from '../usdc-permit';
 import { CHAIN_IDS } from '../types';
-import { LIGHTER_ETH_DEPOSIT_CONTRACT } from '@/constants';
 import type { BridgeStep, PermitData } from '../types';
 import type {
   DepositHandler,
@@ -64,12 +60,14 @@ export class LighterDepositHandler implements DepositHandler {
       );
     }
 
-    const balanceInUSDC = formatUSDCBalanceArbitrum(mainnetBalance);
+    const feePayerAddress = await depositService.getLighterFeePayerAddress();
 
     const permitResult = await createEthereumMainnetUsdcPermit(
-      balanceInUSDC,
+      mainnetBalance.toString(),
       walletAddress,
-      LIGHTER_ETH_DEPOSIT_CONTRACT as `0x${string}`
+      feePayerAddress,
+      30,
+      { amountInBaseUnits: true }
     );
 
     if (!permitResult.success || !permitResult.typedData) {

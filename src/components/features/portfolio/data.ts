@@ -1,4 +1,21 @@
 import type { PerformanceTimeframe, VenueKey } from '@/lib/api/services';
+import type { FundExchange } from '@/hooks/use-fund-exchange';
+
+/** Map portfolio venue to fund-exchange target for Add Margin. */
+export function venueToFundExchange(venue: VenueKey): FundExchange | null {
+  switch (venue) {
+    case 'hyperliquid':
+      return 'hyperliquid';
+    case 'pacifica':
+      return 'pacifica';
+    case 'phoenix':
+      return 'phoenix';
+    case 'lighter':
+      return 'lighter';
+    default:
+      return null;
+  }
+}
 
 export const timeframeTabs = ['Day', 'Week', 'Month', 'All'] as const;
 

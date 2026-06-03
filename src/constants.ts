@@ -8,8 +8,8 @@ export const LIGHTER_ARB_USDC_SPENDER =
   process.env.NEXT_PUBLIC_LIGHTER_ARB_USDC_SPENDER?.trim() || '';
 
 /**
- * Lighter deposit contract on **Ethereum mainnet** — EIP-2612 `permit` `spender` / deposit `to`.
- * @see LIGHTER_DEPOSIT_FE_INTEGRATION.md
+ * Lighter ZkLighter bridge on **Ethereum mainnet** (deposit destination on-chain).
+ * EIP-2612 permit `spender` is the backend fee payer — fetch `GET /lighter/fee-payer`.
  */
 export const LIGHTER_ETH_DEPOSIT_CONTRACT =
   process.env.NEXT_PUBLIC_LIGHTER_ETH_DEPOSIT_CONTRACT?.trim() ||

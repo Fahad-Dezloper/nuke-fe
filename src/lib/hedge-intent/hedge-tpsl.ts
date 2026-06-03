@@ -246,6 +246,122 @@ export async function buildMirroredTpSlPlan(
   };
 }
 
+export interface BuildMirroredTpSlPlanFromStopsOptions extends BuildMirroredTpSlPlanOptions {
+  lowerStopPrice: number;
+  upperStopPrice: number;
+}
+
+/**
+ * Build mirrored TP/SL from user-selected lower / upper stops (position panel exit range).
+ */
+export async function buildMirroredTpSlPlanFromStops(
+  symbol: string,
+  leverage: number,
+  options: BuildMirroredTpSlPlanFromStopsOptions
+): Promise<MirroredTpSlPlan | null> {
+  const sym = symbol.toUpperCase();
+  const { lowerStopPrice, upperStopPrice } = options;
+
+  if (
+    !Number.isFinite(lowerStopPrice) ||
+    !Number.isFinite(upperStopPrice) ||
+    lowerStopPrice <= 0 ||
+    upperStopPrice <= 0 ||
+    lowerStopPrice >= upperStopPrice
+  ) {
+    console.warn(`[hedge-tpsl] Invalid user stops for ${sym}`);
+    return null;
+  }
+
+  const mark = await fetchPacificaMarkPrice(sym);
+  if (mark == null || mark <= 0) {
+    console.warn(`[hedge-tpsl] No Pacifica mark for ${sym}`);
+    return null;
+  }
+
+  if (lowerStopPrice >= mark || upperStopPrice <= mark) {
+    console.warn(`[hedge-tpsl] User stops must bracket mark for ${sym}`);
+    return null;
+  }
+
+  const meta = await getAssetMeta(sym);
+  if (!meta?.tick_size) {
+    console.warn(`[hedge-tpsl] No Pacifica tick_size for ${sym}`);
+    return null;
+  }
+
+  const thresholdPercentDesired = computeHedgeTpslThresholdPercent(leverage);
+  const upperStop = await roundPrice(upperStopPrice, sym);
+  const lowerStop = await roundPriceUp(lowerStopPrice, sym);
+
+  const upperN = parseFloat(upperStop);
+  const lowerN = parseFloat(lowerStop);
+  if (!Number.isFinite(upperN) || !Number.isFinite(lowerN) || lowerN >= mark || upperN <= mark) {
+    console.warn(`[hedge-tpsl] Tick-rounded stops invalid for ${sym}`);
+    return null;
+  }
+
+  const pctLower = (mark - lowerN) / mark;
+  const pctUpper = (upperN - mark) / mark;
+  const thresholdPercent = Math.max(pctLower, pctUpper) * 100;
+
+  const long = legPrices('long', upperStop, lowerStop, HEDGE_TPSL_LIMIT_OFFSET_PERCENT);
+  const short = legPrices('short', upperStop, lowerStop, HEDGE_TPSL_LIMIT_OFFSET_PERCENT);
+
+  let liquidationClamp: MirroredTpSlLiquidationClamp | undefined;
+  const longExchange = options.longExchange?.trim();
+  const shortExchange = options.shortExchange?.trim();
+  const marginUsd = options.marginUsd;
+
+  if (longExchange && shortExchange && marginUsd != null && marginUsd > 0) {
+    const liqEstimates = await estimateLegLiquidationPrices({
+      symbol: sym,
+      markPrice: mark,
+      marginUsd,
+      leverage,
+      longExchange,
+      shortExchange,
+    });
+    if (liqEstimates) {
+      const bufferPercent =
+        options.liquidationBufferPercent ?? HEDGE_TPSL_LIQUIDATION_BUFFER_PERCENT;
+      const caps = computeMirroredBandPercentFromLiquidation({
+        mark,
+        longLiquidationPrice: liqEstimates.longLiquidationPrice,
+        shortLiquidationPrice: liqEstimates.shortLiquidationPrice,
+        bufferPercent,
+      });
+      if (caps) {
+        liquidationClamp = {
+          longLiquidationPrice: liqEstimates.longLiquidationPrice,
+          shortLiquidationPrice: liqEstimates.shortLiquidationPrice,
+          longExchange,
+          shortExchange,
+          marginUsd,
+          positionSize: liqEstimates.positionSize,
+          longAdverseMovePercent: liqEstimates.longAdverseMovePercent,
+          shortAdverseMovePercent: liqEstimates.shortAdverseMovePercent,
+          pMaxLong: caps.pMaxLong,
+          pMaxShort: caps.pMaxShort,
+          pSafe: caps.pSafe,
+          bufferPercent,
+        };
+      }
+    }
+  }
+
+  return {
+    markPrice: mark,
+    thresholdPercentDesired,
+    thresholdPercent,
+    upperStop,
+    lowerStop,
+    long,
+    short,
+    liquidationClamp,
+  };
+}
+
 /** Pacifica create_market_order: semantic TP/SL per side (no field swap). */
 /** Phoenix `place-isolated-market-order` bracket config (USD trigger/execution prices). */
 export function mapHedgeTpslToPhoenixIsolatedIx(
