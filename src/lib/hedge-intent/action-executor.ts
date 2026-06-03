@@ -67,6 +67,7 @@ import { getLighterL2Credentials } from '@/lib/services/lighter/lighter-credenti
 import { finalizeLighterL2KeysAfterDeposit } from '@/lib/services/lighter/lighter-onboarding';
 import { getSharedLighterAdapter, getSharedLighterService } from '@/lib/services/lighter/lighter-shared-adapter';
 import { LighterMarginMode } from '@/lib/services/lighter/utils/tx-constants';
+import { alignHedgeBaseSize } from './hedge-base-size';
 import { buildMirroredTpSlPlan, buildMirroredTpSlPlanFromStops } from './hedge-tpsl';
 import type { HedgeExitRangeStops } from './hedge-exit-range';
 import { hedgeUsesIsolatedMargin } from '@/lib/trading/margin-mode';
@@ -1041,14 +1042,24 @@ export class HedgeActionExecutor {
       marginForLegs = bufferedMarginForLegs;
     }
 
-    // Shared base size so HL (USD) and Phoenix (BTC lots) match for delta-neutral hedges.
+    // Shared base size — floor per venue precision, then min so HL (szDecimals 0) and Phoenix match.
     let hedgeBaseSize: string | undefined;
     if (marketPrice) {
       const px = Number.parseFloat(marketPrice);
       if (Number.isFinite(px) && px > 0) {
         const notionalUsd = marginForLegs * Number(leverage);
         const rawBase = notionalUsd / px;
-        hedgeBaseSize = rawBase.toFixed(6).replace(/\.?0+$/, '') || undefined;
+        hedgeBaseSize = await alignHedgeBaseSize({
+          rawBaseSize: rawBase,
+          asset,
+          exchanges: legs.map((l) => l.exchange),
+        });
+        if (hedgeBaseSize) {
+          console.log(
+            `[HedgeExecutor] Aligned base size ${asset}: raw=${rawBase.toFixed(6)} → ${hedgeBaseSize} ` +
+              `(${legs.map((l) => l.exchange).join(' + ')})`
+          );
+        }
       }
     }
 
@@ -1189,6 +1200,7 @@ export class HedgeActionExecutor {
               organizationId: context.organizationId,
               isMarket: true,
               price: marketPrice,
+              baseSize: hedgeBaseSize,
               hedgeTpsl: hedgeTpslForDirection(direction),
               useIsolatedMargin,
             });
@@ -1224,6 +1236,7 @@ export class HedgeActionExecutor {
               organizationId: context.organizationId,
               isMarket: true,
               price: marketPrice,
+              baseSize: hedgeBaseSize,
               slippagePercent: '0.5',
               hedgeTpsl: hedgeTpslForDirection(direction),
             });

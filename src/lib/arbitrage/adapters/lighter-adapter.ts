@@ -89,15 +89,39 @@ export class LighterAdapter implements ProtocolAdapter {
       }
 
       const slip = parseFloat(params.slippagePercent || '0.5');
-      const { baseAmount, worstPrice } = computeLighterOpenAmounts({
-        marginUsd,
-        leverage: params.leverage,
-        direction: params.direction,
-        slippagePercent: Number.isFinite(slip) ? slip : 0.5,
-        lastTradePrice: row.last_trade_price,
-        priceDecimals: row.price_decimals,
-        sizeDecimals: row.size_decimals,
-      });
+      const slippagePercent = Number.isFinite(slip) ? slip : 0.5;
+
+      let baseAmount: number;
+      let worstPrice: number;
+
+      if (params.baseSize) {
+        const baseHuman = parseFloat(params.baseSize);
+        if (!Number.isFinite(baseHuman) || baseHuman <= 0) {
+          return this.fail(params, 'Invalid shared base size for Lighter');
+        }
+        baseAmount = Math.max(1, Math.floor(baseHuman * 10 ** row.size_decimals));
+        const markUsd = row.last_trade_price / 10 ** row.price_decimals;
+        if (markUsd <= 0) {
+          return this.fail(params, 'Invalid Lighter mark price');
+        }
+        const slipFrac = slippagePercent / 100;
+        worstPrice =
+          params.direction === 'long'
+            ? Math.max(1, Math.ceil(row.last_trade_price * (1 + slipFrac)))
+            : Math.max(1, Math.floor(row.last_trade_price * (1 - slipFrac)));
+      } else {
+        const computed = computeLighterOpenAmounts({
+          marginUsd,
+          leverage: params.leverage,
+          direction: params.direction,
+          slippagePercent,
+          lastTradePrice: row.last_trade_price,
+          priceDecimals: row.price_decimals,
+          sizeDecimals: row.size_decimals,
+        });
+        baseAmount = computed.baseAmount;
+        worstPrice = computed.worstPrice;
+      }
 
       const clientOrderIndex = Math.floor(Date.now() % 1_000_000_000);
       const orderExpiry = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 28;

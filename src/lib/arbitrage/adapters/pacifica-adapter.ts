@@ -94,9 +94,13 @@ export class PacificaAdapter implements ProtocolAdapter {
       // Calculate position amount in asset units
       // Formula: (margin * leverage) / price = amount in asset units
       // Example: ($500 * 3) / $45000 = 0.0333 BTC
-      const usdSize = parseFloat(params.margin) * params.leverage;
-      const amountInAsset = usdSize / parseFloat(entryPrice);
-      const amount = amountInAsset.toString();
+      const amount =
+        params.baseSize ??
+        (() => {
+          const usdSize = parseFloat(params.margin) * params.leverage;
+          const amountInAsset = usdSize / parseFloat(entryPrice);
+          return amountInAsset.toString();
+        })();
 
       // Convert unified params to Pacifica request
       const pacificaRequest: CreateMarketOrderRequest = {
